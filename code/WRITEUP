@@ -5,9 +5,49 @@ _______PROJECT WRITEUP_______
 Ian Later, Carrie Sun, Jack Lucas
 
 
-DESIGN ASSUMPTIONS:
+Title:  Writeup for Project x, Fall/Spring 201x
+ Date:  mm/dd/yy
+ Group:	Name	Email	
+		???	???	
+		???	???	
+ 
+I. Requirements:
+- Describe what's your understanding of the requirements from the assignment statement. With the requirement analysis, you would be clear about what you are supposed to do.
 
+II. Assumptions:
+	- Reasonable assumptions you take for your scheme.
 
+III. Design:
+- This section is to cover your logic and ideas as to how  you are going to solve the problem presented.  This should include a description of classes, algorithms, etc. This is not code. You must document ALL parts of a project.
 
+IV. Implementation:
+	+ Files Modified
+	+ Files added
 
-WEAKNESSES, LIMITATIONS, KNOWN BUGS:
+	+ Data Structures added, and the file they were added to.
+	+ Data Structures modified, and the file they were added to.
+		-For example,
+			class Lock		-- in file threads.cc/threads.h
+			{
+				//. Modified fields.
+			}
+
+	+ Functions added and in which file.
+	+ Functions modified and in which file.
+
+V. Testing:  (For each test case, you must show)
+	+ How to test
+- How to run the test cases, the commands, the arguments and so on.
+	+ Test Output
+- Describe the testing output. You don't have to dump all the output info. Just make sure your description can exactly reflect your output. The grader of your submission will be wanting to compare the output they get with what you say the output is.
+
+VI. Discussion:
+	+ Experiment expectation.  (What is supposed to happen.)
+	+ Experiment result.  (What actually happened.)
+	+ Explanation
+		- Explain your experiment result - how it proves what 
+		  you were supposed to prove.
+
+VIII. Miscellaneous:
+- Whatever else you want the grader know about your development.  You can create your own subsections headings here.
+
