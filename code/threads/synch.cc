@@ -110,24 +110,34 @@ Condition::Condition(char* debugName) { }
 Condition::~Condition() { }
 void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
 void Condition::Signal(Lock* conditionLock) {
-  //created tentaively by Jack
+  //created tentatively by Jack
+  //disable interrupts
+  IntStatus oldLevel = interrupt->SetLevel(IntOff);
   
-  //1. Disable Interrupts
-  //2. if conditionLock is NULL, print error, restore interrupts, and return
-  if(!conditionLock)
+  //2. if _waitingLock is null, restore interrupts and return
+  if(!_waitingLock)//or if waitq empty
     {
-      printf("conditionLock passed to Wait is NULL");
-      //(void) interrupt->SetLevel(oldLevel);
+      (void) interrupt->SetLevel(oldLevel);
       return;
     }
-  //3. if waitingLock is NULL, there is no one waiting, so waitingLock = conditionLock
-  //4. if waitingLock is not conditionLock, print error message, restore interrupts, return
-  //
-  //waitQ.add(currentThread)
-  //conditionLock->releaser();
-  //currentThread->Sleep()
-  //conditionLock->acquire();
-  //restore interrupts
+  if(_waitingLock != conditionLock)
+    {
+      printf("signal called with different lock, bad");
+      (void) interrupt->SetLevel(oldLevel);
+      return;
+    }
+  //Wakeup 1 waiting thread
+  Thread* thread = _waitingQueue->Remove();
+  if(thread)
+    {
+      scheduler->ReadyToRun(thread); //thread goes in ready Q
+    }
+  if(_waitingQueue->IsEmpty())
+    {
+      _waitingLock = NULL;//this work?
+    }
+  //enable interrupts
+  (void) interrupt->SetLevel(oldLevel);
 
  }
 void Condition::Broadcast(Lock* conditionLock) { }
