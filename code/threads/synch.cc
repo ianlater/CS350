@@ -48,6 +48,7 @@ Semaphore::Semaphore(char* debugName, int initialValue)
 
 Semaphore::~Semaphore()
 {
+
     delete queue;
 }
 
@@ -111,14 +112,14 @@ Condition::~Condition() { }
 
 void Condition::Wait(Lock* conditionLock) 
 { 
-   ASSERT(FALSE);//do we know why this is?
-
+//ASSERT(FALSE);//do we know why this is?
+	//Is this current thread? I'm not sure
 	Thread *thread;
 	//Disable interupts 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
 	if (conditionLock == null){
-		printf("Condition::Wait: lock is NULL"); 
+		printf("Condition::Wait: lock input was NULL"); 
 		//Restore interrupts
 		(void) interrupt->SetLevel(oldLevel);
 
@@ -126,7 +127,7 @@ void Condition::Wait(Lock* conditionLock)
 	}
 	if (_waitingLock == NULL){
 		//no one waiting
-		waitingLock = conditionLock;
+		_waitingLock = conditionLock;
 	}
 	if (_waitingLock != conditionLock)
 	{
@@ -137,15 +138,47 @@ void Condition::Wait(Lock* conditionLock)
 		return;
 	}
 
-	//ok to wait
-	//ad myself to cv wait Q
-	thread = (Thread *)_waitingQueue->Add();
+	//ok to wait: conditionlock is the same as waitingLock, add to wait q, cede condition lock and sleep thread
+	_waitingQueue.push(thread);
 	conditionLock->release();
 	thread->Sleep();
+
 	//do I restore interupts at the end? 
 	(void) interrupt->SetLevel(oldLevel);
 }
 
-void Condition::Signal(Lock* conditionLock) { }
+void Condition::Signal(Lock* conditionLock) {
+  //created tentaively by Jack
+  
+  //1. Disable Interrupts
+  //2. if conditionLock is NULL, print error, restore interrupts, and return
+  if(!conditionLock)
+    {
+      printf("conditionLock passed to Wait is NULL");
+      //(void) interrupt->SetLevel(oldLevel);
+      return;
+    }
+  //3. if waitingLock is NULL, there is no one waiting, so waitingLock = conditionLock
+  //4. if waitingLock is not conditionLock, print error message, restore interrupts, return
+  //
+  //waitQ.add(currentThread)
+  //conditionLock->releaser();
+  //currentThread->Sleep()
+  //conditionLock->acquire();
+  //restore interrupts
 
-void Condition::Broadcast(Lock* conditionLock) { }
+ }
+
+void Condition::Broadcast(Lock* conditionLock) 
+{
+	if (conditionLock != _waitingLock)
+	{
+	  printf("Condition::Broadcast: input lock ptr mismatches _waitingLock");
+	  return;
+	}
+	while (!_waitingQueue.empty()) 
+	{
+	  Signal(_waitingQueue.front());
+	  _waitingQueue.pop();
+	}
+}
