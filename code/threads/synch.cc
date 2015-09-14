@@ -107,8 +107,46 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 
 Condition::Condition(char* debugName) { }
+
 Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
+
+void Condition::Wait(Lock* conditionLock) 
+{ 
+//ASSERT(FALSE);//do we know why this is?
+	//Is this current thread? I'm not sure
+	Thread *thread;
+	//Disable interupts 
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+	if (conditionLock == null){
+		printf("Condition::Wait: lock input was NULL"); 
+		//Restore interrupts
+		(void) interrupt->SetLevel(oldLevel);
+
+		return;
+	}
+	if (_waitingLock == NULL){
+		//no one waiting
+		_waitingLock = conditionLock;
+	}
+	if (_waitingLock != conditionLock)
+	{
+		printf("Condition::Wait: lock mismatches waitinglock");
+		//Restore interrupts
+		(void) interrupt->SetLevel(oldLevel);
+
+		return;
+	}
+
+	//ok to wait: conditionlock is the same as waitingLock, add to wait q, cede condition lock and sleep thread
+	_waitingQueue.push(thread);
+	conditionLock->release();
+	thread->Sleep();
+
+	//do I restore interupts at the end? 
+	(void) interrupt->SetLevel(oldLevel);
+}
+
 void Condition::Signal(Lock* conditionLock) {
   //created tentatively by Jack
   //disable interrupts
@@ -140,4 +178,17 @@ void Condition::Signal(Lock* conditionLock) {
   (void) interrupt->SetLevel(oldLevel);
 
  }
-void Condition::Broadcast(Lock* conditionLock) { }
+
+void Condition::Broadcast(Lock* conditionLock) 
+{
+	if (conditionLock != _waitingLock)
+	{
+	  printf("Condition::Broadcast: input lock ptr mismatches _waitingLock");
+	  return;
+	}
+	while (!_waitingQueue.empty()) 
+	{
+	  Signal(_waitingQueue.front());
+	  _waitingQueue.pop();
+	}
+}
