@@ -106,7 +106,46 @@ void Lock::Acquire() {}
 void Lock::Release() {}
 
 Condition::Condition(char* debugName) { }
+
 Condition::~Condition() { }
-void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
+
+void Condition::Wait(Lock* conditionLock) 
+{ 
+   ASSERT(FALSE);//do we know why this is?
+
+	Thread *thread;
+	//Disable interupts 
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+	if (conditionLock == null){
+		printf("Condition::Wait: lock is NULL"); 
+		//Restore interrupts
+		(void) interrupt->SetLevel(oldLevel);
+
+		return;
+	}
+	if (_waitingLock == NULL){
+		//no one waiting
+		waitingLock = conditionLock;
+	}
+	if (_waitingLock != conditionLock)
+	{
+		printf("Condition::Wait: lock mismatches waitinglock");
+		//Restore interrupts
+		(void) interrupt->SetLevel(oldLevel);
+
+		return;
+	}
+
+	//ok to wait
+	//ad myself to cv wait Q
+	thread = (Thread *)_waitingQueue->Add();
+	conditionLock->release();
+	thread->Sleep();
+	//do I restore interupts at the end? 
+	(void) interrupt->SetLevel(oldLevel);
+}
+
 void Condition::Signal(Lock* conditionLock) { }
+
 void Condition::Broadcast(Lock* conditionLock) { }
