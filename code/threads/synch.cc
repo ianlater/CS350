@@ -48,6 +48,7 @@ Semaphore::Semaphore(char* debugName, int initialValue)
 
 Semaphore::~Semaphore()
 {
+
     delete queue;
 }
 
@@ -108,5 +109,25 @@ void Lock::Release() {}
 Condition::Condition(char* debugName) { }
 Condition::~Condition() { }
 void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { }
+void Condition::Signal(Lock* conditionLock) {
+  //created tentaively by Jack
+  
+  //1. Disable Interrupts
+  //2. if conditionLock is NULL, print error, restore interrupts, and return
+  if(!conditionLock)
+    {
+      printf("conditionLock passed to Wait is NULL");
+      //(void) interrupt->SetLevel(oldLevel);
+      return;
+    }
+  //3. if waitingLock is NULL, there is no one waiting, so waitingLock = conditionLock
+  //4. if waitingLock is not conditionLock, print error message, restore interrupts, return
+  //
+  //waitQ.add(currentThread)
+  //conditionLock->releaser();
+  //currentThread->Sleep()
+  //conditionLock->acquire();
+  //restore interrupts
+
+ }
 void Condition::Broadcast(Lock* conditionLock) { }
