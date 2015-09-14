@@ -106,7 +106,9 @@ Lock::~Lock() {}
 void Lock::Acquire() {}
 void Lock::Release() {}
 
-Condition::Condition(char* debugName) { }
+Condition::Condition(char* debugName) { 
+
+}
 
 Condition::~Condition() { }
 
@@ -118,7 +120,7 @@ void Condition::Wait(Lock* conditionLock)
 	//Disable interupts 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
-	if (conditionLock == null){
+	if (conditionLock == NULL){
 		printf("Condition::Wait: lock input was NULL"); 
 		//Restore interrupts
 		(void) interrupt->SetLevel(oldLevel);
@@ -140,7 +142,7 @@ void Condition::Wait(Lock* conditionLock)
 
 	//ok to wait: conditionlock is the same as waitingLock, add to wait q, cede condition lock and sleep thread
 	_waitingQueue.push(thread);
-	conditionLock->release();
+	conditionLock->Release();
 	thread->Sleep();
 
 	//do I restore interupts at the end? 
@@ -178,7 +180,7 @@ void Condition::Broadcast(Lock* conditionLock)
 	}
 	while (!_waitingQueue.empty()) 
 	{
-	  Signal(_waitingQueue.front());
+	  Signal(_waitingLock);
 	  _waitingQueue.pop();
 	}
 }
