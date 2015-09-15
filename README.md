@@ -5,3 +5,5 @@
 * Carrie Sun - carriesu@usc.edu - 5712772861
 * Jack Lucas - johnluca@usc.edu - 5194054637
 
+###Conventions
+* start private/member variables w/ '_'
