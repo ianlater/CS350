@@ -24,7 +24,6 @@
 #include "copyright.h"
 #include "synch.h"
 #include "system.h"
-
 //----------------------------------------------------------------------
 // Semaphore::Semaphore
 // 	Initialize a semaphore, so that it can be used for synchronization.
@@ -101,11 +100,87 @@ Semaphore::V()
 // Dummy functions -- so we can compile our later assignments 
 // Note -- without a correct implementation of Condition::Wait(), 
 // the test case in the network assignment won't work!
-Lock::Lock(char* debugName) {}
-Lock::~Lock() {}
-void Lock::Acquire() {}
-void Lock::Release() {}
+Lock::Lock(char* debugName) {
 
+
+	name = debugName;
+	_isBusy = false;
+	_waitQueue = new List;
+}
+Lock::~Lock() {}
+void Lock::Acquire() {
+
+	//disable interrupts
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	
+
+
+	if (isHeldByCurrentThread())
+	{
+		//current thread is lock owner, nothing to do
+		(void) interrupt->SetLevel(oldLevel);
+		return;
+	}
+	
+	if (!_isBusy)
+	{
+		//make State busY	
+	
+		_isBusy = true;
+		//let current thread take lock
+		_myThread = currentThread; 
+	}
+	else //lock is busy
+	{
+		//put current thread on lock's wait queue
+		_waitQueue->Append(currentThread);
+		//put current thread to sleep
+		currentThread->Sleep();	
+	}
+	//restore interrupts
+	(void) interrupt->SetLevel(oldLevel);	
+	
+}
+void Lock::Release() {
+	//disable interrupts
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	
+	//if current thread is not thread owner
+	if (currentThread != _myThread)
+	{
+		printf("Trying to release a lock that does not belong to me..");
+		(void) interrupt->SetLevel(oldLevel);
+		return;	
+	}
+
+	void * nextThread = _waitQueue->Remove();	
+	//if lock wait queue is not empty, nextThread exists
+	if (nextThread != NULL)	
+	{
+		//cast the void pointer to a thread pointer
+		Thread* nextThreadPtr = (Thread*)nextThread;
+		//make this thread the lock owner
+		_myThread = nextThreadPtr;
+		scheduler->ReadyToRun(_myThread);	
+	}	
+	else //wait queue empty
+	{
+		//make lock available and reset lock owner
+		_isBusy = false;
+		_myThread = NULL;
+	}
+	//restore interrupts
+	(void) interrupt->SetLevel(oldLevel);	
+}
+
+bool Lock::isHeldByCurrentThread(){
+
+	if (_myThread != NULL && currentThread == _myThread)	
+		return true;
+	else
+		return false;
+
+}
 Condition::Condition(char* debugName) { 
 
 }

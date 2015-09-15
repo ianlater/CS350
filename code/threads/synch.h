@@ -80,7 +80,11 @@ class Lock {
 
   private:
     char* name;				// for debugging
-    // plus some other stuff you'll need to define
+    
+	Thread* _myThread; 		// the thread that holds this locK	
+	bool _isBusy; 			// true if busy, false if available
+	List	* _waitQueue;		// wait queue for threads on this lock	
+// plus some other stuff you'll need to define
 };
 
 // The following class defines a "condition variable".  A condition
