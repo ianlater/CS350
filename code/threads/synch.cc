@@ -167,12 +167,13 @@ void Condition::Signal(Lock* conditionLock) {
       return;
     }
   //Wakeup 1 waiting thread
-  Thread* thread = _waitingQueue->Remove();
+  Thread* thread = _waitingQueue.front();
+  _waitingQueue.pop();
   if(thread)
     {
       scheduler->ReadyToRun(thread); //thread goes in ready Q
     }
-  if(_waitingQueue->IsEmpty())
+  if(_waitingQueue.empty())
     {
       _waitingLock = NULL;//this work?
     }

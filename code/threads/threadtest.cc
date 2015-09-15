@@ -324,6 +324,9 @@ void t5_t2() {
 //     Fatal errors terminate the thread in question.
 // --------------------------------------------------
 void TestSuite() {
+  
+  printf("Test Suite has started! Start the trials of pain\n\n");
+
     Thread *t;
     char *name;
     int i;
@@ -342,6 +345,7 @@ void TestSuite() {
     t->Fork((VoidFunctionPtr)t1_t3,0);
 
     // Wait for Test 1 to complete
+    printf("waiting for Test 1 to complete...\n");
     for (  i = 0; i < 2; i++ )
 	t1_done.P();
 
