@@ -72,7 +72,7 @@ Semaphore::P()
     } 
     value--; 					// semaphore available, 
 						// consume its value
-    
+    //printf("about to re enable interrupts in Semaphor P");
     (void) interrupt->SetLevel(oldLevel);	// re-enable interrupts
 }
 
@@ -182,7 +182,7 @@ bool Lock::isHeldByCurrentThread(){
 
 }
 Condition::Condition(char* debugName) { 
-
+  name = debugName;
 }
 
 Condition::~Condition() { }
@@ -191,7 +191,7 @@ void Condition::Wait(Lock* conditionLock)
 { 
 //ASSERT(FALSE);//do we know why this is?
 	//Is this current thread? I'm not sure
-	Thread *thread;
+	//Thread *thread;
 	//Disable interupts 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
@@ -216,9 +216,9 @@ void Condition::Wait(Lock* conditionLock)
 	}
 
 	//ok to wait: conditionlock is the same as waitingLock, add to wait q, cede condition lock and sleep thread
-	_waitingQueue.push(thread);
+	_waitingQueue.push(currentThread);
 	conditionLock->Release();
-	thread->Sleep();
+	currentThread->Sleep();
 
 	//do I restore interupts at the end? 
 	(void) interrupt->SetLevel(oldLevel);
@@ -267,6 +267,6 @@ void Condition::Broadcast(Lock* conditionLock)
 	while (!_waitingQueue.empty()) 
 	{
 	  Signal(_waitingLock);
-	  _waitingQueue.pop();
+	  // _waitingQueue.pop();
 	}
 }
