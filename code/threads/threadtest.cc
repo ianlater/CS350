@@ -351,16 +351,18 @@ void TestSuite() {
 
     // Test 2
 
-    printf("Starting Test 2.  Note that it is an error if thread t2_t2\n");
-    printf("completes\n");
-
+    printf("Starting Test 2.  Note that it is an error if thread t2_t2 ");
+    printf("completes!\n");
+    
     t = new Thread("t2_t1");
+    printf("created new thread t2_t1");
     t->Fork((VoidFunctionPtr)t2_t1,0);
-
+    printf("forked t2_t1");
     t = new Thread("t2_t2");
     t->Fork((VoidFunctionPtr)t2_t2,0);
-
+    printf("forked t2_t2");
     // Wait for Test 2 to complete
+    printf("waiting for test 2 to complete");
     t2_done.P();
 
     // Test 3
