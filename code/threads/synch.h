@@ -133,7 +133,7 @@ class Condition {
   private:
     char* name;
     // plus some other stuff you'll need to define
-    queue<Thread*> _waitingQueue;	// queue of thread pointers keeps track of which thread to notify 
+    std::queue<Thread*> _waitingQueue;	// queue of thread pointers keeps track of which thread to notify 
     Lock* _waitingLock;			// pointer to lock that condition variable is waiting on
 };
 #endif // SYNCH_H
