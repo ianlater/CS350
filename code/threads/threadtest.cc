@@ -23,56 +23,117 @@
 //Customer
 //
 //---------------------------------------------------------------------
-
 class Clerk
 {
-  Clerk(char* name);
+  Clerk(char* name, int id);
   ~Clerk();
+  char* GetName(){return _name;}
+  int GetType(){return type;}
+private:
+  char* _name;
+  int _id;
+  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
 };
+
+Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
+{
+}
 
 class ApplicationClerk : Clerk
 {
-  ApplicationClerk(char* name);
+  ApplicationClerk(char* name, int id);
   ~ApplicationClerk();
 };
 
+ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id), _type(1){}
+
 class PictureClerk : Clerk
 {
-  PictureClerk(char* name);
+  PictureClerk(char* name, int id);
   ~PictureClerk();
 };
 
+PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id), _type(2){}
+
 class PassPortClerk : Clerk
 {
-  PassPortClerk(char* name);
+  PassPortClerk(char* name, int id);
   ~PassPortClerk();
 };
+
+PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id), _type(3){}
 
 class Customer
 {
   Customer(char* name);
   ~Customer();
+  GetName(){return _name;}
 private:
-  char* name;
-  int m_money;
-  int m_myLine;
+  char* _name;
+  int _money;
+  int _myLine;
 };
+
+Customer::Customer(char* name) :_name(name)
+{
+	_money =  100 + 500*rand() % 4);//init money increments of 100,600,1100,1600
+}
 
 class Senator : Customer
 {
   Senator(char* name);
   ~Senator();
+  void EnterFacility();/*should this and exit facility be functions or should the simulation itself keep track of customers and handle sending them away and bringing them back?*/
 };
+
+Senator::Senator(char* name) : Customer(name){}
 
 class Manager
 {
-  Manager(char* name);
+  Manager(char* name, std::list<Clerk*> clerks);
   ~Manager();
 private:
-  int m_totalMoney;
-};
+  char* _name;
+  int _totalMoney[3];//keep track of money submitted by each type of clerk
+  std::list<Clerk*>  _clerks[5];//list of clerks (ptrs to clerks)
+}
 
-//----------------------------------------------------------------------
+Manager::Manager(char* name, std::list<Clerk*> clerks) : _name(name)
+{
+	//do we need to sanitize clerks input at all?
+	_clerks = clerks;
+}
+
+//
+const int NUM_CLERKS = 5;
+//
+//Monitor setup:
+//array of lock(ptrs) for each clerk+their lines
+Lock* clerkLock[NUM_CLERKS];
+Lock* clerkLineLock[NUM_CLERKS];
+
+//Condition Variables
+Condition clerkLine[NUM_CLERKS];
+//Condition* clerkBribeLine[NUM_CLERKS];
+
+//Monitor Variables
+int clerkLineCount[NUM_CLERKS];
+//int clerkBribeLineCount[NUM_CLERKS];
+int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+
+//BEGIN INTERACTIONS
+bool simulation_over = false;
+//init clerks
+//init manager
+//init customers
+
+while (!simulation_over)
+{
+
+//check something (linecounts?) and set simulation_over if true? break or return on errors after printing
+}
+
+/----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
 //	each iteration.
