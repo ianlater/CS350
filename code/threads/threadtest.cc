@@ -11,6 +11,7 @@
 
 #include "copyright.h"
 #include "system.h"
+#include <list>
 #ifdef CHANGED
 #include "synch.h"
 #endif
@@ -25,49 +26,66 @@
 //---------------------------------------------------------------------
 class Clerk
 {
+public:
   Clerk(char* name, int id);
   ~Clerk();
   char* GetName(){return _name;}
-  int GetType(){return type;}
+  int GetType(){return _type;}
+
+protected:
+  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
+
 private:
   char* _name;
   int _id;
-  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
 };
 
 Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
 {
 }
 
-class ApplicationClerk : Clerk
+class ApplicationClerk : public Clerk
 {
+public:
   ApplicationClerk(char* name, int id);
   ~ApplicationClerk();
 };
 
-ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id), _type(1){}
-
-class PictureClerk : Clerk
+ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
 {
+	_type = 1;
+}
+
+class PictureClerk : public Clerk
+{
+public:
   PictureClerk(char* name, int id);
   ~PictureClerk();
 };
 
-PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id), _type(2){}
-
-class PassPortClerk : Clerk
+PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 {
+	_type = 2;
+}
+
+class PassPortClerk : public Clerk
+{
+public:
   PassPortClerk(char* name, int id);
   ~PassPortClerk();
 };
 
-PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id), _type(3){}
+PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
+{
+	_type = 3;
+}
 
 class Customer
 {
+public:
   Customer(char* name);
   ~Customer();
-  GetName(){return _name;}
+  char* GetName(){return _name;}
 private:
   char* _name;
   int _money;
@@ -76,11 +94,12 @@ private:
 
 Customer::Customer(char* name) :_name(name)
 {
-	_money =  100 + 500*rand() % 4);//init money increments of 100,600,1100,1600
+	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
 }
 
-class Senator : Customer
+class Senator : public Customer
 {
+public:
   Senator(char* name);
   ~Senator();
   void EnterFacility();/*should this and exit facility be functions or should the simulation itself keep track of customers and handle sending them away and bringing them back?*/
@@ -90,13 +109,14 @@ Senator::Senator(char* name) : Customer(name){}
 
 class Manager
 {
+public:
   Manager(char* name, std::list<Clerk*> clerks);
   ~Manager();
 private:
   char* _name;
   int _totalMoney[3];//keep track of money submitted by each type of clerk
-  std::list<Clerk*>  _clerks[5];//list of clerks (ptrs to clerks)
-}
+  std::list<Clerk*>  _clerks;//list of clerks (ptrs to clerks)
+};
 
 Manager::Manager(char* name, std::list<Clerk*> clerks) : _name(name)
 {
@@ -113,7 +133,7 @@ Lock* clerkLock[NUM_CLERKS];
 Lock* clerkLineLock[NUM_CLERKS];
 
 //Condition Variables
-Condition clerkLine[NUM_CLERKS];
+Condition* clerkLine[NUM_CLERKS];
 //Condition* clerkBribeLine[NUM_CLERKS];
 
 //Monitor Variables
@@ -122,18 +142,18 @@ int clerkLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
 
 //BEGIN INTERACTIONS
-bool simulation_over = false;
+//bool simulation_over = false;//boolean what??
 //init clerks
 //init manager
 //init customers
-
+/*
 while (!simulation_over)
 {
 
 //check something (linecounts?) and set simulation_over if true? break or return on errors after printing
 }
-
-/----------------------------------------------------------------------
+*/
+//----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
 //	each iteration.
