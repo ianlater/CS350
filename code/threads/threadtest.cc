@@ -16,6 +16,62 @@
 #endif
 
 #ifdef CHANGED
+//---------------------------------------------------------------------
+//Struct declarations for peoplee in US Passport Office
+//Clerk
+//Manager
+//Customer
+//
+//---------------------------------------------------------------------
+
+class Clerk
+{
+  Clerk(char* name);
+  ~Clerk();
+};
+
+class ApplicationClerk : Clerk
+{
+  ApplicationClerk(char* name);
+  ~ApplicationClerk();
+};
+
+class PictureClerk : Clerk
+{
+  PictureClerk(char* name);
+  ~PictureClerk();
+};
+
+class PassPortClerk : Clerk
+{
+  PassPortClerk(char* name);
+  ~PassPortClerk();
+};
+
+class Customer
+{
+  Customer(char* name);
+  ~Customer();
+private:
+  char* name;
+  int m_money;
+  int m_myLine;
+};
+
+class Senator : Customer
+{
+  Senator(char* name);
+  ~Senator();
+};
+
+class Manager
+{
+  Manager(char* name);
+  ~Manager();
+private:
+  int m_totalMoney;
+};
+
 //----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
