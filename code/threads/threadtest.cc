@@ -1,4 +1,4 @@
-cccc// threadtest.cc 
+// threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
@@ -22,6 +22,36 @@ cccc// threadtest.cc
 #define PICTURE_CLERK_TYPE 2
 #define PASSPORT_CLERK_TYPE 3
 #define CASHIER_CLERK_TYPE 4
+
+//global vars, mostly Monitors//
+
+//
+const int NUM_CLERKS = 5;
+//
+//Monitor setup:
+//array of lock(ptrs) for each clerk+their lines
+Lock* clerkLock[NUM_CLERKS];
+//Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
+Lock* clerkLineLock = new Lock("ClerkLineLock");;
+
+//Condition Variables
+Condition* clerkLineCV[NUM_CLERKS];
+//Condition* clerkBribeLineCV[NUM_CLERKS];
+Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
+
+//Monitor Variables
+int clerkLineCount[NUM_CLERKS] = {99,99,99,99,99};//start big so we can compare later
+//int clerkBribeLineCount[NUM_CLERKS];
+int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+
+//BEGIN INTERACTIONS
+//bool simulation_over = false;//boolean what??
+//init clerks
+//init manager
+//init customers
+
+///end vars declarations//////
+
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
 //Clerk - Passport, Picture, Cashier, Application
@@ -42,18 +72,22 @@ public:
   int GetType(){return _type;}
   
   virtual void doJob() = 0;
-
+  virtual void run() = 0;
 protected:
   int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
-
-private:
   char* _name;
   int _id;
+private:
 
 };
 
 Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
 {
+}
+
+Clerk::~Clerk()
+{
+
 }
 
 ///////////////////////////////
@@ -65,6 +99,7 @@ public:
   ApplicationClerk(char* name, int id);
   ~ApplicationClerk();
   void doJob();
+  void run();
 };
 
 ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
@@ -76,6 +111,10 @@ ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
 void ApplicationClerk::doJob()
 {
 }
+
+void ApplicationClerk::run()
+{
+}
 ////////////////////////////
 //Picture Clerk
 ///////////////////////////
@@ -84,21 +123,65 @@ class PictureClerk : public Clerk
 {
 public:
   PictureClerk(char* name, int id);
-  ~PictureClerk();
+  ~PictureClerk() {};
   void doJob();
+  void run();
 };
 
 PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 {
 	_type = PICTURE_CLERK_TYPE;
+	_id = id;
+	_name = name + id;
+	//Locks
+	clerkLock[_id] = new Lock("ClerkLock" + _id);
+	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
+	//CVs & MVs
+	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
+	clerkLineCount[_id] =0;//Assumption, start empty
+	clerkCV[_id] = new Condition("ClerkCV" + _id);
+	//clerkState[_id] = FREE;//Assumption, start free
 }
 
 void PictureClerk::doJob()
 {
-  // while(true)
-  //  {
-      
-  // }
+  printf("Taking a gorgeous picture\n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+}
+
+void PictureClerk::run()
+{
+  while(true)
+  {
+    //acquire clerkLineLock when i want to update line values 
+    clerkLineLock->Acquire();
+    //do bribe stuff TODO
+    //else if(clerkLineCount[MINE > 0) //i got someone in line
+    if(clerkLineCount[_id] > 0)
+      {
+	printf(" is Busy\n");
+	clerkLineCV[_id]->Signal(clerkLineLock);
+	//clerkState[_id] = BUSY;//im helping a customer
+      }
+    else
+      {
+	printf( "\npictrueclerk  is available\n");
+	//clerkState[_id] = AVAILABLE;
+      }
+    //now do actual interaction
+    clerkLock[_id]->Acquire();
+    clerkLineLock->Release();
+    ///wait for customer data
+    clerkCV[_id]->Wait(clerkLock[_id]);
+    //once we're here, the customer is waiting for me to do my job
+    doJob();
+    clerkCV[_id]->Signal(clerkLock[_id]);
+    clerkCV[_id]->Wait(clerkLock[_id]);
+    clerkLock[_id]->Release();//we're done here, back to top of while for next cust
+    //
+  }
 
 }
 
@@ -110,8 +193,9 @@ class PassPortClerk : public Clerk
 {
 public:
   PassPortClerk(char* name, int id);
-  ~PassPortClerk();
+  ~PassPortClerk() {};
   void doJob();
+  void run();
 };
 
 PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
@@ -124,6 +208,10 @@ void PassPortClerk::doJob()
 
 }
 
+void PassPortClerk::run()
+{
+}
+
 ///////////////////////
 //CashieClerkr
 //////////////////////
@@ -131,8 +219,9 @@ class CashierClerk : public Clerk
 {
 public:
   CashierClerk(char* name, int id);
-  ~CashierClerk();
+  ~CashierClerk(){};
   void doJob();
+  void run();
 };
 
 CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
@@ -145,6 +234,10 @@ void CashierClerk::doJob()
 
 }
 
+void CashierClerk::run()
+{
+}
+
 ////////////////////////
 //Customer
 ///////////////////////
@@ -153,8 +246,11 @@ class Customer
 {
 public:
   Customer(char* name);
-  ~Customer();
+  ~Customer(){};
   char* GetName(){return _name;}
+  void run();
+protected:
+  void pickLine();
 private:
   char* _name;
   int _money;
@@ -165,6 +261,55 @@ private:
 Customer::Customer(char* name) :_name(name)
 {
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+}
+
+void Customer::run()
+{
+  clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
+  pickLine();
+  //now, _myLine is the index of the shortest line
+  //TODO if clerk is busy, for testing i guarantee free
+  //clerkState[_myLine] = BUSY;
+  clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
+  
+  clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
+  //ask for a picture to be taken
+  printf("i would like a picture\n");
+  clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+  //now we wait for clerk to take pic
+  clerkCV[_myLine]->Wait(clerkLock[_myLine]);
+  //check if I like my photo RANDOM VAL
+  int picApproval = rand() % 10;//generate random num between 0 and 10
+  if(picApproval >1)
+    {
+      printf("\nI approve of this picture\n");
+      //store that i have pic
+      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+    }
+  else
+    {
+      printf("this picture is heinous! retake\n");
+    }
+
+  printf("WE OUTTA HERE\n");
+  
+  
+}
+int testLine = 69;
+void Customer::pickLine()
+{
+  _myLine = -1;
+  int lineSize = 1001;
+  for(int i = 0; i < NUM_CLERKS; i++)
+    {
+     	  //check if the type of this line is something I need! TODO
+	  if(clerkLineCount[i] < lineSize)// && clerkState[i] != ONBREAK)
+	    {
+	      _myLine = i;
+	      lineSize = clerkLineCount[i];
+	    }
+    }
+  testLine = _myLine;
 }
 
 //////////////////////
@@ -201,28 +346,7 @@ Manager::Manager(char* name, std::list<Clerk*> clerks) : _name(name)
 	_clerks = clerks;
 }
 
-//
-const int NUM_CLERKS = 5;
-//
-//Monitor setup:
-//array of lock(ptrs) for each clerk+their lines
-Lock* clerkLock[NUM_CLERKS];
-Lock* clerkLineLock[NUM_CLERKS];
 
-//Condition Variables
-Condition* clerkLine[NUM_CLERKS];
-//Condition* clerkBribeLine[NUM_CLERKS];
-
-//Monitor Variables
-int clerkLineCount[NUM_CLERKS];
-//int clerkBribeLineCount[NUM_CLERKS];
-int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
-
-//BEGIN INTERACTIONS
-//bool simulation_over = false;//boolean what??
-//init clerks
-//init manager
-//init customers
 /*
 while (!simulation_over)
 {
@@ -270,6 +394,27 @@ ThreadTest()
 // --------------------------------------------------
 // Test Suite
 // --------------------------------------------------
+
+//--------------------------------------------------
+//Part 2 tests
+//--------------------------------------------------
+
+//-------------------------------------------------
+//Simple pictureClerk test, by Jack
+//custoomer just goes, gets pic, done
+//-------------------------------------------------
+void p2_customer()
+{
+  Customer cust = Customer("testCustomer");
+  cust.run();
+}
+
+void p2_pictureClerk()
+{
+  PictureClerk pClerk = PictureClerk("testPClerk", 0);
+  pClerk.run();
+
+}
 
 
 // --------------------------------------------------
@@ -544,6 +689,15 @@ void TestSuite() {
     Thread *t;
     char *name;
     int i;
+
+    printf("starting pictureClerk test");
+    t = new Thread("pClerkThread");
+    t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
+
+    t = new Thread("customerThread");
+    t->Fork((VoidFunctionPtr) p2_customer,0);
+
+    return;//TODO remove after testing
     
     // Test 1
 
