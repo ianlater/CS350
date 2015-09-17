@@ -1,4 +1,4 @@
-// threadtest.cc 
+cccc// threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
@@ -17,13 +17,22 @@
 #endif
 
 #ifdef CHANGED
+
+#define APPLICATION_CLERK_TYPE 1
+#define PICTURE_CLERK_TYPE 2
+#define PASSPORT_CLERK_TYPE 3
+#define CASHIER_CLERK_TYPE 4
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
-//Clerk
-//Manager
-//Customer
+//Clerk - Passport, Picture, Cashier, Application
+//Manager 
+//Customer - Senator
 //
 //---------------------------------------------------------------------
+
+////////////////////////
+//Clerk
+///////////////////////
 class Clerk
 {
 public:
@@ -31,6 +40,8 @@ public:
   ~Clerk();
   char* GetName(){return _name;}
   int GetType(){return _type;}
+  
+  virtual void doJob() = 0;
 
 protected:
   int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
@@ -38,47 +49,105 @@ protected:
 private:
   char* _name;
   int _id;
+
 };
 
 Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
 {
 }
 
+///////////////////////////////
+//Application Clerk
+///////////////////////////////
 class ApplicationClerk : public Clerk
 {
 public:
   ApplicationClerk(char* name, int id);
   ~ApplicationClerk();
+  void doJob();
 };
 
 ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
 {
-	_type = 1;
+	_type = APPLICATION_CLERK_TYPE;
 }
+
+
+void ApplicationClerk::doJob()
+{
+}
+////////////////////////////
+//Picture Clerk
+///////////////////////////
 
 class PictureClerk : public Clerk
 {
 public:
   PictureClerk(char* name, int id);
   ~PictureClerk();
+  void doJob();
 };
 
 PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 {
-	_type = 2;
+	_type = PICTURE_CLERK_TYPE;
 }
+
+void PictureClerk::doJob()
+{
+  // while(true)
+  //  {
+      
+  // }
+
+}
+
+//////////////////////////
+//Passport Clerk
+/////////////////////////
 
 class PassPortClerk : public Clerk
 {
 public:
   PassPortClerk(char* name, int id);
   ~PassPortClerk();
+  void doJob();
 };
 
 PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
 {
-	_type = 3;
+	_type = PASSPORT_CLERK_TYPE;
 }
+
+void PassPortClerk::doJob()
+{
+
+}
+
+///////////////////////
+//CashieClerkr
+//////////////////////
+class CashierClerk : public Clerk
+{
+public:
+  CashierClerk(char* name, int id);
+  ~CashierClerk();
+  void doJob();
+};
+
+CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
+{
+  _type = CASHIER_CLERK_TYPE;
+}
+
+void CashierClerk::doJob()
+{
+
+}
+
+////////////////////////
+//Customer
+///////////////////////
 
 class Customer
 {
@@ -90,12 +159,17 @@ private:
   char* _name;
   int _money;
   int _myLine;
+  int _ssn; //unique ssn for each customer
 };
 
 Customer::Customer(char* name) :_name(name)
 {
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
 }
+
+//////////////////////
+//Senator
+/////////////////////
 
 class Senator : public Customer
 {
@@ -107,6 +181,9 @@ public:
 
 Senator::Senator(char* name) : Customer(name){}
 
+////////////////////
+//Manager
+///////////////////
 class Manager
 {
 public:
