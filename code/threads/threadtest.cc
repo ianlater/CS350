@@ -353,11 +353,11 @@ void Manager::OutputEarnings()
 		total += totalEarnings[i];
 	}
 	printf("Earnings report: \n");
-	printf("ApplicationClerks: %s \n",totalEarnings[APPLICATION_CLERK_TYPE]);
-	printf("PictureClerks: %s \n",totalEarnings[PICTURE_CLERK_TYPE]);
-	printf("PassportClerks: %s \n",totalEarnings[PASSPORT_CLERK_TYPE]);
-	printf("Cashiers: %s \n",totalEarnings[CASHIER_CLERK_TYPE]);
-	printf("TOTAL: %s \n",total]);
+	printf("ApplicationClerks: %i \n",totalEarnings[APPLICATION_CLERK_TYPE]);
+	printf("PictureClerks: %i \n",totalEarnings[PICTURE_CLERK_TYPE]);
+	printf("PassportClerks: %i \n",totalEarnings[PASSPORT_CLERK_TYPE]);
+	printf("Cashiers: %i \n",totalEarnings[CASHIER_CLERK_TYPE]);
+	printf("TOTAL: %i \n",total]);
 }
 
 void Manager::run()
