@@ -335,7 +335,7 @@ class Manager
 {
 public:
   Manager(char* name);
-  ~Manager();
+  ~Manager(){};
   void run();
 private:
   void OutputEarnings();
@@ -366,7 +366,7 @@ void Manager::run()
 	{
 		//manager doesn't modify anybodies critical section yet
 		//wait for some amount of time before printing money status
-		for(int i = 0; i < 90; i++)
+		for(int i = 0; i < 90000; i++)
 			currentThread->Yield();
 		OutputEarnings();
 	}
