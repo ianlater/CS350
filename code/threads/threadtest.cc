@@ -334,7 +334,7 @@ Senator::Senator(char* name) : Customer(name){}
 class Manager
 {
 public:
-  Manager(char* name, std::list<Clerk*> clerks);
+  Manager(char* name);
   ~Manager();
   void run();
 private:
@@ -357,7 +357,7 @@ void Manager::OutputEarnings()
 	printf("PictureClerks: %i \n",totalEarnings[PICTURE_CLERK_TYPE]);
 	printf("PassportClerks: %i \n",totalEarnings[PASSPORT_CLERK_TYPE]);
 	printf("Cashiers: %i \n",totalEarnings[CASHIER_CLERK_TYPE]);
-	printf("TOTAL: %i \n",total]);
+	printf("TOTAL: %i \n",total);
 }
 
 void Manager::run()
