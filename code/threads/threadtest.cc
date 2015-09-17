@@ -18,15 +18,16 @@
 
 #ifdef CHANGED
 
-#define APPLICATION_CLERK_TYPE 1
-#define PICTURE_CLERK_TYPE 2
-#define PASSPORT_CLERK_TYPE 3
-#define CASHIER_CLERK_TYPE 4
+#define APPLICATION_CLERK_TYPE 0
+#define PICTURE_CLERK_TYPE 1
+#define PASSPORT_CLERK_TYPE 2
+#define CASHIER_CLERK_TYPE 3
 
 //global vars, mostly Monitors//
 
 //
 const int NUM_CLERKS = 5;
+const int NUM_CLERK_TYPES = 4;
 //
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
@@ -43,6 +44,7 @@ Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
 int clerkLineCount[NUM_CLERKS] = {99,99,99,99,99};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 
 //BEGIN INTERACTIONS
 //bool simulation_over = false;//boolean what??
@@ -334,19 +336,41 @@ class Manager
 public:
   Manager(char* name, std::list<Clerk*> clerks);
   ~Manager();
+  void run();
 private:
+  void OutputEarnings();
   char* _name;
-  int _totalMoney[3];//keep track of money submitted by each type of clerk
-  std::list<Clerk*>  _clerks;//list of clerks (ptrs to clerks)
 };
 
-Manager::Manager(char* name, std::list<Clerk*> clerks) : _name(name)
+Manager::Manager(char* name) : _name(name)
 {
-	//do we need to sanitize clerks input at all?
-	_clerks = clerks;
 }
 
+void Manager::OutputEarnings()
+{
+	int total = 0;
+	for (int i =0; i < NUM_CLERK_TYPES; i++) {
+		total += totalEarnings[i];
+	}
+	printf("Earnings report: \n");
+	printf("ApplicationClerks: %s \n",totalEarnings[APPLICATION_CLERK_TYPE]);
+	printf("PictureClerks: %s \n",totalEarnings[PICTURE_CLERK_TYPE]);
+	printf("PassportClerks: %s \n",totalEarnings[PASSPORT_CLERK_TYPE]);
+	printf("Cashiers: %s \n",totalEarnings[CASHIER_CLERK_TYPE]);
+	printf("TOTAL: %s \n",total]);
+}
 
+void Manager::run()
+{
+	while(true)
+	{
+		//manager doesn't modify anybodies critical section yet
+		//wait for some amount of time before printing money status
+		for(int i = 0; i < 90; i++)
+			currentThread->Yield();
+		OutputEarnings();
+	}
+}
 /*
 while (!simulation_over)
 {
@@ -414,6 +438,12 @@ void p2_pictureClerk()
   PictureClerk pClerk = PictureClerk("testPClerk", 0);
   pClerk.run();
 
+}
+
+void p2_manager()
+{
+	Manager manager = Manager("testManager");
+	manager.run();
 }
 
 
@@ -696,6 +726,9 @@ void TestSuite() {
 
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
+	
+	t = new Thread("managerThread");
+	t->Fork((VoidFunctionPtr) p2_manager,0);
 
     return;//TODO remove after testing
     
