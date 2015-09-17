@@ -249,7 +249,7 @@ class Customer
 {
 public:
   Customer(char* name);
-  ~Customer(){};
+  ~Customer(){numCustomers--;};
   char* GetName(){return _name;}
   void run();
 protected:
@@ -296,8 +296,6 @@ void Customer::run()
     }
 
   printf("WE OUTTA HERE\n");
-  numCustomers--; 
-  
 }
 int testLine = 69;
 void Customer::pickLine()
