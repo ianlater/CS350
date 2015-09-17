@@ -33,7 +33,7 @@ const int NUM_CLERK_TYPES = 4;
 //array of lock(ptrs) for each clerk+their lines
 Lock* clerkLock[NUM_CLERKS];
 //Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
-Lock* clerkLineLock = new Lock("ClerkLineLock");;
+Lock* clerkLineLock = new Lock("ClerkLineLock");
 
 //Condition Variables
 Condition* clerkLineCV[NUM_CLERKS];
@@ -45,6 +45,7 @@ int clerkLineCount[NUM_CLERKS] = {99,99,99,99,99};//start big so we can compare 
 //int clerkBribeLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
+int numCustomers = 0;
 
 //BEGIN INTERACTIONS
 //bool simulation_over = false;//boolean what??
@@ -263,6 +264,7 @@ private:
 Customer::Customer(char* name) :_name(name)
 {
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+	numCustomers++;
 }
 
 void Customer::run()
@@ -294,7 +296,7 @@ void Customer::run()
     }
 
   printf("WE OUTTA HERE\n");
-  
+  numCustomers--; 
   
 }
 int testLine = 69;
@@ -313,7 +315,6 @@ void Customer::pickLine()
     }
   testLine = _myLine;
 }
-
 //////////////////////
 //Senator
 /////////////////////
@@ -369,6 +370,8 @@ void Manager::run()
 		for(int i = 0; i < 90000; i++)
 			currentThread->Yield();
 		OutputEarnings();
+		if(numCustomers == 0)
+		    break;
 	}
 }
 /*
@@ -726,7 +729,7 @@ void TestSuite() {
 
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
-	
+
 	t = new Thread("managerThread");
 	t->Fork((VoidFunctionPtr) p2_manager,0);
 
