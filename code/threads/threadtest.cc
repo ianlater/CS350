@@ -435,21 +435,26 @@ void Manager::OutputEarnings()
 	for (int i =0; i < NUM_CLERK_TYPES; i++) {
 		total += totalEarnings[i];
 	}
-	printf("Earnings report: \n");
+	printf("\n----Earnings report:---- \n");
 	printf("ApplicationClerks: %i \n",totalEarnings[APPLICATION_CLERK_TYPE]);
 	printf("PictureClerks: %i \n",totalEarnings[PICTURE_CLERK_TYPE]);
 	printf("PassportClerks: %i \n",totalEarnings[PASSPORT_CLERK_TYPE]);
 	printf("Cashiers: %i \n",totalEarnings[CASHIER_CLERK_TYPE]);
-	printf("TOTAL: %i \n",total);
+	printf("TOTAL: %i \n------------------------\n\n",total);
 }
 
 void Manager::run()
 {
+  while(true) {
 	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
-	for(int i = 0; i < 90000; i++)
+	for(int i = 0; i < 90; i++)
 		currentThread->Yield();
 	OutputEarnings();
+	if (numCustomers == 0) {
+		break;
+	}
+  }
 }
 /*
 while (!simulation_over)
