@@ -83,13 +83,20 @@ Clerk::Clerk(char* name, int id)
 	_name = new char[newLen];
 	sprintf(_name, "%s%i", name, id);
 	//Locks
-	//char* name = new char[50];
-	clerkLock[_id] = new Lock("ClerkLock" + _id);
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", id);
+	clerkLock[_id] = new Lock(buffer1);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
+
 	//CVs & MVs
-	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
+	char* buffer2 = new char[50];
+	sprintf(buffer2, "ClerkLineCv%i", id);
+	clerkLineCV[_id] = new Condition(buffer2);
 	clerkLineCount[_id] =0;//Assumption, start empty
-	clerkCV[_id] = new Condition("ClerkCV" + _id);
+
+	char* buffer3 = new char[50];
+	sprintf(buffer3, "ClerkCV%i", id);
+	clerkCV[_id] = new Condition(buffer3);
 	clerkState[_id] = 0;//Assumption, start free
 	clerks[id] = this;
 }
