@@ -11,28 +11,27 @@
 
 #include "copyright.h"
 #include "system.h"
-#include <list>
 #ifdef CHANGED
 #include "synch.h"
 #endif
 
 #ifdef CHANGED
 
-#define APPLICATION_CLERK_TYPE 1
-#define PICTURE_CLERK_TYPE 2
-#define PASSPORT_CLERK_TYPE 3
-#define CASHIER_CLERK_TYPE 4
+#define APPLICATION_CLERK_TYPE 0
+#define PICTURE_CLERK_TYPE 1
+#define PASSPORT_CLERK_TYPE 2
+#define CASHIER_CLERK_TYPE 3
 
 //global vars, mostly Monitors//
 
-//
 const int NUM_CLERKS = 5;
+const int NUM_CLERK_TYPES = 4;
 //
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
 Lock* clerkLock[NUM_CLERKS];
 //Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
-Lock* clerkLineLock = new Lock("ClerkLineLock");;
+Lock* clerkLineLock = new Lock("ClerkLineLock");
 
 //Condition Variables
 Condition* clerkLineCV[NUM_CLERKS];
@@ -40,17 +39,12 @@ Condition* clerkLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
 
 //Monitor Variables
-int clerkLineCount[NUM_CLERKS] = {99,99,99,99,99};//start big so we can compare later
+int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
+int numCustomers = 0;
 
-//BEGIN INTERACTIONS
-//bool simulation_over = false;//boolean what??
-//init clerks
-//init manager
-//init customers
-
-///end vars declarations//////
 
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
@@ -66,73 +60,28 @@ int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=bu
 class Clerk
 {
 public:
-  Clerk(char* name, int id);
+  Clerk(char* name, int id);//id is unique identifier of clerk and represents its index in clerkLineCV, clerkLock, clerkLineCount, clerkCV, and clerks arrays
   ~Clerk();
   char* GetName(){return _name;}
   int GetType(){return _type;}
   
   virtual void doJob() = 0;
-  virtual void run() = 0;
+  void run();
 protected:
-  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
+  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassportClerk (used to to facilitate abstract use of clerk)
   char* _name;
   int _id;
 private:
 
 };
+Clerk* clerks[NUM_CLERKS];//global array of clerk ptrs
 
-Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
+Clerk::Clerk(char* name, int id) 	
 {
-}
-
-Clerk::~Clerk()
-{
-
-}
-
-///////////////////////////////
-//Application Clerk
-///////////////////////////////
-class ApplicationClerk : public Clerk
-{
-public:
-  ApplicationClerk(char* name, int id);
-  ~ApplicationClerk();
-  void doJob();
-  void run();
-};
-
-ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
-{
-	_type = APPLICATION_CLERK_TYPE;
-}
-
-
-void ApplicationClerk::doJob()
-{
-}
-
-void ApplicationClerk::run()
-{
-}
-////////////////////////////
-//Picture Clerk
-///////////////////////////
-
-class PictureClerk : public Clerk
-{
-public:
-  PictureClerk(char* name, int id);
-  ~PictureClerk() {};
-  void doJob();
-  void run();
-};
-
-PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
-{
-	_type = PICTURE_CLERK_TYPE;
 	_id = id;
-	_name = name + id;
+	int newLen = strlen(name) + 16;
+	_name = new char[newLen];
+	sprintf(_name, "%s%i", name, id);
 	//Locks
 	clerkLock[_id] = new Lock("ClerkLock" + _id);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
@@ -140,35 +89,34 @@ PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
 	clerkLineCount[_id] =0;//Assumption, start empty
 	clerkCV[_id] = new Condition("ClerkCV" + _id);
-	//clerkState[_id] = FREE;//Assumption, start free
+	clerkState[_id] = 0;//Assumption, start free
+	clerks[id] = this;
 }
 
-void PictureClerk::doJob()
+Clerk::~Clerk()
 {
-  printf("Taking a gorgeous picture\n");
-  //required delay of 20 -100 cycles before going back
-  for(int i = 0; i < 50; i++)
-    currentThread->Yield();
+
 }
 
-void PictureClerk::run()
+void Clerk::run()
 {
+
   while(true)
   {
     //acquire clerkLineLock when i want to update line values 
     clerkLineLock->Acquire();
     //do bribe stuff TODO
-    //else if(clerkLineCount[MINE > 0) //i got someone in line
+    //else if(clerkLineCount[MINE] > 0) //i got someone in line
     if(clerkLineCount[_id] > 0)
       {
-	printf(" is Busy\n");
+	printf("%s: is Busy\n", _name);
 	clerkLineCV[_id]->Signal(clerkLineLock);
-	//clerkState[_id] = BUSY;//im helping a customer
+	clerkState[_id] = 1;//im helping a customer
       }
     else
       {
-	printf( "\npictrueclerk  is available\n");
-	//clerkState[_id] = AVAILABLE;
+	printf( "\n%s is available\n", _name);
+	clerkState[_id] = 0;
       }
     //now do actual interaction
     clerkLock[_id]->Acquire();
@@ -184,36 +132,90 @@ void PictureClerk::run()
   }
 
 }
+///////////////////////////////
+//Application Clerk
+///////////////////////////////
+class ApplicationClerk : public Clerk
+{
+public:
+  ApplicationClerk(char* name, int id);
+  ~ApplicationClerk(){};
+  void doJob();
+};
+
+ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
+{
+	_type = APPLICATION_CLERK_TYPE;
+}
+
+
+void ApplicationClerk::doJob()
+{
+
+  printf("Filing application\n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+
+  printf("Here's your application \n");
+}
+////////////////////////////
+//Picture Clerk
+///////////////////////////
+
+class PictureClerk : public Clerk
+{
+public:
+  PictureClerk(char* name, int id);
+  ~PictureClerk() {};
+  void doJob();
+};
+
+PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
+{
+	_type = PICTURE_CLERK_TYPE;
+}
+
+void PictureClerk::doJob()
+{
+  printf("Taking a gorgeous picture\n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+  printf("%s: Here you go!\n", _name);
+}
 
 //////////////////////////
 //Passport Clerk
 /////////////////////////
 
-class PassPortClerk : public Clerk
+class PassportClerk : public Clerk
 {
 public:
-  PassPortClerk(char* name, int id);
-  ~PassPortClerk() {};
+  PassportClerk(char* name, int id);
+  ~PassportClerk() {};
   void doJob();
-  void run();
 };
 
-PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
+PassportClerk::PassportClerk(char* name, int id) : Clerk(name, id)
 {
 	_type = PASSPORT_CLERK_TYPE;
 }
 
-void PassPortClerk::doJob()
+void PassportClerk::doJob()
 {
 
+  printf("Checking materials \n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+
+  printf("Here's your passport\n");
 }
 
-void PassPortClerk::run()
-{
-}
 
 ///////////////////////
-//CashieClerkr
+//CashierClerk
 //////////////////////
 class CashierClerk : public Clerk
 {
@@ -221,7 +223,6 @@ public:
   CashierClerk(char* name, int id);
   ~CashierClerk(){};
   void doJob();
-  void run();
 };
 
 CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
@@ -231,11 +232,14 @@ CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
 
 void CashierClerk::doJob()
 {
+  printf("Checking passport receipt\n");
+  //TODO validate they have passport
+  printf("Thank you. One moment\n");
+  //TODO cashier needs to record that this customer in particular has been issued a passport and the money recieved 
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
 
-}
-
-void CashierClerk::run()
-{
+  printf("Here's your completed passport\n");
 }
 
 ////////////////////////
@@ -246,54 +250,129 @@ class Customer
 {
 public:
   Customer(char* name);
-  ~Customer(){};
+  ~Customer(){numCustomers--;};
   char* GetName(){return _name;}
   void run();
 protected:
   void pickLine();
 private:
+  bool isNextClerkType(int type);
+  void giveData(int clerkType);
   char* _name;
   int _money;
   int _myLine;
   int _ssn; //unique ssn for each customer
+  int _credentials[NUM_CLERK_TYPES];
 };
 
-Customer::Customer(char* name) :_name(name)
+Customer::Customer(char* name) 
 {
+	_ssn = numCustomers;
+	_name = new char[strlen(name) + 16];
+	sprintf(_name, "%s%i",name,_ssn);
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+	numCustomers++;
+}
+bool Customer::isNextClerkType(int type)
+{
+    //for adding customers who go out of order, we can add in a random number check that returns true randomly
+
+    //check whether clerk is valid next type (check credentials or keep a status)
+    if (!_credentials[type]) //credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have
+    {
+        if (type == PICTURE_CLERK_TYPE || type == APPLICATION_CLERK_TYPE)//application and picture need no prior credentials
+            return true;
+        
+        if (type == PASSPORT_CLERK_TYPE) //passport clerk requires both application and pictue
+        {
+            if (_credentials[APPLICATION_CLERK_TYPE] && _credentials[PICTURE_CLERK_TYPE]) 
+                return true;
+            
+            return false;
+        }
+        if (type == CASHIER_CLERK_TYPE && _credentials[PASSPORT_CLERK_TYPE]) //cashier requires only passport (ASSUMPTION?)
+        {
+            return true;
+	}
+        
+        return false;  
+    }
+}
+
+void Customer::giveData(int clerkType)
+{
+	switch (clerkType) {
+	  case APPLICATION_CLERK_TYPE:
+		printf("%s: may I have application please?\n", _name);
+		break;
+
+	  case PICTURE_CLERK_TYPE:
+		//ask for a picture to be taken
+		printf("%s: i would like a picture\n", _name);
+		break;
+
+	  case PASSPORT_CLERK_TYPE:
+		printf("%s: ready for my passport\n", _name);
+		break;
+
+	  case CASHIER_CLERK_TYPE:
+		printf("%s: Here's payment\n", _name);
+		totalEarnings[CASHIER_CLERK_TYPE] += 100;
+		break;
+	}
 }
 
 void Customer::run()
 {
-  clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
-  pickLine();
-  //now, _myLine is the index of the shortest line
-  //TODO if clerk is busy, for testing i guarantee free
-  //clerkState[_myLine] = BUSY;
-  clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
-  
-  clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
-  //ask for a picture to be taken
-  printf("i would like a picture\n");
-  clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-  //now we wait for clerk to take pic
-  clerkCV[_myLine]->Wait(clerkLock[_myLine]);
-  //check if I like my photo RANDOM VAL
-  int picApproval = rand() % 10;//generate random num between 0 and 10
-  if(picApproval >1)
-    {
-      printf("\nI approve of this picture\n");
-      //store that i have pic
-      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-    }
-  else
-    {
-      printf("this picture is heinous! retake\n");
-    }
+  while(true)
+  {
+	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
+	pickLine();
+	//now, _myLine is the index of the shortest line
 
-  printf("WE OUTTA HERE\n");
-  
-  
+	if (clerkState[_myLine] == 1) {
+		clerkLineCount[_myLine]++;
+		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+		clerkLineCV[_myLine]->Wait(clerkLineLock);
+		clerkLineCount[_myLine]--;
+	} 	
+	clerkState[_myLine] = 1;
+	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
+
+	clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
+
+	int type = clerks[_myLine]->GetType();
+	giveData(type);
+
+	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	//now we wait for clerk to take pic
+	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
+	
+	//set credentials
+	_credentials[type] = true;
+	printf("%s: Thank you %s\n", _name, clerks[_myLine]->GetName());
+
+	if (type == PICTURE_CLERK_TYPE) {
+	  //check if I like my photo RANDOM VAL
+	  int picApproval = rand() % 10;//generate random num between 0 and 10
+	  if(picApproval >1)
+	    {
+	      printf("\n%s: I approve of this picture\n", _name);
+	      //store that i have pic
+	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	    }
+	  else
+	    {
+	      printf("%s: this picture is heinous! retake\n", _name);
+	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	    }
+	}
+
+	//chose exit condition here
+	if(_credentials[CASHIER_CLERK_TYPE])
+	  break;
+  }
+  printf("%s: WE OUTTA HERE\n", _name);
 }
 int testLine = 69;
 void Customer::pickLine()
@@ -303,15 +382,15 @@ void Customer::pickLine()
   for(int i = 0; i < NUM_CLERKS; i++)
     {
      	  //check if the type of this line is something I need! TODO
-	  if(clerkLineCount[i] < lineSize)// && clerkState[i] != ONBREAK)
+	if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
+	  if(clerkLineCount[i] < lineSize && clerkState[i] != 2)
 	    {
 	      _myLine = i;
 	      lineSize = clerkLineCount[i];
 	    }
+	}
     }
-  testLine = _myLine;
 }
-
 //////////////////////
 //Senator
 /////////////////////
@@ -332,21 +411,40 @@ Senator::Senator(char* name) : Customer(name){}
 class Manager
 {
 public:
-  Manager(char* name, std::list<Clerk*> clerks);
-  ~Manager();
+  Manager(char* name);
+  ~Manager(){};
+  void run();
 private:
+  void OutputEarnings();
   char* _name;
-  int _totalMoney[3];//keep track of money submitted by each type of clerk
-  std::list<Clerk*>  _clerks;//list of clerks (ptrs to clerks)
 };
 
-Manager::Manager(char* name, std::list<Clerk*> clerks) : _name(name)
+Manager::Manager(char* name) : _name(name)
 {
-	//do we need to sanitize clerks input at all?
-	_clerks = clerks;
 }
 
+void Manager::OutputEarnings()
+{
+	int total = 0;
+	for (int i =0; i < NUM_CLERK_TYPES; i++) {
+		total += totalEarnings[i];
+	}
+	printf("Earnings report: \n");
+	printf("ApplicationClerks: %i \n",totalEarnings[APPLICATION_CLERK_TYPE]);
+	printf("PictureClerks: %i \n",totalEarnings[PICTURE_CLERK_TYPE]);
+	printf("PassportClerks: %i \n",totalEarnings[PASSPORT_CLERK_TYPE]);
+	printf("Cashiers: %i \n",totalEarnings[CASHIER_CLERK_TYPE]);
+	printf("TOTAL: %i \n",total);
+}
 
+void Manager::run()
+{
+	//manager doesn't modify anybodies critical section yet
+	//wait for some amount of time before printing money status
+	for(int i = 0; i < 90000; i++)
+		currentThread->Yield();
+	OutputEarnings();
+}
 /*
 while (!simulation_over)
 {
@@ -408,12 +506,36 @@ void p2_customer()
   Customer cust = Customer("testCustomer");
   cust.run();
 }
-
+int nextClerk = 0;
 void p2_pictureClerk()
 {
-  PictureClerk pClerk = PictureClerk("testPClerk", 0);
-  pClerk.run();
+  PictureClerk picClerk = PictureClerk("testPictureClerk", nextClerk++);
+  picClerk.run();
 
+}
+
+void p2_applicationClerk()
+{
+  ApplicationClerk appClerk = ApplicationClerk("testApplicationClerk", nextClerk++);
+  appClerk.run();
+}
+
+void p2_passportClerk()
+{
+  PassportClerk passportClerk = PassportClerk("testPassportClerk", nextClerk++);
+  passportClerk.run();
+}
+
+void p2_cashierClerk()
+{
+  CashierClerk cashierClerk = CashierClerk("testCashierClerk", nextClerk++);
+  cashierClerk.run();
+}
+
+void p2_manager()
+{
+	Manager manager = Manager("testManager");
+	manager.run();
 }
 
 
@@ -687,15 +809,28 @@ void TestSuite() {
   printf("Test Suite has started! Start the trials of pain\n\n");
 
     Thread *t;
-    char *name;
+    char* name;
     int i;
 
-    printf("starting pictureClerk test");
+    printf("starting MultiClerk test");
     t = new Thread("pClerkThread");
     t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
 
+    t = new Thread("aClerkThread");
+    t->Fork((VoidFunctionPtr) p2_applicationClerk,0);
+
+    t = new Thread("passportClerkThread");
+    t->Fork((VoidFunctionPtr) p2_passportClerk,0);
+
+    t = new Thread("cashierClerkThread");
+    t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
+   
+  for (int i = 0; i<3; i++) { 
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
+  }
+	t = new Thread("managerThread");
+	t->Fork((VoidFunctionPtr) p2_manager,0);
 
     return;//TODO remove after testing
     
@@ -738,7 +873,7 @@ void TestSuite() {
     printf("Starting Test 3\n");
 
     for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char [20];
+	name = new char[20];
 	sprintf(name,"t3_waiter%d",i);
 	t = new Thread(name);
 	t->Fork((VoidFunctionPtr)t3_waiter,0);
@@ -755,7 +890,7 @@ void TestSuite() {
     printf("Starting Test 4\n");
 
     for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char [20];
+	name = new char[20];
 	sprintf(name,"t4_waiter%d",i);
 	t = new Thread(name);
 	t->Fork((VoidFunctionPtr)t4_waiter,0);
