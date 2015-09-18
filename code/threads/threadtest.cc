@@ -84,8 +84,19 @@ private:
 
 };
 
-Clerk::Clerk(char* name, int id) : _name(name), _id(id)	
+Clerk::Clerk(char* name, int id) 	
 {
+
+	_id = id;
+	_name = name + id;
+	//Locks
+	clerkLock[_id] = new Lock("ClerkLock" + _id);
+	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
+	//CVs & MVs
+	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
+	clerkLineCount[_id] =0;//Assumption, start empty
+	clerkCV[_id] = new Condition("ClerkCV" + _id);
+	//clerkState[_id] = FREE;//Assumption, start free
 }
 
 Clerk::~Clerk()
@@ -101,7 +112,7 @@ void Clerk::run()
     //acquire clerkLineLock when i want to update line values 
     clerkLineLock->Acquire();
     //do bribe stuff TODO
-    //else if(clerkLineCount[MINE > 0) //i got someone in line
+    //else if(clerkLineCount[MINE] > 0) //i got someone in line
     if(clerkLineCount[_id] > 0)
       {
 	printf(" is Busy\n");
@@ -147,10 +158,13 @@ ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
 
 void ApplicationClerk::doJob()
 {
-}
 
-void ApplicationClerk::run()
-{
+  printf("Filing application\n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+
+  printf("Here's your application \n");
 }
 ////////////////////////////
 //Picture Clerk
@@ -167,16 +181,6 @@ public:
 PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 {
 	_type = PICTURE_CLERK_TYPE;
-	_id = id;
-	_name = name + id;
-	//Locks
-	clerkLock[_id] = new Lock("ClerkLock" + _id);
-	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
-	//CVs & MVs
-	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
-	clerkLineCount[_id] =0;//Assumption, start empty
-	clerkCV[_id] = new Condition("ClerkCV" + _id);
-	//clerkState[_id] = FREE;//Assumption, start free
 }
 
 void PictureClerk::doJob()
@@ -207,6 +211,12 @@ PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
 void PassPortClerk::doJob()
 {
 
+  printf("Checking materials \n");
+  //required delay of 20 -100 cycles before going back
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
+
+  printf("Here's your passport\n");
 }
 
 
@@ -231,6 +241,8 @@ void CashierClerk::doJob()
 
 }
 
+Clerk* clerks[NUM_CLERKS];
+
 ////////////////////////
 //Customer
 ///////////////////////
@@ -245,6 +257,7 @@ public:
 protected:
   void pickLine();
 private:
+  bool isNextClerkType(int type);
   char* _name;
   int _money;
   int _myLine;
