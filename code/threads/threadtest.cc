@@ -37,11 +37,12 @@ Lock* clerkLineLock = new Lock("ClerkLineLock");
 Condition* clerkLineCV[NUM_CLERKS];
 //Condition* clerkBribeLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
+Condition* clerkBreakCV[NUM_CLERKS]; //CV for break, for use with manager
 
 //Monitor Variables
 int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
-int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-on breaK //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
 
@@ -87,6 +88,7 @@ Clerk::Clerk(char* name, int id)
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
 	//CVs & MVs
 	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
+	clerkBreakCV[_id] = new Condition("ClerkBreakCV" +_id);
 	clerkLineCount[_id] =0;//Assumption, start empty
 	clerkCV[_id] = new Condition("ClerkCV" + _id);
 	clerkState[_id] = 0;//Assumption, start free
@@ -118,7 +120,21 @@ void Clerk::run()
 	printf( "\n%s is available\n", _name);
 	clerkState[_id] = 0;
       }
-    //now do actual interaction
+   //can i go on break?
+	if (clerkLineCount[_id] == 0)
+	{
+		//aquire my lock
+		clerkLock[_id]->Acquire();
+		//set my status
+		clerkState[_id] = 2;	
+		printf("%s going on break \n", _name);	
+		//wait on clerkBreakCV set by manager	
+		clerkBreakCV[_id]->Wait(clerkLock[_id]);
+		//awaken
+		clerkState[_id] = 0;	
+		
+	} 
+	//now do actual interaction
     clerkLock[_id]->Acquire();
     clerkLineLock->Release();
     ///wait for customer data
@@ -439,11 +455,23 @@ void Manager::OutputEarnings()
 
 void Manager::run()
 {
-	//manager doesn't modify anybodies critical section yet
+/*	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
 	for(int i = 0; i < 90000; i++)
 		currentThread->Yield();
-	OutputEarnings();
+	OutputEarnings();*/
+	for (int i = 0; i < NUM_CLERKS; i++)
+	{
+		//acquire lock
+		clerkLock[i]->Acquire();
+		//check if clerk is sleeping and if there are more than 3 waiting
+		if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+		{
+			//wake up clerk
+			clerkBreakCV[i]->Signal(clerkLock[i]);	
+		}
+		clerkLock[i]->Release();	
+	}
 }
 /*
 while (!simulation_over)
