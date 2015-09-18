@@ -120,20 +120,7 @@ void Clerk::run()
 	printf( "\n%s is available\n", _name);
 	clerkState[_id] = 0;
       }
-   //can i go on break?
-	if (clerkLineCount[_id] == 0)
-	{
-		//aquire my lock
-		clerkLock[_id]->Acquire();
-		//set my status
-		clerkState[_id] = 2;	
-		printf("%s going on break \n", _name);	
-		//wait on clerkBreakCV set by manager	
-		clerkBreakCV[_id]->Wait(clerkLock[_id]);
-		//awaken
-		clerkState[_id] = 0;	
-		
-	} 
+  
 	//now do actual interaction
     clerkLock[_id]->Acquire();
     clerkLineLock->Release();
@@ -143,6 +130,18 @@ void Clerk::run()
     doJob();
     clerkCV[_id]->Signal(clerkLock[_id]);
     clerkCV[_id]->Wait(clerkLock[_id]);
+     //can i go on break?
+	if (clerkLineCount[_id] == 0)
+	{
+		//aquire my lock
+		//clerkLock[_id]->Acquire();
+		//set my status
+		clerkState[_id] = 2;	
+		printf("%s going on break \n", _name);	
+		//wait on clerkBreakCV set by manager	
+		clerkBreakCV[_id]->Wait(clerkLock[_id]);
+		
+	} 
     clerkLock[_id]->Release();//we're done here, back to top of while for next cust
     //
   }
@@ -460,17 +459,21 @@ void Manager::run()
 	for(int i = 0; i < 90000; i++)
 		currentThread->Yield();
 	OutputEarnings();*/
-	for (int i = 0; i < NUM_CLERKS; i++)
+	for (int x = 0; x < 90000; x++)//replace this loop with something else later
 	{
-		//acquire lock
-		clerkLock[i]->Acquire();
-		//check if clerk is sleeping and if there are more than 3 waiting
-		if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			//wake up clerk
-			clerkBreakCV[i]->Signal(clerkLock[i]);	
+			//acquire lock
+			clerkLock[i]->Acquire();
+			//check if clerk is sleeping and if there are more than 3 waiting
+			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+			{
+				//wake up clerk
+				clerkBreakCV[i]->Signal(clerkLock[i]);	
+				clerkState[i] = 0;
+			}
+			clerkLock[i]->Release();	
 		}
-		clerkLock[i]->Release();	
 	}
 }
 /*
