@@ -75,7 +75,7 @@ public:
   int GetType(){return _type;}
   
   virtual void doJob() = 0;
-  virtual void run() = 0;
+  void run();
 protected:
   int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
   char* _name;
@@ -93,6 +93,40 @@ Clerk::~Clerk()
 
 }
 
+void Clerk::run()
+{
+
+  while(true)
+  {
+    //acquire clerkLineLock when i want to update line values 
+    clerkLineLock->Acquire();
+    //do bribe stuff TODO
+    //else if(clerkLineCount[MINE > 0) //i got someone in line
+    if(clerkLineCount[_id] > 0)
+      {
+	printf(" is Busy\n");
+	clerkLineCV[_id]->Signal(clerkLineLock);
+	//clerkState[_id] = BUSY;//im helping a customer
+      }
+    else
+      {
+	printf( "\npictrueclerk  is available\n");
+	//clerkState[_id] = AVAILABLE;
+      }
+    //now do actual interaction
+    clerkLock[_id]->Acquire();
+    clerkLineLock->Release();
+    ///wait for customer data
+    clerkCV[_id]->Wait(clerkLock[_id]);
+    //once we're here, the customer is waiting for me to do my job
+    doJob();
+    clerkCV[_id]->Signal(clerkLock[_id]);
+    clerkCV[_id]->Wait(clerkLock[_id]);
+    clerkLock[_id]->Release();//we're done here, back to top of while for next cust
+    //
+  }
+
+}
 ///////////////////////////////
 //Application Clerk
 ///////////////////////////////
@@ -128,7 +162,6 @@ public:
   PictureClerk(char* name, int id);
   ~PictureClerk() {};
   void doJob();
-  void run();
 };
 
 PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
@@ -152,40 +185,6 @@ void PictureClerk::doJob()
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
-}
-
-void PictureClerk::run()
-{
-  while(true)
-  {
-    //acquire clerkLineLock when i want to update line values 
-    clerkLineLock->Acquire();
-    //do bribe stuff TODO
-    //else if(clerkLineCount[MINE > 0) //i got someone in line
-    if(clerkLineCount[_id] > 0)
-      {
-	printf(" is Busy\n");
-	clerkLineCV[_id]->Signal(clerkLineLock);
-	//clerkState[_id] = BUSY;//im helping a customer
-      }
-    else
-      {
-	printf( "\npictrueclerk  is available\n");
-	//clerkState[_id] = AVAILABLE;
-      }
-    //now do actual interaction
-    clerkLock[_id]->Acquire();
-    clerkLineLock->Release();
-    ///wait for customer data
-    clerkCV[_id]->Wait(clerkLock[_id]);
-    //once we're here, the customer is waiting for me to do my job
-    doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-    clerkCV[_id]->Wait(clerkLock[_id]);
-    clerkLock[_id]->Release();//we're done here, back to top of while for next cust
-    //
-  }
-
 }
 
 //////////////////////////
