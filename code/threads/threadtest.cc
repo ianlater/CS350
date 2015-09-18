@@ -69,7 +69,7 @@ public:
   virtual void doJob() = 0;
   void run();
 protected:
-  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassPortClerk (used to to facilitate abstract use of clerk)
+  int _type;//represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassportClerk (used to to facilitate abstract use of clerk)
   char* _name;
   int _id;
 private:
@@ -187,20 +187,20 @@ void PictureClerk::doJob()
 //Passport Clerk
 /////////////////////////
 
-class PassPortClerk : public Clerk
+class PassportClerk : public Clerk
 {
 public:
-  PassPortClerk(char* name, int id);
-  ~PassPortClerk() {};
+  PassportClerk(char* name, int id);
+  ~PassportClerk() {};
   void doJob();
 };
 
-PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
+PassportClerk::PassportClerk(char* name, int id) : Clerk(name, id)
 {
 	_type = PASSPORT_CLERK_TYPE;
 }
 
-void PassPortClerk::doJob()
+void PassportClerk::doJob()
 {
 
   printf("Checking materials \n");
@@ -298,6 +298,7 @@ void Customer::giveData(int clerkType)
 {
 	switch (clerkType) {
 	  case APPLICATION_CLERK_TYPE:
+		printf("may I have application please?\n");
 		break;
 
 	  case PICTURE_CLERK_TYPE:
@@ -306,16 +307,18 @@ void Customer::giveData(int clerkType)
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
+		printf("ready for my passport\n");
 		break;
 
 	  case CASHIER_CLERK_TYPE:
+		printf("Here's payment\n");
+		totalEarnings[CASHIER_CLERK_TYPE] += 100;
 		break;
 	}
 }
 
 void Customer::run()
 {
-  int visited = 1;
   while(true)
   {
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
@@ -326,12 +329,15 @@ void Customer::run()
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
 	clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
-	giveData(clerks[_myLine]->GetType());
+	int type = clerks[_myLine]->GetType();
+	giveData(type);
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	//now we wait for clerk to take pic
 	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
-
-	if (clerks[_myLine]->GetType() == PICTURE_CLERK_TYPE) {
+	
+	//set credentials
+	_credentials[type] = true;
+	if (type == PICTURE_CLERK_TYPE) {
 	  //check if I like my photo RANDOM VAL
 	  int picApproval = rand() % 10;//generate random num between 0 and 10
 	  if(picApproval >1)
@@ -346,7 +352,7 @@ void Customer::run()
 	    }
 	}
 	//chose exit condition here
-	if(visited++ == 2)
+	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
   }
   printf("WE OUTTA HERE\n");
@@ -496,6 +502,18 @@ void p2_applicationClerk()
 {
   ApplicationClerk appClerk = ApplicationClerk("testApplicationClerk", nextClerk++);
   appClerk.run();
+}
+
+void p2_passportClerk()
+{
+  PassportClerk passportClerk = PassportClerk("testPassportClerk", nextClerk++);
+  passportClerk.run();
+}
+
+void p2_cashierClerk()
+{
+  CashierClerk cashierClerk = CashierClerk("testCashierClerk", nextClerk++);
+  cashierClerk.run();
 }
 
 void p2_manager()
@@ -784,6 +802,12 @@ void TestSuite() {
 
     t = new Thread("aClerkThread");
     t->Fork((VoidFunctionPtr) p2_applicationClerk,0);
+
+    t = new Thread("passportClerkThread");
+    t->Fork((VoidFunctionPtr) p2_passportClerk,0);
+
+    t = new Thread("cashierClerkThread");
+    t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
     
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
