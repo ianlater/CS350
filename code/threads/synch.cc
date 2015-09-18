@@ -166,9 +166,8 @@ void Lock::Release() {
 	}	
 	else //wait queue empty
 	{
-		//make lock available and reset lock owner
+		//make lock available
 		_isBusy = false;
-		_myThread = NULL;
 	}
 	//restore interrupts
 	(void) interrupt->SetLevel(oldLevel);	
@@ -176,10 +175,7 @@ void Lock::Release() {
 
 bool Lock::isHeldByCurrentThread(){
 
-	if (_myThread != NULL && currentThread == _myThread)	
-		return true;
-	else
-		return false;
+	return currentThread == _myThread
 
 }
 Condition::Condition(char* debugName) { 
