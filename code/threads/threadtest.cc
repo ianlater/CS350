@@ -24,7 +24,6 @@
 
 //global vars, mostly Monitors//
 
-//
 const int NUM_CLERKS = 5;
 const int NUM_CLERK_TYPES = 4;
 //
@@ -80,7 +79,9 @@ Clerk* clerks[NUM_CLERKS];//global array of clerk ptrs
 Clerk::Clerk(char* name, int id) 	
 {
 	_id = id;
-	_name = name + id;
+	int newLen = strlen(name) + 16;
+	_name = new char[newLen];
+	sprintf(_name, "%s%i", name, id);
 	//Locks
 	clerkLock[_id] = new Lock("ClerkLock" + _id);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
@@ -263,8 +264,11 @@ private:
   int _credentials[NUM_CLERK_TYPES];
 };
 
-Customer::Customer(char* name) :_name(name)
+Customer::Customer(char* name) 
 {
+	_ssn = numCustomers;
+	_name = new char[strlen(name) + 16];
+	sprintf(_name, "%s%i",name,_ssn);
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
 	numCustomers++;
 }
@@ -298,20 +302,20 @@ void Customer::giveData(int clerkType)
 {
 	switch (clerkType) {
 	  case APPLICATION_CLERK_TYPE:
-		printf("may I have application please?\n");
+		printf("%s: may I have application please?\n", _name);
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		//ask for a picture to be taken
-		printf("i would like a picture\n");
+		printf("%s: i would like a picture\n", _name);
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
-		printf("ready for my passport\n");
+		printf("%s: ready for my passport\n", _name);
 		break;
 
 	  case CASHIER_CLERK_TYPE:
-		printf("Here's payment\n");
+		printf("%s: Here's payment\n", _name);
 		totalEarnings[CASHIER_CLERK_TYPE] += 100;
 		break;
 	}
@@ -337,25 +341,27 @@ void Customer::run()
 	
 	//set credentials
 	_credentials[type] = true;
+	printf("%s: Thank you %s\n", _name, clerks[_myLine]->GetName());
+
 	if (type == PICTURE_CLERK_TYPE) {
 	  //check if I like my photo RANDOM VAL
 	  int picApproval = rand() % 10;//generate random num between 0 and 10
 	  if(picApproval >1)
 	    {
-	      printf("\nI approve of this picture\n");
+	      printf("\n%s: I approve of this picture\n", _name);
 	      //store that i have pic
 	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	  else
 	    {
-	      printf("this picture is heinous! retake\n");
+	      printf("%s: this picture is heinous! retake\n", _name);
 	    }
 	}
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
   }
-  printf("WE OUTTA HERE\n");
+  printf("%s: WE OUTTA HERE\n", _name);
 }
 int testLine = 69;
 void Customer::pickLine()
@@ -793,7 +799,7 @@ void TestSuite() {
   printf("Test Suite has started! Start the trials of pain\n\n");
 
     Thread *t;
-    char *name;
+    char* name;
     int i;
 
     printf("starting MultiClerk test");
@@ -808,10 +814,11 @@ void TestSuite() {
 
     t = new Thread("cashierClerkThread");
     t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-    
+   
+  for (int i = 0; i<3; i++) { 
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
-
+  }
 	t = new Thread("managerThread");
 	t->Fork((VoidFunctionPtr) p2_manager,0);
 
@@ -856,7 +863,7 @@ void TestSuite() {
     printf("Starting Test 3\n");
 
     for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char [20];
+	name = new char[20];
 	sprintf(name,"t3_waiter%d",i);
 	t = new Thread(name);
 	t->Fork((VoidFunctionPtr)t3_waiter,0);
@@ -873,7 +880,7 @@ void TestSuite() {
     printf("Starting Test 4\n");
 
     for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char [20];
+	name = new char[20];
 	sprintf(name,"t4_waiter%d",i);
 	t = new Thread(name);
 	t->Fork((VoidFunctionPtr)t4_waiter,0);
