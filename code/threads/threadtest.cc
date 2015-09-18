@@ -83,6 +83,7 @@ Clerk::Clerk(char* name, int id)
 	_name = new char[newLen];
 	sprintf(_name, "%s%i", name, id);
 	//Locks
+	//char* name = new char[50];
 	clerkLock[_id] = new Lock("ClerkLock" + _id);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
 	//CVs & MVs
@@ -156,8 +157,7 @@ void ApplicationClerk::doJob()
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
-
-  printf("Here's your application \n");
+  printf("%s: Here you go!\n", _name);
 }
 ////////////////////////////
 //Picture Clerk
@@ -210,7 +210,7 @@ void PassportClerk::doJob()
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
 
-  printf("Here's your passport\n");
+  printf("%s: Here's your passport\n", _name);
 }
 
 
@@ -359,14 +359,13 @@ void Customer::run()
 	    {
 	      printf("\n%s: I approve of this picture\n", _name);
 	      //store that i have pic
-	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	  else
 	    {
 	      printf("%s: this picture is heinous! retake\n", _name);
-	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	}
+	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
