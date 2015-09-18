@@ -197,7 +197,6 @@ public:
   PassPortClerk(char* name, int id);
   ~PassPortClerk() {};
   void doJob();
-  void run();
 };
 
 PassPortClerk::PassPortClerk(char* name, int id) : Clerk(name, id)
@@ -210,12 +209,9 @@ void PassPortClerk::doJob()
 
 }
 
-void PassPortClerk::run()
-{
-}
 
 ///////////////////////
-//CashieClerkr
+//CashierClerk
 //////////////////////
 class CashierClerk : public Clerk
 {
@@ -223,7 +219,6 @@ public:
   CashierClerk(char* name, int id);
   ~CashierClerk(){};
   void doJob();
-  void run();
 };
 
 CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
@@ -234,10 +229,6 @@ CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
 void CashierClerk::doJob()
 {
 
-}
-
-void CashierClerk::run()
-{
 }
 
 ////////////////////////
