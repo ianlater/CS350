@@ -39,7 +39,7 @@ Condition* clerkLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
 
 //Monitor Variables
-int clerkLineCount[NUM_CLERKS] = {99,99,99,99,99};//start big so we can compare later
+int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
@@ -89,7 +89,7 @@ Clerk::Clerk(char* name, int id)
 	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
 	clerkLineCount[_id] =0;//Assumption, start empty
 	clerkCV[_id] = new Condition("ClerkCV" + _id);
-	//clerkState[_id] = FREE;//Assumption, start free
+	clerkState[_id] = 0;//Assumption, start free
 	clerks[id] = this;
 }
 
@@ -109,14 +109,14 @@ void Clerk::run()
     //else if(clerkLineCount[MINE] > 0) //i got someone in line
     if(clerkLineCount[_id] > 0)
       {
-	printf(" is Busy\n");
+	printf("%s: is Busy\n", _name);
 	clerkLineCV[_id]->Signal(clerkLineLock);
-	//clerkState[_id] = BUSY;//im helping a customer
+	clerkState[_id] = 1;//im helping a customer
       }
     else
       {
-	printf( "\n%s  is available\n", _name);
-	//clerkState[_id] = AVAILABLE;
+	printf( "\n%s is available\n", _name);
+	clerkState[_id] = 0;
       }
     //now do actual interaction
     clerkLock[_id]->Acquire();
@@ -182,6 +182,7 @@ void PictureClerk::doJob()
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
+  printf("%s: Here you go!\n", _name);
 }
 
 //////////////////////////
@@ -328,13 +329,21 @@ void Customer::run()
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
 	pickLine();
 	//now, _myLine is the index of the shortest line
-	//TODO if clerk is busy, for testing i guarantee free
-	//clerkState[_myLine] = BUSY;
+
+	if (clerkState[_myLine] == 1) {
+		clerkLineCount[_myLine]++;
+		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+		clerkLineCV[_myLine]->Wait(clerkLineLock);
+		clerkLineCount[_myLine]--;
+	} 	
+	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
 	clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
+
 	int type = clerks[_myLine]->GetType();
 	giveData(type);
+
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	//now we wait for clerk to take pic
 	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
@@ -355,8 +364,10 @@ void Customer::run()
 	  else
 	    {
 	      printf("%s: this picture is heinous! retake\n", _name);
+	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	}
+
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
@@ -372,14 +383,13 @@ void Customer::pickLine()
     {
      	  //check if the type of this line is something I need! TODO
 	if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
-	  if(clerkLineCount[i] < lineSize)// && clerkState[i] != ONBREAK)
+	  if(clerkLineCount[i] < lineSize && clerkState[i] != 2)
 	    {
 	      _myLine = i;
 	      lineSize = clerkLineCount[i];
 	    }
 	}
     }
-  testLine = _myLine;
 }
 //////////////////////
 //Senator
