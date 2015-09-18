@@ -106,7 +106,6 @@ Lock::Lock(char* debugName) {
 	name = debugName;
 	_isBusy = false;
 	_waitQueue = new List;
-	_myThread = NULL;
 }
 Lock::~Lock() {}
 void Lock::Acquire() {
