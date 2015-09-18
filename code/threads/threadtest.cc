@@ -11,7 +11,6 @@
 
 #include "copyright.h"
 #include "system.h"
-#include <list>
 #ifdef CHANGED
 #include "synch.h"
 #endif
@@ -115,7 +114,7 @@ void Clerk::run()
       }
     else
       {
-	printf( "\npictrueclerk  is available\n");
+	printf( "\n%s  is available\n", _name);
 	//clerkState[_id] = AVAILABLE;
       }
     //now do actual interaction
@@ -139,9 +138,8 @@ class ApplicationClerk : public Clerk
 {
 public:
   ApplicationClerk(char* name, int id);
-  ~ApplicationClerk();
+  ~ApplicationClerk(){};
   void doJob();
-  void run();
 };
 
 ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
@@ -232,7 +230,14 @@ CashierClerk::CashierClerk(char* name, int id) : Clerk(name, id)
 
 void CashierClerk::doJob()
 {
+  printf("Checking passport receipt\n");
+  //TODO validate they have passport
+  printf("Thank you. One moment\n");
+  //TODO cashier needs to record that this customer in particular has been issued a passport and the money recieved 
+  for(int i = 0; i < 50; i++)
+    currentThread->Yield();
 
+  printf("Here's your completed passport\n");
 }
 
 ////////////////////////
@@ -250,6 +255,7 @@ protected:
   void pickLine();
 private:
   bool isNextClerkType(int type);
+  void giveData(int clerkType);
   char* _name;
   int _money;
   int _myLine;
@@ -288,35 +294,61 @@ bool Customer::isNextClerkType(int type)
     }
 }
 
+void Customer::giveData(int clerkType)
+{
+	switch (clerkType) {
+	  case APPLICATION_CLERK_TYPE:
+		break;
+
+	  case PICTURE_CLERK_TYPE:
+		//ask for a picture to be taken
+		printf("i would like a picture\n");
+		break;
+
+	  case PASSPORT_CLERK_TYPE:
+		break;
+
+	  case CASHIER_CLERK_TYPE:
+		break;
+	}
+}
 
 void Customer::run()
 {
-  clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
-  pickLine();
-  //now, _myLine is the index of the shortest line
-  //TODO if clerk is busy, for testing i guarantee free
-  //clerkState[_myLine] = BUSY;
-  clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
-  
-  clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
-  //ask for a picture to be taken
-  printf("i would like a picture\n");
-  clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-  //now we wait for clerk to take pic
-  clerkCV[_myLine]->Wait(clerkLock[_myLine]);
-  //check if I like my photo RANDOM VAL
-  int picApproval = rand() % 10;//generate random num between 0 and 10
-  if(picApproval >1)
-    {
-      printf("\nI approve of this picture\n");
-      //store that i have pic
-      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-    }
-  else
-    {
-      printf("this picture is heinous! retake\n");
-    }
+  int visited = 1;
+  while(true)
+  {
+	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
+	pickLine();
+	//now, _myLine is the index of the shortest line
+	//TODO if clerk is busy, for testing i guarantee free
+	//clerkState[_myLine] = BUSY;
+	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
+	clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
+	giveData(clerks[_myLine]->GetType());
+	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	//now we wait for clerk to take pic
+	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
+
+	if (clerks[_myLine]->GetType() == PICTURE_CLERK_TYPE) {
+	  //check if I like my photo RANDOM VAL
+	  int picApproval = rand() % 10;//generate random num between 0 and 10
+	  if(picApproval >1)
+	    {
+	      printf("\nI approve of this picture\n");
+	      //store that i have pic
+	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	    }
+	  else
+	    {
+	      printf("this picture is heinous! retake\n");
+	    }
+	}
+	//chose exit condition here
+	if(visited++ == 2)
+	  break;
+  }
   printf("WE OUTTA HERE\n");
 }
 int testLine = 69;
@@ -385,16 +417,11 @@ void Manager::OutputEarnings()
 
 void Manager::run()
 {
-	while(true)
-	{
-		//manager doesn't modify anybodies critical section yet
-		//wait for some amount of time before printing money status
-		for(int i = 0; i < 90000; i++)
-			currentThread->Yield();
-		OutputEarnings();
-		if(numCustomers == 0)
-		    break;
-	}
+	//manager doesn't modify anybodies critical section yet
+	//wait for some amount of time before printing money status
+	for(int i = 0; i < 90000; i++)
+		currentThread->Yield();
+	OutputEarnings();
 }
 /*
 while (!simulation_over)
@@ -457,12 +484,18 @@ void p2_customer()
   Customer cust = Customer("testCustomer");
   cust.run();
 }
-
+int nextClerk = 0;
 void p2_pictureClerk()
 {
-  PictureClerk pClerk = PictureClerk("testPClerk", 0);
-  pClerk.run();
+  PictureClerk picClerk = PictureClerk("testPictureClerk", nextClerk++);
+  picClerk.run();
 
+}
+
+void p2_applicationClerk()
+{
+  ApplicationClerk appClerk = ApplicationClerk("testApplicationClerk", nextClerk++);
+  appClerk.run();
 }
 
 void p2_manager()
@@ -745,10 +778,13 @@ void TestSuite() {
     char *name;
     int i;
 
-    printf("starting pictureClerk test");
+    printf("starting MultiClerk test");
     t = new Thread("pClerkThread");
     t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
 
+    t = new Thread("aClerkThread");
+    t->Fork((VoidFunctionPtr) p2_applicationClerk,0);
+    
     t = new Thread("customerThread");
     t->Fork((VoidFunctionPtr) p2_customer,0);
 
