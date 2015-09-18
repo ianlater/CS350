@@ -405,11 +405,34 @@ class Senator : public Customer
 {
 public:
   Senator(char* name);
-  ~Senator();
-  void EnterFacility();/*should this and exit facility be functions or should the simulation itself keep track of customers and handle sending them away and bringing them back?*/
+  ~Senator(){};
+  void run();
+private:
+  void EnterOffice();
+  void ExitOffice();
 };
 
 Senator::Senator(char* name) : Customer(name){}
+
+void Senator::EnterOffice()
+{
+
+}
+
+void Senator::ExitOffice()
+{
+
+}
+
+void Senator::run()
+{
+	//enter facility
+	EnterOffice();
+	//proceed as a normal customer
+	Customer::run();
+	//exit facility
+	ExitOffice();
+}
 
 ////////////////////
 //Manager
@@ -517,6 +540,13 @@ void p2_customer()
   Customer cust = Customer("testCustomer");
   cust.run();
 }
+
+void p2_senator()
+{
+  Senator senator = Senator("testSenator");
+  senator.run();
+}
+
 int nextClerk = 0;
 void p2_pictureClerk()
 {
@@ -836,10 +866,14 @@ void TestSuite() {
     t = new Thread("cashierClerkThread");
     t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
    
-  for (int i = 0; i<3; i++) { 
-    t = new Thread("customerThread");
-    t->Fork((VoidFunctionPtr) p2_customer,0);
-  }
+	for (int i = 0; i<10; i++) { 
+	  t = new Thread("customerThread");
+	  t->Fork((VoidFunctionPtr) p2_customer,0);
+	}
+
+	t = new Thread("senatorThread");
+	t->Fork((VoidFunctionPtr) p2_senator,0);
+
 	t = new Thread("managerThread");
 	t->Fork((VoidFunctionPtr) p2_manager,0);
 
