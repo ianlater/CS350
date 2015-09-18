@@ -47,13 +47,6 @@ int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=bu
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
 
-//BEGIN INTERACTIONS
-//bool simulation_over = false;//boolean what??
-//init clerks
-//init manager
-//init customers
-
-///end vars declarations//////
 
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
@@ -69,7 +62,7 @@ int numCustomers = 0;
 class Clerk
 {
 public:
-  Clerk(char* name, int id);
+  Clerk(char* name, int id);//id is unique identifier of clerk and represents its index in clerkLineCV, clerkLock, clerkLineCount, clerkCV, and clerks arrays
   ~Clerk();
   char* GetName(){return _name;}
   int GetType(){return _type;}
@@ -83,10 +76,10 @@ protected:
 private:
 
 };
+Clerk* clerks[NUM_CLERKS];//global array of clerk ptrs
 
 Clerk::Clerk(char* name, int id) 	
 {
-
 	_id = id;
 	_name = name + id;
 	//Locks
@@ -97,6 +90,7 @@ Clerk::Clerk(char* name, int id)
 	clerkLineCount[_id] =0;//Assumption, start empty
 	clerkCV[_id] = new Condition("ClerkCV" + _id);
 	//clerkState[_id] = FREE;//Assumption, start free
+	clerks[id] = this;
 }
 
 Clerk::~Clerk()
@@ -241,8 +235,6 @@ void CashierClerk::doJob()
 
 }
 
-Clerk* clerks[NUM_CLERKS];
-
 ////////////////////////
 //Customer
 ///////////////////////
@@ -262,6 +254,7 @@ private:
   int _money;
   int _myLine;
   int _ssn; //unique ssn for each customer
+  int _credentials[NUM_CLERK_TYPES];
 };
 
 Customer::Customer(char* name) :_name(name)
@@ -269,6 +262,32 @@ Customer::Customer(char* name) :_name(name)
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
 	numCustomers++;
 }
+bool Customer::isNextClerkType(int type)
+{
+    //for adding customers who go out of order, we can add in a random number check that returns true randomly
+
+    //check whether clerk is valid next type (check credentials or keep a status)
+    if (!_credentials[type]) //credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have
+    {
+        if (type == PICTURE_CLERK_TYPE || type == APPLICATION_CLERK_TYPE)//application and picture need no prior credentials
+            return true;
+        
+        if (type == PASSPORT_CLERK_TYPE) //passport clerk requires both application and pictue
+        {
+            if (_credentials[APPLICATION_CLERK_TYPE] && _credentials[PICTURE_CLERK_TYPE]) 
+                return true;
+            
+            return false;
+        }
+        if (type == CASHIER_CLERK_TYPE && _credentials[PASSPORT_CLERK_TYPE]) //cashier requires only passport (ASSUMPTION?)
+        {
+            return true;
+	}
+        
+        return false;  
+    }
+}
+
 
 void Customer::run()
 {
@@ -308,11 +327,13 @@ void Customer::pickLine()
   for(int i = 0; i < NUM_CLERKS; i++)
     {
      	  //check if the type of this line is something I need! TODO
+	if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
 	  if(clerkLineCount[i] < lineSize)// && clerkState[i] != ONBREAK)
 	    {
 	      _myLine = i;
 	      lineSize = clerkLineCount[i];
 	    }
+	}
     }
   testLine = _myLine;
 }
