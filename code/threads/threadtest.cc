@@ -83,12 +83,20 @@ Clerk::Clerk(char* name, int id)
 	_name = new char[newLen];
 	sprintf(_name, "%s%i", name, id);
 	//Locks
-	clerkLock[_id] = new Lock("ClerkLock" + _id);
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", id);
+	clerkLock[_id] = new Lock(buffer1);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
+
 	//CVs & MVs
-	clerkLineCV[_id] = new Condition("ClerkLineCV" + _id);
+	char* buffer2 = new char[50];
+	sprintf(buffer2, "ClerkLineCv%i", id);
+	clerkLineCV[_id] = new Condition(buffer2);
 	clerkLineCount[_id] =0;//Assumption, start empty
-	clerkCV[_id] = new Condition("ClerkCV" + _id);
+
+	char* buffer3 = new char[50];
+	sprintf(buffer3, "ClerkCV%i", id);
+	clerkCV[_id] = new Condition(buffer3);
 	clerkState[_id] = 0;//Assumption, start free
 	clerks[id] = this;
 }
@@ -156,8 +164,7 @@ void ApplicationClerk::doJob()
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
-
-  printf("Here's your application \n");
+  printf("%s: Here you go!\n", _name);
 }
 ////////////////////////////
 //Picture Clerk
@@ -210,7 +217,7 @@ void PassportClerk::doJob()
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
 
-  printf("Here's your passport\n");
+  printf("%s: Here's your passport\n", _name);
 }
 
 
@@ -359,14 +366,13 @@ void Customer::run()
 	    {
 	      printf("\n%s: I approve of this picture\n", _name);
 	      //store that i have pic
-	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	  else
 	    {
 	      printf("%s: this picture is heinous! retake\n", _name);
-	      clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	    }
 	}
+	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
@@ -429,21 +435,26 @@ void Manager::OutputEarnings()
 	for (int i =0; i < NUM_CLERK_TYPES; i++) {
 		total += totalEarnings[i];
 	}
-	printf("Earnings report: \n");
+	printf("\n----Earnings report:---- \n");
 	printf("ApplicationClerks: %i \n",totalEarnings[APPLICATION_CLERK_TYPE]);
 	printf("PictureClerks: %i \n",totalEarnings[PICTURE_CLERK_TYPE]);
 	printf("PassportClerks: %i \n",totalEarnings[PASSPORT_CLERK_TYPE]);
 	printf("Cashiers: %i \n",totalEarnings[CASHIER_CLERK_TYPE]);
-	printf("TOTAL: %i \n",total);
+	printf("TOTAL: %i \n------------------------\n\n",total);
 }
 
 void Manager::run()
 {
+  while(true) {
 	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
-	for(int i = 0; i < 90000; i++)
+	for(int i = 0; i < 90; i++)
 		currentThread->Yield();
 	OutputEarnings();
+	if (numCustomers == 0) {
+		break;
+	}
+  }
 }
 /*
 while (!simulation_over)
