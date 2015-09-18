@@ -27,6 +27,7 @@
 
 //
 const int NUM_CLERKS = 5;
+enum state = {BUSY, AVAILABLE, BREAK};
 //
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
