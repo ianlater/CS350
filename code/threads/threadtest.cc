@@ -459,11 +459,7 @@ void Senator::EnterOffice()
   for (int i=0; i<NUM_CLERKS;i++) {
     if (clerkLock[i] != NULL) {
 	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
-    }
-  }
-  for (int i=0; i<NUM_CLERKS;i++) {
-    if (clerkLock[i] != NULL) {
-	clerkLock[i]->Release();//swait till each one is acquired i.e. nobody busy
+	clerkLock[i]->Release();
     }
   }
 }
@@ -521,7 +517,7 @@ void Manager::OutputEarnings()
 }
 
 void Manager::run()
-{/*
+{
   while(true) {
 	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
@@ -531,7 +527,7 @@ void Manager::run()
 	if (numCustomers == 0) {
 		break;
 	}
-  }*/
+  }
 }
 /*
 while (!simulation_over)
