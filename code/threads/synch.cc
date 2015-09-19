@@ -102,7 +102,7 @@ Semaphore::V()
 // the test case in the network assignment won't work!
 Lock::Lock(char* debugName) {
 
-
+	_myThread = NULL;
 	name = debugName;
 	_isBusy = false;
 	_waitQueue = new List;
@@ -114,8 +114,7 @@ void Lock::Acquire() {
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
 	
 
-
-	if (isHeldByCurrentThread())
+	if (_myThread!= NULL && isHeldByCurrentThread())
 	{
 		//current thread is lock owner, nothing to do
 		(void) interrupt->SetLevel(oldLevel);
@@ -174,7 +173,7 @@ void Lock::Release() {
 
 bool Lock::isHeldByCurrentThread(){
 
-	return currentThread == _myThread
+	return currentThread == _myThread;
 
 }
 Condition::Condition(char* debugName) { 

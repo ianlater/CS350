@@ -115,12 +115,20 @@ void Clerk::run()
 	clerkLineCV[_id]->Signal(clerkLineLock);
 	clerkState[_id] = 1;//im helping a customer
       }
-    else
+    else if (clerkLineCount[_id] == 0) //go on break
       {
-	printf( "\n%s is available\n", _name);
-	clerkState[_id] = 0;
-      }
-  
+//	printf( "\n%s is available\n", _name);
+//	clerkState[_id] = 0;
+       printf("%s attempting to go on break \n", _name);
+	//acquire my lock
+	clerkLock[_id]->Acquire();
+	//set my status
+	clerkState[_id] = 2;
+	printf("%s going on break\n", _name);
+	//wait on clerkBreakCV from manager
+	clerkBreakCV[_id]->Wait(clerkLock[_id]);
+	}
+ 
 	//now do actual interaction
     clerkLock[_id]->Acquire();
     clerkLineLock->Release();
@@ -130,19 +138,7 @@ void Clerk::run()
     doJob();
     clerkCV[_id]->Signal(clerkLock[_id]);
     clerkCV[_id]->Wait(clerkLock[_id]);
-     //can i go on break?
-	if (clerkLineCount[_id] == 0)
-	{
-		//aquire my lock
-		//clerkLock[_id]->Acquire();
-		//set my status
-		clerkState[_id] = 2;	
-		printf("%s going on break \n", _name);	
-		//wait on clerkBreakCV set by manager	
-		clerkBreakCV[_id]->Wait(clerkLock[_id]);
-		
-	} 
-    clerkLock[_id]->Release();//we're done here, back to top of while for next cust
+     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
     //
   }
 
@@ -461,18 +457,23 @@ void Manager::run()
 	OutputEarnings();*/
 	for (int x = 0; x < 90000; x++)//replace this loop with something else later
 	{
+		for (int i = 0; i < 100; i++)
+			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
 			//acquire lock
-			clerkLock[i]->Acquire();
+			//clerkLock[i]->Acquire();
 			//check if clerk is sleeping and if there are more than 3 waiting
 			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
 			{
 				//wake up clerk
+				clerkLock[i]->Acquire();	
+				printf("%s waking up ", _name);
+				printf("%s", clerks[i]->GetName());
+				clerkState[i] = 0;//set to available	
 				clerkBreakCV[i]->Signal(clerkLock[i]);	
-				clerkState[i] = 0;
+				clerkLock[i]->Release();	
 			}
-			clerkLock[i]->Release();	
 		}
 	}
 }
