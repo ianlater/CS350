@@ -929,7 +929,12 @@ void TestSuite() {
 
     t = new Thread("cashierClerkThread");
     t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-   
+
+	//tests senator before customers
+	t = new Thread("senatorThread");
+	t->Fork((VoidFunctionPtr) p2_senator,0);
+  
+	//tests multiple customers and consecutive customers 
 	for (int i = 0; i<10; i++) { 
 	  t = new Thread("customerThread");
 	  t->Fork((VoidFunctionPtr) p2_customer,0);
@@ -937,6 +942,12 @@ void TestSuite() {
 
 	t = new Thread("senatorThread");
 	t->Fork((VoidFunctionPtr) p2_senator,0);
+
+	//test consecutive senators	
+	t = new Thread("senatorThread");
+	t->Fork((VoidFunctionPtr) p2_senator,0);
+
+	  //test customer between senators
 	  t = new Thread("customerThread");
 	  t->Fork((VoidFunctionPtr) p2_customer,0);
 	
