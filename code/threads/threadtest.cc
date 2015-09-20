@@ -469,8 +469,13 @@ void Senator::EnterOffice()
   clerkLineLock->Acquire(); //acquire to broadcast current customers. released in Customer::run()
   for (int i=0; i<NUM_CLERKS;i++) {
     if (clerkLineCV[i] != NULL) {
-	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line and before returning to it
+	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
     }
+/*
+    if (clerkBribeLineCV[i] != NULL) {
+	clerkBribeLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
+    }
+*/ 
     if (clerkLock[i] != NULL) {
 	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
 	clerkLock[i]->Release();
