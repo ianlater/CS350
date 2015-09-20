@@ -139,8 +139,6 @@ printf("%s beginning to run\n", _name);
       }
     else if (clerkLineCount[_id] == 0) //go on break
       {
-//	printf( "\n%s is available\n", _name);
-//	clerkState[_id] = 0;
 	//acquire my lock
 	clerkLock[_id]->Acquire();
 	//set my status
@@ -150,18 +148,8 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
-	clerkLock[_id]->Acquire();
+	//clerkLock[_id]->Acquire();
 	}
-	//now do actual interaction
-    //clerkLock[_id]->Acquire();
-    //clerkLineLock->Release();
-    ///wait for customer data
-    //clerkCV[_id]->Wait(clerkLock[_id]);
-    //once we're here, the customer is waiting for me to do my job
-    //doJob();
-    //clerkCV[_id]->Signal(clerkLock[_id]);
-    //clerkCV[_id]->Wait(clerkLock[_id]);
-     //clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
   }
 
 }
@@ -541,25 +529,18 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	//wait for some amount of time before printing money status
-//	for(int i = 0; i < 90; i++)
-//		currentThread->Yield();
 	for (int x = 0; x < 90000; x++)//replace this loop with something else later
 	{
 		for (int i = 0; i < 100; i++)
 			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			//acquire lock
-			//clerkLock[i]->Acquire();
-			//check if clerk is sleeping and if there are more than 3 waiting
 			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
 			{
-				printf("attempting to wake up a clerk\n");
 				//wake up clerk
 				clerkLock[i]->Acquire();	
 				printf("%s waking up ", _name);
-				printf("%s", clerks[i]->GetName());
+				printf("%s\n", clerks[i]->GetName());
 				clerkState[i] = 0;//set to available	
 				clerkBreakCV[i]->Signal(clerkLock[i]);	
 				clerkLock[i]->Release();	
