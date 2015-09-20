@@ -24,9 +24,8 @@
 
 //global vars, mostly Monitors//
 
-const int NUM_CLERKS = 5;
- 
 const int NUM_CLERK_TYPES = 4;
+int numClerks[NUM_CLERK_TYPES];
 //
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
@@ -845,41 +844,68 @@ void TestSuite() {
   printf("Test Suite has started! Start the trials of pain\n\n");
 	
 	int clerkNumArray[4];
+	int numCustomers;
 	printf("Enter number of Picture Clerks (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
 	printf("\nEnter number of Application Clerks (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[APPLICATION_CLERK_TYPE]);
-	printf("\n Enter number of Passport Clerks (between 1 and 5): ");
+	printf("\nEnter number of Passport Clerks (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
-	printf("\n Enter number of Cashiers (between 1 and 5): ");
+	printf("\nEnter number of Cashiers (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
-	
+	printf("\nEnter number of Customers (between 1 and 50): ");
+	scanf("%d", &numCustomers);
 	//test: print array to see if stored correctly
 	for (int i = 0; i < NUM_CLERK_TYPES; i++)
 	{
-		printf( clerkNumArray[i] + "\n");
+		//do something, add them to an array? or count?
 	}
     Thread *t;
     char* name;
-    int i;
+    int thread_id = 0;
 
     printf("starting MultiClerk test");
-    t = new Thread("pClerkThread");
-    t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
-
-    t = new Thread("aClerkThread");
-    t->Fork((VoidFunctionPtr) p2_applicationClerk,0);
-
-    t = new Thread("passportClerkThread");
-    t->Fork((VoidFunctionPtr) p2_passportClerk,0);
-
-    t = new Thread("cashierClerkThread");
-    t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-   
-  for (int i = 0; i<3; i++) { 
-    t = new Thread("customerThread");
+    
+    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE])
+    {
+    	char* buffer1 = new char[50];
+	sprintf(buffer1, "PictureClerkThread%i", thread_id);
+    	t = new Thread(buffer1);
+    	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+    	thread_id++;
+    }
+    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE] )
+    {
+    	char* buffer1 = new char[50];
+	sprintf(buffer1, "ApplicationClerkThread%i", thread_id);
+    	t = new Thread(buffer1);
+    	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+    	thread_id++;
+    }
+    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE])
+    {
+    	char* buffer1 = new char[50];
+	sprintf(buffer1, "PassportClerkThread%i", thread_id);
+    	t = new Thread(buffer1);
+    	t->Fork((VoidFunctionPtr) p2_passportClerk, thread_id++);
+    	thread_id++;
+    }
+    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE])
+    {
+    	char* buffer1 = new char[50];
+	sprintf(buffer1, "CashierThread%i", thread_id);
+    	t = new Thread(buffer1);
+    	t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
+    	thread_id++;
+    }
+  for (int i = 0; i< numCustomers; i++) { 
+  	char* buffer1 = new char[50];
+	sprintf(buffer1, "CustomerThread", thread_id);
+    	t = new Thread(buffer1);
     t->Fork((VoidFunctionPtr) p2_customer,0);
+    thread_id++;
   }
+  //new senator thread
 	t = new Thread("managerThread");
 	t->Fork((VoidFunctionPtr) p2_manager,0);
 
