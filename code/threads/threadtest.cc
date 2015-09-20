@@ -25,6 +25,7 @@
 //global vars, mostly Monitors//
 
 const int NUM_CLERKS = 5;
+ 
 const int NUM_CLERK_TYPES = 4;
 //
 //Monitor setup:
@@ -842,7 +843,22 @@ void t5_t2() {
 void TestSuite() {
   
   printf("Test Suite has started! Start the trials of pain\n\n");
-
+	
+	int clerkNumArray[4];
+	printf("Enter number of Picture Clerks (between 1 and 5): ");
+	scanf("%h", clerkNumArray[PICTURE_CLERK_TYPE]);
+	printf("\nEnter number of Application Clerks (between 1 and 5): ");
+	scanf("%h", clerkNumArray[APPLICATION_CLERK_TYPE]);
+	printf("\n Enter number of Passport Clerks (between 1 and 5): ");
+	scanf("%h", clerkNumArray[PASSPORT_CLERK_TYPE]);
+	printf("\n Enter number of Cashiers (between 1 and 5): ");
+	scanf("%h", clerkNumArray[CASHIER_CLERK_TYPE]);
+	
+	//test: print array to see if stored correctly
+	for (int i = 0; i < NUM_CLERK_TYPES; i++)
+	{
+		printf( clerkNumArray[i] + "\n");
+	}
     Thread *t;
     char* name;
     int i;
