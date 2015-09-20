@@ -190,14 +190,14 @@ void Condition::Wait(Lock* conditionLock)
 	//Disable interupts 
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
-	if (conditionLock == NULL){
+	if (!conditionLock){
 		printf("Condition::Wait: lock input was NULL"); 
 		//Restore interrupts
 		(void) interrupt->SetLevel(oldLevel);
 
 		return;
 	}
-	if (_waitingLock == NULL){
+	if (!_waitingLock){
 		//no one waiting
 		_waitingLock = conditionLock;
 	}

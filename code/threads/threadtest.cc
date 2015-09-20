@@ -9,6 +9,7 @@
 // All rights reserved.  See copyright.h for copyright notice and limitation 
 // of liability and disclaimer of warranty provisions.
 
+#include <queue>
 #include "copyright.h"
 #include "system.h"
 #ifdef CHANGED
@@ -33,12 +34,15 @@ const int NUM_CLERKS = 25;//max num of clerks needed.. change later when dynamic
 Lock* clerkLock[NUM_CLERKS];
 //Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
 Lock* clerkLineLock = new Lock("ClerkLineLock");
+Lock* outsideLock = new Lock("OutsideLock");
+Semaphore* senatorSemaphore = new Semaphore("senatorSemaphore", 1);
 
 //Condition Variables
 Condition* clerkLineCV[NUM_CLERKS];
 //Condition* clerkBribeLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
 Condition* clerkBreakCV[NUM_CLERKS]; //CV for break, for use with manager
+Condition* senatorCV = new Condition("SenatorCV");
 
 //Monitor Variables
 int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
@@ -46,7 +50,7 @@ int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-on breaK //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
-
+bool senatorInBuilding = false;
 
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
@@ -148,7 +152,6 @@ void Clerk::run()
     clerkCV[_id]->Signal(clerkLock[_id]);
     clerkCV[_id]->Wait(clerkLock[_id]);
      clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
-    //
   }
 
 }
@@ -277,12 +280,16 @@ protected:
 private:
   bool isNextClerkType(int type);
   void giveData(int clerkType);
+  void checkSenator();
+
   char* _name;
   int _money;
-  int _myLine;
+  int _myLine;//-1 represents not in a line
   int _ssn; //unique ssn for each customer
   int _credentials[NUM_CLERK_TYPES];
+  bool _rememberLine;
 };
+std::queue<Customer*> senators;//parent type customer to allow for abstraction of customer::run for other senators
 
 Customer::Customer(char* name) 
 {
@@ -290,6 +297,8 @@ Customer::Customer(char* name)
 	_name = new char[strlen(name) + 16];
 	sprintf(_name, "%s%i",name,_ssn);
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+	_myLine = -1;
+	_rememberLine = false;
 	numCustomers++;
 }
 bool Customer::isNextClerkType(int type)
@@ -341,10 +350,28 @@ void Customer::giveData(int clerkType)
 	}
 }
 
+void Customer::checkSenator()
+{
+	//if there is a Senator in the building (and you're not that particular senator), wait until he's gone
+	if (senatorInBuilding && this != senators.front()){
+		senatorSemaphore->P();
+		senatorSemaphore->V();
+		/*
+		outsideLock->Acquire();//wait on brodcast from this lock
+		_rememberLine = (_myLine >= 0) ? true : false; //if in a line, note which
+		clerkLineCount[_myLine]--;//we're leaving line for now
+		senatorCV->Wait(outsideLock);//wait outside
+		*/
+		//go back inside
+	}
+}
+
 void Customer::run()
 {
   while(true)
   {
+	checkSenator();
+
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
 	pickLine();
 	//now, _myLine is the index of the shortest line
@@ -353,7 +380,10 @@ void Customer::run()
 		clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		clerkLineCV[_myLine]->Wait(clerkLineLock);
+	//	checkSenator();
 		clerkLineCount[_myLine]--;
+		//at this point we assume won't have to go outside till finished with current clerk
+		_rememberLine = false;
 	} 	
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
@@ -385,6 +415,7 @@ void Customer::run()
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	_myLine = -1;
 
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
@@ -395,19 +426,22 @@ void Customer::run()
 int testLine = 69;
 void Customer::pickLine()
 {
-  _myLine = -1;
-  int lineSize = 1001;
-  for(int i = 0; i < NUM_CLERKS; i++)
-    {
-     	  //check if the type of this line is something I need! TODO
-	if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
-	  if(clerkLineCount[i] < lineSize && clerkState[i] != 2)
+  if (!_rememberLine)//if you don't have to remember a line, pick a new one
+  {
+	  _myLine = -1;
+	  int lineSize = 1001;
+	  for(int i = 0; i < NUM_CLERKS; i++)
 	    {
-	      _myLine = i;
-	      lineSize = clerkLineCount[i];
+		  //check if the type of this line is something I need! TODO
+		if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
+		  if(clerkLineCount[i] < lineSize && clerkState[i] != 2)
+		    {
+		      _myLine = i;
+		      lineSize = clerkLineCount[i];
+		    }
+		}
 	    }
-	}
-    }
+  }
 }
 //////////////////////
 //Senator
@@ -417,11 +451,50 @@ class Senator : public Customer
 {
 public:
   Senator(char* name);
-  ~Senator();
-  void EnterFacility();/*should this and exit facility be functions or should the simulation itself keep track of customers and handle sending them away and bringing them back?*/
+  ~Senator(){};
+  void run();
+private:
+  void EnterOffice();
+  void ExitOffice();
 };
 
-Senator::Senator(char* name) : Customer(name){}
+Senator::Senator(char* name) : Customer(name)
+{
+  senators.push(this);
+}
+
+void Senator::EnterOffice()
+{
+  //walk in acquire all clerk locks to prevent next in line from getting to clerk
+  senatorInBuilding = true;//signals all people waiting to exit
+  senatorSemaphore->P(); 
+  for (int i=0; i<NUM_CLERKS;i++) {
+    if (clerkLock[i] != NULL) {
+	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
+	clerkLock[i]->Release();
+    }
+  }
+}
+
+void Senator::ExitOffice()
+{
+  senators.pop();//remove self from senator q
+  senatorInBuilding = false;
+  senatorSemaphore->V();
+//  outsideLock->Acquire();//leave building 
+//  senatorCV->Broadcast(outsideLock);//notify all waiting customers/senators
+//  outsideLock->Release();//giveup outside lock
+}
+
+void Senator::run()
+{
+	//enter facility
+	EnterOffice();
+	//proceed as a normal customer
+	Customer::run();
+	//exit facility
+	ExitOffice();
+}
 
 ////////////////////
 //Manager
@@ -542,6 +615,13 @@ void p2_customer()
   Customer cust = Customer("testCustomer");
   cust.run();
 }
+
+void p2_senator()
+{
+  Senator senator = Senator("testSenator");
+  senator.run();
+}
+
 int nextClerk = 0;
 void p2_pictureClerk()
 {
@@ -909,6 +989,12 @@ void TestSuite() {
   }
   //new senator thread
   	char* buffer1 = new char[10];
+	sprintf(buffer1, "senator%i", thread_id);
+	thread_id++;
+	t = new Thread(buffer1);
+	t->Fork((VoidFunctionPtr) p2_senator, 0);
+
+	buffer1 = new char[10];
 	sprintf(buffer1, "manager%i", thread_id);
     	t = new Thread(buffer1);
 	t->Fork((VoidFunctionPtr) p2_manager,0);
