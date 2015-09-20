@@ -342,14 +342,9 @@ void Customer::checkSenator()
 {
 	//if there is a Senator in the building (and you're not that particular senator), wait until he's gone
 	if (senatorInBuilding && this != senators.front()){
+		printf("%s: waiting outside\n", _name);
 		senatorSemaphore->P();
 		senatorSemaphore->V();
-		/*
-		outsideLock->Acquire();//wait on brodcast from this lock
-		_rememberLine = (_myLine >= 0) ? true : false; //if in a line, note which
-		clerkLineCount[_myLine]--;//we're leaving line for now
-		senatorCV->Wait(outsideLock);//wait outside
-		*/
 		//go back inside
 	}
 }
@@ -358,6 +353,7 @@ void Customer::run()
 {
   while(true)
   {
+	//if just completed clerk, senator may have cleared other lines and some clerks may be free but need to make sure it's not because senator in building
 	checkSenator();
 
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
@@ -368,10 +364,22 @@ void Customer::run()
 		clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		clerkLineCV[_myLine]->Wait(clerkLineLock);
-	//	checkSenator();
 		clerkLineCount[_myLine]--;
+		if (senatorInBuilding && this !=senators.front()) {
+		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
+		}
+
+		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
+		checkSenator(); //after this point senator is gone- get back in line
+		clerkLineLock->Acquire();
+		//you may be the first one in line now so check. in the case that you were senator 
+		if (_rememberLine && clerkState[_myLine] == 1) {
+			clerkLineCount[_myLine]++;
+			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+			clerkLineCV[_myLine]->Wait(clerkLineLock);
+			clerkLineCount[_myLine]--;
+		}
 		//at this point we assume won't have to go outside till finished with current clerk
-		_rememberLine = false;
 	} 	
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
@@ -404,7 +412,8 @@ void Customer::run()
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	_myLine = -1;
-
+	_rememberLine = false;
+	
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
@@ -454,9 +463,14 @@ Senator::Senator(char* name) : Customer(name)
 void Senator::EnterOffice()
 {
   //walk in acquire all clerk locks to prevent next in line from getting to clerk
+  senatorSemaphore->P(); //use to lock down entire run section
   senatorInBuilding = true;//signals all people waiting to exit
-  senatorSemaphore->P(); 
+  
+  clerkLineLock->Acquire(); //acquire to broadcast current customers. released in Customer::run()
   for (int i=0; i<NUM_CLERKS;i++) {
+    if (clerkLineCV[i] != NULL) {
+	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line and before returning to it
+    }
     if (clerkLock[i] != NULL) {
 	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
 	clerkLock[i]->Release();
@@ -921,6 +935,11 @@ void TestSuite() {
 	  t->Fork((VoidFunctionPtr) p2_customer,0);
 	}
 
+	t = new Thread("senatorThread");
+	t->Fork((VoidFunctionPtr) p2_senator,0);
+	  t = new Thread("customerThread");
+	  t->Fork((VoidFunctionPtr) p2_customer,0);
+	
 	t = new Thread("senatorThread");
 	t->Fork((VoidFunctionPtr) p2_senator,0);
 
