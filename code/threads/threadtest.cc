@@ -127,12 +127,14 @@ printf("%s beginning to run\n", _name);
 	printf("%s: is Busy\n", _name);
 	clerkLineCV[_id]->Signal(clerkLineLock);
 	clerkState[_id] = 1;//im helping a customer
+	//acquire clerk lock and release line lock
+	clerkLock[_id]->Acquire();
+	clerkLineLock->Release();
       }
     else if (clerkLineCount[_id] == 0) //go on break
       {
 //	printf( "\n%s is available\n", _name);
 //	clerkState[_id] = 0;
-       printf("%s attempting to go on break \n", _name);
 	//acquire my lock
 	clerkLock[_id]->Acquire();
 	//set my status
@@ -142,11 +144,11 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
+	clerkLock[_id]->Acquire();
 	}
- 
 	//now do actual interaction
-    clerkLock[_id]->Acquire();
-    clerkLineLock->Release();
+    //clerkLock[_id]->Acquire();
+    //clerkLineLock->Release();
     ///wait for customer data
     clerkCV[_id]->Wait(clerkLock[_id]);
     //once we're here, the customer is waiting for me to do my job
