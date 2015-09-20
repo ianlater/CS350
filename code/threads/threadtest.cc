@@ -45,7 +45,7 @@ int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
-
+bool clerkJobSuccess[NUM_CLERKS];//MV under clerLock, determine if job was successful
 
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
@@ -112,6 +112,7 @@ void Clerk::run()
 
   while(true)
   {
+    clerkJobSuccess[_id] = false;//the job hasnt been done yet
     //acquire clerkLineLock when i want to update line values 
     clerkLineLock->Acquire();
     //do bribe stuff TODO
@@ -133,9 +134,12 @@ void Clerk::run()
     ///wait for customer data
     clerkCV[_id]->Wait(clerkLock[_id]);
     //once we're here, the customer is waiting for me to do my job
-    doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-    clerkCV[_id]->Wait(clerkLock[_id]);
+    while(clerkJobSuccess[_id]==false)//while the job is not done, do it
+      {
+	doJob();
+	clerkCV[_id]->Signal(clerkLock[_id]);
+	clerkCV[_id]->Wait(clerkLock[_id]);
+      }
     clerkLock[_id]->Release();//we're done here, back to top of while for next cust
     //
   }
@@ -166,6 +170,8 @@ void ApplicationClerk::doJob()
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
   printf("%s: Here you go!\n", _name);
+  //job was successful, update jobSuccess
+  clerkJobSuccess[_id] = true;
 }
 ////////////////////////////
 //Picture Clerk
@@ -219,6 +225,8 @@ void PassportClerk::doJob()
     currentThread->Yield();
 
   printf("%s: Here's your passport\n", _name);
+  //job successful, update jobSuccess
+  clerkJobSuccess[_id] = true;
 }
 
 
@@ -248,6 +256,8 @@ void CashierClerk::doJob()
     currentThread->Yield();
 
   printf("Here's your completed passport\n");
+  //job successful, update jobSuccess
+  clerkJobSuccess[_id] = true;
 }
 
 ////////////////////////
@@ -352,31 +362,38 @@ void Customer::run()
 	int type = clerks[_myLine]->GetType();
 	giveData(type);
 
-	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-	//now we wait for clerk to take pic
-	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
+	//sigwait used to be here
 	
-	//set credentials
-	_credentials[type] = true;
-	printf("%s: Thank you %s\n", _name, clerks[_myLine]->GetName());
-
-	if (type == PICTURE_CLERK_TYPE) {
-	  //keep trying until i have my credentials
-	  
-	  //check if I like my photo RANDOM VAL
-	  int picApproval = rand() % 10;//generate random num between 0 and 10
-	  if(picApproval >8)
-	    {
-	      printf("\n%s: I approve of this picture\n", _name);
-	      //store that i have pic
+	
+	while(clerkJobSuccess[_myLine] != true)
+	  {
+	    clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	    //now we wait for clerk to take pic
+	    clerkCV[_myLine]->Wait(clerkLock[_myLine]);
+	    if (type == PICTURE_CLERK_TYPE) {    
+	      //check if I like my photo RANDOM VAL
+	      int picApproval = rand() % 10;//generate random num between 0 and 10
+	      if(picApproval >8)
+		{
+		  printf("\n%s: I approve of this picture\n", _name);
+		  clerkJobSuccess[_myLine] = true;
+		  //store that i have pic
+		}
+	      else
+		{
+		  printf("%s: this picture is heinous! retake\n", _name);
+		  clerkJobSuccess[_myLine] = false;
+		}
 	    }
-	  else
-	    {
-	      printf("%s: this picture is heinous! retake\n", _name);
-	    }
-	}
+	    //set credentials if successful
+	    _credentials[type] = clerkJobSuccess[_myLine];
+	    if(_credentials[type] == true)
+	      printf("%s: Thank you %s\n", _name, clerks[_myLine]->GetName());
+	    else
+	      printf("%s: The Job Failed %s\n", _name, clerks[_myLine]->GetName());
+	    //clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+	  }//end while
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
