@@ -115,7 +115,7 @@ Clerk::~Clerk()
 
 void Clerk::run()
 {
-
+printf("%s beginning to run\n", _name);
   while(true)
   {
     //acquire clerkLineLock when i want to update line values 
@@ -138,6 +138,8 @@ void Clerk::run()
 	//set my status
 	clerkState[_id] = 2;
 	printf("%s going on break\n", _name);
+	//release clerk line lock
+	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
 	}
@@ -375,8 +377,8 @@ void Customer::run()
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
 	pickLine();
 	//now, _myLine is the index of the shortest line
-
-	if (clerkState[_myLine] == 1) {
+	//if the clerk is busy or on break, get into line
+	if (clerkState[_myLine] != 0) {
 		clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		clerkLineCV[_myLine]->Wait(clerkLineLock);
@@ -434,7 +436,7 @@ void Customer::pickLine()
 	    {
 		  //check if the type of this line is something I need! TODO
 		if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
-		  if(clerkLineCount[i] < lineSize && clerkState[i] != 2)
+		  if(clerkLineCount[i] < lineSize )//&& clerkState[i] != 2)
 		    {
 		      _myLine = i;
 		      lineSize = clerkLineCount[i];
@@ -532,8 +534,8 @@ void Manager::run()
 {
   while(true) {
 	//wait for some amount of time before printing money status
-	for(int i = 0; i < 90; i++)
-		currentThread->Yield();
+//	for(int i = 0; i < 90; i++)
+//		currentThread->Yield();
 	for (int x = 0; x < 90000; x++)//replace this loop with something else later
 	{
 		for (int i = 0; i < 100; i++)
@@ -545,6 +547,7 @@ void Manager::run()
 			//check if clerk is sleeping and if there are more than 3 waiting
 			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
 			{
+				printf("attempting to wake up a clerk\n");
 				//wake up clerk
 				clerkLock[i]->Acquire();	
 				printf("%s waking up ", _name);
@@ -988,13 +991,13 @@ void TestSuite() {
     thread_id++;
   }
   //new senator thread
-  	char* buffer1 = new char[10];
-	sprintf(buffer1, "senator%i", thread_id);
-	thread_id++;
-	t = new Thread(buffer1);
-	t->Fork((VoidFunctionPtr) p2_senator, 0);
+  //	char* buffer1 = new char[10];
+//	sprintf(buffer1, "senator%i", thread_id);
+//	thread_id++;
+//	t = new Thread(buffer1);
+//	t->Fork((VoidFunctionPtr) p2_senator, 0);
 
-	buffer1 = new char[10];
+	char* buffer1 = new char[10];
 	sprintf(buffer1, "manager%i", thread_id);
     	t = new Thread(buffer1);
 	t->Fork((VoidFunctionPtr) p2_manager,0);
