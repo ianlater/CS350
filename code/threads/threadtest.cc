@@ -484,15 +484,9 @@ void Manager::run()
 	OutputEarnings();
 	if (numCustomers == 0) {
 		break;
+		}
 	}
-  }
 }
-while (!simulation_over)
-{
-
-//check something (linecounts?) and set simulation_over if true? break or return on errors after printing
-}
-*/
 //----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
