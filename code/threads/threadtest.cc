@@ -26,6 +26,7 @@
 
 const int NUM_CLERK_TYPES = 4;
 int numClerks[NUM_CLERK_TYPES];
+const int NUM_CLERKS = 25;//max num of clerks needed.. change later when dynamic stuff is figured out
 //
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
