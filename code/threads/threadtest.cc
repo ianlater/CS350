@@ -845,7 +845,7 @@ void TestSuite() {
   printf("Test Suite has started! Start the trials of pain\n\n");
 	
 	int clerkNumArray[4];
-	int numCustomers;
+	int numCustomersInput;
 	printf("Enter number of Picture Clerks (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
 	printf("\nEnter number of Application Clerks (between 1 and 5): ");
@@ -899,7 +899,7 @@ void TestSuite() {
     	t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
     	thread_id++;
     }
-  for (int i = 0; i< numCustomers; i++) { 
+  for (int i = 0; i< numCustomersInput; i++) { 
   	char* buffer1 = new char[50];
 	sprintf(buffer1, "CustomerThread", thread_id);
     	t = new Thread(buffer1);
@@ -927,7 +927,7 @@ void TestSuite() {
 
     // Wait for Test 1 to complete
     printf("waiting for Test 1 to complete...\n");
-    for (  i = 0; i < 2; i++ )
+    for ( int i = 0; i < 2; i++ )
 	t1_done.P();
 
     // Test 2
