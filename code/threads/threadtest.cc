@@ -866,7 +866,7 @@ void TestSuite() {
 
     printf("starting MultiClerk test");
     
-    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE])
+    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
     {
     	char* buffer1 = new char[50];
 	sprintf(buffer1, "PictureClerkThread%i", thread_id);
@@ -874,7 +874,7 @@ void TestSuite() {
     	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
     	thread_id++;
     }
-    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE] )
+    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE];i++ )
     {
     	char* buffer1 = new char[50];
 	sprintf(buffer1, "ApplicationClerkThread%i", thread_id);
@@ -882,15 +882,15 @@ void TestSuite() {
     	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
     	thread_id++;
     }
-    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE])
+    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE];i++)
     {
     	char* buffer1 = new char[50];
 	sprintf(buffer1, "PassportClerkThread%i", thread_id);
     	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_passportClerk, thread_id++);
+    	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
     	thread_id++;
     }
-    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE])
+    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE]; i++)
     {
     	char* buffer1 = new char[50];
 	sprintf(buffer1, "CashierThread%i", thread_id);
