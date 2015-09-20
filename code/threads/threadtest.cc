@@ -130,6 +130,12 @@ printf("%s beginning to run\n", _name);
 	//acquire clerk lock and release line lock
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
+	clerkCV[_id]->Wait(clerkLock[_id]);
+    //once we're here, the customer is waiting for me to do my job
+    doJob();
+    clerkCV[_id]->Signal(clerkLock[_id]);
+    clerkCV[_id]->Wait(clerkLock[_id]);
+     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0) //go on break
       {
@@ -150,12 +156,12 @@ printf("%s beginning to run\n", _name);
     //clerkLock[_id]->Acquire();
     //clerkLineLock->Release();
     ///wait for customer data
-    clerkCV[_id]->Wait(clerkLock[_id]);
+    //clerkCV[_id]->Wait(clerkLock[_id]);
     //once we're here, the customer is waiting for me to do my job
-    doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-    clerkCV[_id]->Wait(clerkLock[_id]);
-     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+    //doJob();
+    //clerkCV[_id]->Signal(clerkLock[_id]);
+    //clerkCV[_id]->Wait(clerkLock[_id]);
+     //clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
   }
 
 }
