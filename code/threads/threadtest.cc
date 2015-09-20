@@ -855,7 +855,7 @@ void TestSuite() {
 	printf("\nEnter number of Cashiers (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
 	printf("\nEnter number of Customers (between 1 and 50): ");
-	scanf("%d", &numCustomers);
+	scanf("%d", &numCustomersInput);
 	//test: print array to see if stored correctly
 	for (int i = 0; i < NUM_CLERK_TYPES; i++)
 	{
@@ -903,7 +903,7 @@ void TestSuite() {
   	char* buffer1 = new char[5];
 	sprintf(buffer1, "cus%i", thread_id);
     	t = new Thread(buffer1);
-    	t = new Thread(thread_id);
+    	//t = new Thread(thread_id);
     t->Fork((VoidFunctionPtr) p2_customer,0);
     thread_id++;
   }
