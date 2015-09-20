@@ -864,7 +864,7 @@ void TestSuite() {
     Thread *t;
     char* name;
     int thread_id = 0;
-
+    int i;
     printf("starting MultiClerk test");
     
     for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
