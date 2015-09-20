@@ -372,7 +372,7 @@ void Customer::run()
 		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
 		checkSenator(); //after this point senator is gone- get back in line
 		clerkLineLock->Acquire();
-		//you may be the first one in line now so check. in the case that you were senator 
+		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
 		if (_rememberLine && clerkState[_myLine] == 1) {
 			clerkLineCount[_myLine]++;
 			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
