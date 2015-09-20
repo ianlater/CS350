@@ -40,12 +40,13 @@ Semaphore* senatorSemaphore = new Semaphore("senatorSemaphore", 1);
 Condition* clerkLineCV[NUM_CLERKS];
 //Condition* clerkBribeLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
+Condition* clerkBreakCV[NUM_CLERKS]; //CV for break, for use with manager
 Condition* senatorCV = new Condition("SenatorCV");
 
 //Monitor Variables
 int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
-int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-on breaK //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
 bool senatorInBuilding = false;
@@ -93,6 +94,7 @@ Clerk::Clerk(char* name, int id)
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
 
 	//CVs & MVs
+	clerkBreakCV[_id] = new Condition("ClerkBreakCV" +_id);
 	char* buffer2 = new char[50];
 	sprintf(buffer2, "ClerkLineCv%i", id);
 	clerkLineCV[_id] = new Condition(buffer2);
@@ -125,12 +127,21 @@ void Clerk::run()
 	clerkLineCV[_id]->Signal(clerkLineLock);
 	clerkState[_id] = 1;//im helping a customer
       }
-    else
+    else if (clerkLineCount[_id] == 0) //go on break
       {
-	printf( "\n%s is available\n", _name);
-	clerkState[_id] = 0;
-      }
-    //now do actual interaction
+//	printf( "\n%s is available\n", _name);
+//	clerkState[_id] = 0;
+       printf("%s attempting to go on break \n", _name);
+	//acquire my lock
+	clerkLock[_id]->Acquire();
+	//set my status
+	clerkState[_id] = 2;
+	printf("%s going on break\n", _name);
+	//wait on clerkBreakCV from manager
+	clerkBreakCV[_id]->Wait(clerkLock[_id]);
+	}
+ 
+	//now do actual interaction
     clerkLock[_id]->Acquire();
     clerkLineLock->Release();
     ///wait for customer data
@@ -139,7 +150,7 @@ void Clerk::run()
     doJob();
     clerkCV[_id]->Signal(clerkLock[_id]);
     clerkCV[_id]->Wait(clerkLock[_id]);
-    //we're done here, back to top of while for next cust
+     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
   }
 
 }
@@ -519,23 +530,36 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
 	for(int i = 0; i < 90; i++)
 		currentThread->Yield();
+	for (int x = 0; x < 90000; x++)//replace this loop with something else later
+	{
+		for (int i = 0; i < 100; i++)
+			currentThread->Yield();
+		for (int i = 0; i < NUM_CLERKS; i++)
+		{
+			//acquire lock
+			//clerkLock[i]->Acquire();
+			//check if clerk is sleeping and if there are more than 3 waiting
+			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+			{
+				//wake up clerk
+				clerkLock[i]->Acquire();	
+				printf("%s waking up ", _name);
+				printf("%s", clerks[i]->GetName());
+				clerkState[i] = 0;//set to available	
+				clerkBreakCV[i]->Signal(clerkLock[i]);	
+				clerkLock[i]->Release();	
+			}
+		}
+	}
 	OutputEarnings();
 	if (numCustomers == 0) {
 		break;
+		}
 	}
-  }
 }
-/*
-while (!simulation_over)
-{
-
-//check something (linecounts?) and set simulation_over if true? break or return on errors after printing
-}
-*/
 //----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
