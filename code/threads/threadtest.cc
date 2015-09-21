@@ -32,6 +32,7 @@ const int NUM_CLERKS = 25;//max num of clerks needed.. change later when dynamic
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
 Lock* clerkLock[NUM_CLERKS];
+    
 //Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
 Lock* clerkLineLock = new Lock("ClerkLineLock");
 Lock* outsideLock = new Lock("OutsideLock");
@@ -53,18 +54,6 @@ int numCustomers = 0;
 bool senatorInBuilding = false;
 
 
-//global reset for the state of things
-//used in running consecutive tests 
-void globalReset()
-{
-	numCustomers = 0;
-	for (int i = 0; i < NUM_CLERKS; i ++ )
-{	
-	clerkState[i] = 0;
-	clerkLineCount[i] = 0;
-}
-	for (int i = 0; i < NUM_CLERK_TYPES; i++)totalEarnings[i]= 0;
-}
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
 //Clerk - Passport, Picture, Cashier, Application
@@ -990,7 +979,6 @@ void t5_t2() {
 //---------------------------------------------------
 void shortLineTest()
 {
-	globalReset();
 	//instantiate two customer threads
 	Thread *t = new Thread("clerk1");
 	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
@@ -1004,7 +992,6 @@ void shortLineTest()
 }
 void clerkWaitTest()
 {
-	globalReset();
 	Thread *t = new Thread("clerk");
 	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
 	t = new Thread("clerk2");
@@ -1049,6 +1036,15 @@ void TestSuite() {
 	char entry;
 	scanf("%c", &entry);
 	printf("You chose %c \n", entry);	
+	
+	int clerkNumArray[4];
+	//instantiate all clerk locks (max number)
+	for( int i = 0; i < NUM_CLERKS; i++)
+      {
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", i);
+	clerkLock[i] = new Lock(buffer1);
+      }
 	if(entry != 's')
 	{
 		int num = (int)entry - 48 ;
@@ -1066,17 +1062,18 @@ void TestSuite() {
 				shortLineTest();
 			else if (num ==2) {}
 			else if (num == 3) {}
-			else if (num == 4) {}
+			else if (num == 4) {
+				clerkWaitTest();
+			}
 			else if (num == 5) {}
 			else if (num == 6) {}
 			else if (num == 7) {}	
-			printf("Test completed. Next test: ");
+			printf("Test completed. ");
 		}
 			printf("\n");
 	}
 	else
 	{
-	int clerkNumArray[4];
 	int numCustomersInput;
 	printf("Enter number of Picture Clerks (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
@@ -1097,18 +1094,8 @@ void TestSuite() {
     char* name;
     int thread_id = 0;
     int i;
-    int totalClerks = clerkNumArray[PICTURE_CLERK_TYPE] + clerkNumArray[APPLICATION_CLERK_TYPE] + clerkNumArray[PASSPORT_CLERK_TYPE] + clerkNumArray[CASHIER_CLERK_TYPE];
     printf("starting MultiClerk test");
 
-    //LOCKS
-    for( int i = 0; i < totalClerks; i++)
-      {
-	char* buffer1 = new char[50];
-	sprintf(buffer1, "ClerkLock%i", i);
-	clerkLock[i] = new Lock(buffer1);
-      }
-
-    
     for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
     {
     	char* buffer1 = new char[5];
