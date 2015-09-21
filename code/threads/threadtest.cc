@@ -52,6 +52,19 @@ int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each
 int numCustomers = 0;
 bool senatorInBuilding = false;
 
+
+//global reset for the state of things
+//used in running consecutive tests 
+void globalReset()
+{
+	numCustomers = 0;
+	for (int i = 0; i < NUM_CLERKS; i ++ )
+{	
+	clerkState[i] = 0;
+	clerkLineCount[i] = 0;
+}
+	for (int i = 0; i < NUM_CLERK_TYPES; i++)totalEarnings[i]= 0;
+}
 //---------------------------------------------------------------------
 //Struct declarations for peoplee in US Passport Office
 //Clerk - Passport, Picture, Cashier, Application
@@ -149,11 +162,9 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
     //once we're here, the customer is waiting for me to do my job
-	///clerkLock[_id]->Acquire();ian
 	doJob();
-	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
-	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+    clerkCV[_id]->Signal(clerkLock[_id]);
+     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
       {
@@ -338,9 +349,9 @@ bool Customer::isNextClerkType(int type)
         if (type == CASHIER_CLERK_TYPE && _credentials[PASSPORT_CLERK_TYPE]) //cashier requires only passport (ASSUMPTION?)
         {
             return true;
-	}  
-    }
-    return false;
+	}
+       } 
+        return false;  
 }
 
 void Customer::giveData(int clerkType)
@@ -974,7 +985,35 @@ void t5_t2() {
 	   t5_l1.getName());
     t5_l1.Release();
 }
-
+//---------------------------------------------------
+// Repeatable test code
+//---------------------------------------------------
+void shortLineTest()
+{
+	globalReset();
+	//instantiate two customer threads
+	Thread *t = new Thread("clerk1");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("c1");
+	t->Fork((VoidFunctionPtr) p2_customer, 0);
+	t = new Thread("c2");
+	t->Fork((VoidFunctionPtr) p2_customer, 0);
+	//instantiate an arbitrary clerk line which will be the shortest
+	//t = new Thread("clerk");
+	//t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
+}
+void clerkWaitTest()
+{
+	globalReset();
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("clerk2");
+	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+	t = new Thread("clerk3");
+	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+	t = new Thread("clerk4");
+	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+}
 // --------------------------------------------------
 // TestSuite()
 //     This is the main thread of the test suite.  It runs the
@@ -998,7 +1037,45 @@ void t5_t2() {
 void TestSuite() {
   
   printf("Test Suite has started! Start the trials of pain\n\n");
-	
+	printf("Repeatable tests:\n");
+	printf("1) Prove that no 2 customers ever choose the same shortest line at the same time.\n");
+	printf("2) Prove that managers only read from one Clerk's total money received, at a time\n");
+	printf("3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.\n");
+	printf("4) Prove that Clerks go on break when they have no one waiting in their line.\n");
+	printf("5) Prove that Managers get Clerks off their break when lines get too long.\n");
+	printf("6) Prove that total sales never sufers from a race condition.\n");
+	printf("7) Prove that Customers behave properly when Senators arrive.\n");
+	printf("Enter a number between 1 and 7 to choose a test to run, or type s to begin the big system test.\n"); 
+	char entry;
+	scanf("%c", &entry);
+	printf("You chose %c \n", entry);	
+	if(entry != 's')
+	{
+		int num = (int)entry - 48 ;
+	//remove \n from entry
+		char garbage;
+		scanf("%c", &garbage);	
+		if (num>7 || num <= 0)
+		{
+			printf("Please enter a valid entry.\n");
+		} 
+		else
+		{
+			Thread *t;
+			if (num == 1)
+				shortLineTest();
+			else if (num ==2) {}
+			else if (num == 3) {}
+			else if (num == 4) {}
+			else if (num == 5) {}
+			else if (num == 6) {}
+			else if (num == 7) {}	
+			printf("Test completed. Next test: ");
+		}
+			printf("\n");
+	}
+	else
+	{
 	int clerkNumArray[4];
 	int numCustomersInput;
 	printf("Enter number of Picture Clerks (between 1 and 5): ");
@@ -1009,14 +1086,14 @@ void TestSuite() {
 	scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
 	printf("\nEnter number of Cashiers (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
-	printf("\nEnter number of Customers (between 1 and 50): ");
+	printf("\nEnter number of Customers (between 20 and 50): ");
 	scanf("%d", &numCustomersInput);
 	//test: print array to see if stored correctly
 	for (int i = 0; i < NUM_CLERK_TYPES; i++)
 	{
 		//do something, add them to an array? or count?
 	}
-    Thread *t;
+	Thread *t;
     char* name;
     int thread_id = 0;
     int i;
@@ -1083,13 +1160,14 @@ void TestSuite() {
 	sprintf(buffer1, "manager%i", thread_id);
     	t = new Thread(buffer1);
 	t->Fork((VoidFunctionPtr) p2_manager,0);
-
+	}//end else statement
     return;//TODO remove after testing
     
     // Test 1
-
+	Thread *t;
+	int i;
+	char * name;	
     printf("Starting Test 1\n");
-
     t = new Thread("t1_t1");
     t->Fork((VoidFunctionPtr)t1_t1,0);
 
