@@ -456,7 +456,7 @@ void Customer::run()
 	if (type == PICTURE_CLERK_TYPE) {
 	  //check if I like my photo RANDOM VAL
 	  int picApproval = rand() % 10;//generate random num between 0 and 10
-	  if(picApproval >1)
+	  if(picApproval >8)
 	    {
 	      printf("\n%s: I approve of this picture\n", _name);
 	      //store that i have pic
