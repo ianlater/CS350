@@ -131,12 +131,12 @@ printf("%s beginning to run\n", _name);
 	clerkState[_id] = 1; //busy
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
-	//clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
+	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
 	printf("%s: about to do job for BRIBE****\n", _name );
 	///clerkLock[_id]->Acquire();ian
 	doJob();
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release();
       }
     else  if(clerkLineCount[_id] > 0)
@@ -147,12 +147,12 @@ printf("%s beginning to run\n", _name);
 	//acquire clerk lock and release line lock
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
-	//	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
+	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
     //once we're here, the customer is waiting for me to do my job
 	///clerkLock[_id]->Acquire();ian
 	doJob();
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
@@ -401,11 +401,16 @@ void Customer::run()
 	    clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		//clerkCV[_myLine]->Signal(clerkLock[_myLine]);prob wrong
-		clerkLineCV[_myLine]->Wait(clerkLineLock);
 		if(_isBribing)
-		  clerkBribeLineCount[_myLine]--;
+		  {
+		    clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkBribeLineCount[_myLine]--;
+		  }
 		else
-		  clerkLineCount[_myLine]--;
+		  {
+		    clerkLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineCount[_myLine]--;
+		  }
 		if (senatorInBuilding && this !=senators.front()) {
 		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
 		}
@@ -497,7 +502,7 @@ void Customer::pickLine()
 		{
 		  if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) 
 		    {
-		      if(clerkBribeLineCount[i] < lineSize)
+		      if(clerkBribeLineCount[i] <=  lineSize)//for TESTING. do less than only for real
 			{
 			  printf("%s: I'm BRIBING\n", _name);
 			  _myLine = i;
@@ -613,7 +618,7 @@ void Manager::run()
 			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			if (clerkState[i] == 2 && (clerkLineCount[i] >= 1 || clerkBribeLineCount[i] >= 1) )
+			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1) )
 			{
 				//wake up clerk
 				clerkLock[i]->Acquire();	
