@@ -143,7 +143,14 @@ void Lock::Acquire() {
 void Lock::Release() {
 	//disable interrupts
 	IntStatus oldLevel = interrupt->SetLevel(IntOff);
-	
+
+	if(_myThread == NULL)
+	  {
+	    printf("%s: Trying to release a lock w/ no owner\n", currentThread->getName());
+	    (void) interrupt->SetLevel(oldLevel);
+	    return;
+	  }
+
 	//if current thread is not thread owner
 	if (currentThread != _myThread)
 	{
