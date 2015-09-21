@@ -127,15 +127,16 @@ printf("%s beginning to run\n", _name);
     if(clerkBribeLineCount[_id] > 0)
       {
 	printf("%s: is Busy taking a BRIBE\n", _name);
-	clerkLineCV[_id]->Signal(clerkLineLock);
+	clerkBribeLineCV[_id]->Signal(clerkLineLock);
 	clerkState[_id] = 1; //busy
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
-	clerkBribeLineCV[_id]->Wait(clerkLock[_id]);
-	
+	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
+	printf("%s: about to do job for BRIBE****\n", _name );
+	///clerkLock[_id]->Acquire();ian
 	doJob();
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release();
       }
     else  if(clerkLineCount[_id] > 0)
@@ -146,14 +147,15 @@ printf("%s beginning to run\n", _name);
 	//acquire clerk lock and release line lock
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
-	clerkCV[_id]->Wait(clerkLock[_id]);
+	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
     //once we're here, the customer is waiting for me to do my job
-    doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-    clerkCV[_id]->Wait(clerkLock[_id]);
-     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+	///clerkLock[_id]->Acquire();ian
+	doJob();
+	clerkCV[_id]->Signal(clerkLock[_id]);
+	//clerkCV[_id]->Wait(clerkLock[_id]);
+	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
-    else if (clerkLineCount[_id] == 0) //go on break
+    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
       {
 	//acquire my lock
 	clerkLock[_id]->Acquire();
@@ -165,7 +167,7 @@ printf("%s beginning to run\n", _name);
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
 	//clerkLock[_id]->Acquire();
-	}
+      }
   }
 
 }
@@ -302,6 +304,7 @@ private:
   int _ssn; //unique ssn for each customer
   int _credentials[NUM_CLERK_TYPES];
   bool _rememberLine;
+  bool _isBribing;
 };
 std::queue<Customer*> senators;//parent type customer to allow for abstraction of customer::run for other senators
 
@@ -335,10 +338,9 @@ bool Customer::isNextClerkType(int type)
         if (type == CASHIER_CLERK_TYPE && _credentials[PASSPORT_CLERK_TYPE]) //cashier requires only passport (ASSUMPTION?)
         {
             return true;
-	}
-        
-        return false;  
+	}  
     }
+    return false;
 }
 
 void Customer::giveData(int clerkType)
@@ -346,15 +348,21 @@ void Customer::giveData(int clerkType)
 	switch (clerkType) {
 	  case APPLICATION_CLERK_TYPE:
 		printf("%s: may I have application please?\n", _name);
+		if(_isBribing)
+		  totalEarnings[APPLICATION_CLERK_TYPE] += 100;
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		//ask for a picture to be taken
 		printf("%s: i would like a picture\n", _name);
+		if(_isBribing)
+		  totalEarnings[PICTURE_CLERK_TYPE] += 100;
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
 		printf("%s: ready for my passport\n", _name);
+		if(_isBribing)
+		  totalEarnings[PASSPORT_CLERK_TYPE] += 100;
 		break;
 
 	  case CASHIER_CLERK_TYPE:
@@ -387,10 +395,22 @@ void Customer::run()
 	//now, _myLine is the index of the shortest line
 	//if the clerk is busy or on break, get into line
 	if (clerkState[_myLine] != 0) {
-		clerkLineCount[_myLine]++;
+	  if(_isBribing)
+	    clerkBribeLineCount[_myLine]++;
+	  else
+	    clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
-		clerkLineCV[_myLine]->Wait(clerkLineLock);
-		clerkLineCount[_myLine]--;
+		//clerkCV[_myLine]->Signal(clerkLock[_myLine]);prob wrong
+		if(_isBribing)
+		  {
+		    clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkBribeLineCount[_myLine]--;
+		  }
+		else
+		  {
+		    clerkLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineCount[_myLine]--;
+		  }
 		if (senatorInBuilding && this !=senators.front()) {
 		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
 		}
@@ -400,13 +420,23 @@ void Customer::run()
 		clerkLineLock->Acquire();
 		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
 		if (_rememberLine && clerkState[_myLine] == 1) {
-			clerkLineCount[_myLine]++;
+		  if(_isBribing)
+		    {
+		      clerkBribeLineCount[_myLine]++;
+		       clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+		      clerkBribeLineCount[_myLine]--;
+		    }
+		  else
+		    {
+		      clerkLineCount[_myLine]++;
 			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 			clerkLineCV[_myLine]->Wait(clerkLineLock);
 			clerkLineCount[_myLine]--;
+		    }
 		}
 		//at this point we assume won't have to go outside till finished with current clerk
 	} 	
+	
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
@@ -414,7 +444,7 @@ void Customer::run()
 
 	int type = clerks[_myLine]->GetType();
 	giveData(type);
-
+	_isBribing = false;
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	//now we wait for clerk to take pic
 	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
@@ -426,7 +456,7 @@ void Customer::run()
 	if (type == PICTURE_CLERK_TYPE) {
 	  //check if I like my photo RANDOM VAL
 	  int picApproval = rand() % 10;//generate random num between 0 and 10
-	  if(picApproval >1)
+	  if(picApproval >8)
 	    {
 	      printf("\n%s: I approve of this picture\n", _name);
 	      //store that i have pic
@@ -449,6 +479,7 @@ void Customer::run()
 int testLine = 69;
 void Customer::pickLine()
 {
+  // _isBribing = false;
   if (!_rememberLine)//if you don't have to remember a line, pick a new one
   {
 	  _myLine = -1;
@@ -458,9 +489,26 @@ void Customer::pickLine()
 		  //check if the type of this line is something I need! TODO
 		if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) {
 		  if(clerkLineCount[i] < lineSize )//&& clerkState[i] != 2)
-		    {
-		      _myLine = i;
+		    {		      _myLine = i;
 		      lineSize = clerkLineCount[i];
+		    }
+		}
+	    }
+	  int desireToBribe = rand() % 10;
+	  //if i want to bribe, let's lock at bribe lines
+	  if(_money > 100 && desireToBribe > 8)
+	    {
+	      for(int i = 0; i < NUM_CLERKS; i++)
+		{
+		  if(clerks[i] != NULL && isNextClerkType(clerks[i]->GetType())) 
+		    {
+		      if(clerkBribeLineCount[i] <=  lineSize)//for TESTING. do less than only for real
+			{
+			  printf("%s: I'm BRIBING\n", _name);
+			  _myLine = i;
+			  _isBribing = true;
+			  lineSize = clerkBribeLineCount[i];
+			}
 		    }
 		}
 	    }
@@ -570,7 +618,7 @@ void Manager::run()
 			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1) )
 			{
 				//wake up clerk
 				clerkLock[i]->Acquire();	
