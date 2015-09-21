@@ -41,12 +41,13 @@ Semaphore* senatorSemaphore = new Semaphore("senatorSemaphore", 1);
 Condition* clerkLineCV[NUM_CLERKS];
 //Condition* clerkBribeLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
+Condition* clerkBreakCV[NUM_CLERKS]; //CV for break, for use with manager
 Condition* senatorCV = new Condition("SenatorCV");
 
 //Monitor Variables
 int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
 //int clerkBribeLineCount[NUM_CLERKS];
-int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-free //sidenote:does anyone know how to do enums? would be more expressive?
+int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-on breaK //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
 bool clerkJobSuccess[NUM_CLERKS];//MV under clerLock, determine if job was successful
@@ -96,6 +97,7 @@ Clerk::Clerk(char* name, int id)
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
 
 	//CVs & MVs
+	clerkBreakCV[_id] = new Condition("ClerkBreakCV" +_id);
 	char* buffer2 = new char[50];
 	sprintf(buffer2, "ClerkLineCv%i", id);
 	clerkLineCV[_id] = new Condition(buffer2);
@@ -129,17 +131,27 @@ void Clerk::run()
 	clerkLineCV[_id]->Signal(clerkLineLock);
 	clerkState[_id] = 1;//im helping a customer
       }
-    else
+    else if (clerkLineCount[_id] == 0) //go on break
       {
-	printf( "\n%s is available\n", _name);
-	clerkState[_id] = 0;
-      }
-    //now do actual interaction
+//	printf( "\n%s is available\n", _name);
+//	clerkState[_id] = 0;
+       printf("%s attempting to go on break \n", _name);
+	//acquire my lock
+	clerkLock[_id]->Acquire();
+	//set my status
+	clerkState[_id] = 2;
+	printf("%s going on break\n", _name);
+	//wait on clerkBreakCV from manager
+	clerkBreakCV[_id]->Wait(clerkLock[_id]);
+	}
+ 
+	//now do actual interaction
     clerkLock[_id]->Acquire();
     clerkLineLock->Release();
     ///wait for customer data
     clerkCV[_id]->Wait(clerkLock[_id]);
     //once we're here, the customer is waiting for me to do my job
+
     while(clerkJobSuccess[_id]==false)//while the job is not done, do it
       {
 	doJob();
@@ -148,6 +160,12 @@ void Clerk::run()
       }
     clerkLock[_id]->Release();//we're done here, back to top of while for next cust
     //
+    //=======
+    // doJob();
+    //clerkCV[_id]->Signal(clerkLock[_id]);
+    //clerkCV[_id]->Wait(clerkLock[_id]);
+    //clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+    //>>>>>>> master
   }
 
 }
@@ -356,14 +374,9 @@ void Customer::checkSenator()
 {
 	//if there is a Senator in the building (and you're not that particular senator), wait until he's gone
 	if (senatorInBuilding && this != senators.front()){
+		printf("%s: waiting outside\n", _name);
 		senatorSemaphore->P();
 		senatorSemaphore->V();
-		/*
-		outsideLock->Acquire();//wait on brodcast from this lock
-		_rememberLine = (_myLine >= 0) ? true : false; //if in a line, note which
-		clerkLineCount[_myLine]--;//we're leaving line for now
-		senatorCV->Wait(outsideLock);//wait outside
-		*/
 		//go back inside
 	}
 }
@@ -372,6 +385,7 @@ void Customer::run()
 {
   while(true)
   {
+	//if just completed clerk, senator may have cleared other lines and some clerks may be free but need to make sure it's not because senator in building
 	checkSenator();
 
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
@@ -382,10 +396,22 @@ void Customer::run()
 		clerkLineCount[_myLine]++;
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		clerkLineCV[_myLine]->Wait(clerkLineLock);
-	//	checkSenator();
 		clerkLineCount[_myLine]--;
+		if (senatorInBuilding && this !=senators.front()) {
+		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
+		}
+
+		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
+		checkSenator(); //after this point senator is gone- get back in line
+		clerkLineLock->Acquire();
+		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
+		if (_rememberLine && clerkState[_myLine] == 1) {
+			clerkLineCount[_myLine]++;
+			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+			clerkLineCV[_myLine]->Wait(clerkLineLock);
+			clerkLineCount[_myLine]--;
+		}
 		//at this point we assume won't have to go outside till finished with current clerk
-		_rememberLine = false;
 	} 	
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
@@ -428,6 +454,8 @@ void Customer::run()
 	  }//end while
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
 	_myLine = -1;
+	_rememberLine = false;
+       
 	//chose exit condition here
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
@@ -477,9 +505,19 @@ Senator::Senator(char* name) : Customer(name)
 void Senator::EnterOffice()
 {
   //walk in acquire all clerk locks to prevent next in line from getting to clerk
+  senatorSemaphore->P(); //use to lock down entire run section
   senatorInBuilding = true;//signals all people waiting to exit
-  senatorSemaphore->P(); 
+  
+  clerkLineLock->Acquire(); //acquire to broadcast current customers. released in Customer::run()
   for (int i=0; i<NUM_CLERKS;i++) {
+    if (clerkLineCV[i] != NULL) {
+	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
+    }
+/*
+    if (clerkBribeLineCV[i] != NULL) {
+	clerkBribeLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
+    }
+*/ 
     if (clerkLock[i] != NULL) {
 	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
 	clerkLock[i]->Release();
@@ -542,23 +580,36 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	//manager doesn't modify anybodies critical section yet
 	//wait for some amount of time before printing money status
 	for(int i = 0; i < 90; i++)
 		currentThread->Yield();
+	for (int x = 0; x < 90000; x++)//replace this loop with something else later
+	{
+		for (int i = 0; i < 100; i++)
+			currentThread->Yield();
+		for (int i = 0; i < NUM_CLERKS; i++)
+		{
+			//acquire lock
+			//clerkLock[i]->Acquire();
+			//check if clerk is sleeping and if there are more than 3 waiting
+			if (clerkState[i] == 2 && clerkLineCount[i] >= 3)
+			{
+				//wake up clerk
+				clerkLock[i]->Acquire();	
+				printf("%s waking up ", _name);
+				printf("%s", clerks[i]->GetName());
+				clerkState[i] = 0;//set to available	
+				clerkBreakCV[i]->Signal(clerkLock[i]);	
+				clerkLock[i]->Release();	
+			}
+		}
+	}
 	OutputEarnings();
 	if (numCustomers == 0) {
 		break;
+		}
 	}
-  }
 }
-/*
-while (!simulation_over)
-{
-
-//check something (linecounts?) and set simulation_over if true? break or return on errors after printing
-}
-*/
 //----------------------------------------------------------------------
 // SimpleThread
 // 	Loop 5 times, yielding the CPU to another ready thread 
@@ -927,6 +978,9 @@ void TestSuite() {
     int i;
 
     printf("starting MultiClerk test");
+
+
+
     t = new Thread("pClerkThread");
     t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
 
@@ -938,12 +992,29 @@ void TestSuite() {
 
     t = new Thread("cashierClerkThread");
     t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-   
+
+	//tests multiple customers and consecutive customers 
 	for (int i = 0; i<10; i++) { 
 	  t = new Thread("customerThread");
 	  t->Fork((VoidFunctionPtr) p2_customer,0);
 	}
 
+	//tests senator before customers
+    //	t = new Thread("senatorThread");
+    //	t->Fork((VoidFunctionPtr) p2_senator,0);
+	  
+
+	//	t = new Thread("senatorThread");
+	//	t->Fork((VoidFunctionPtr) p2_senator,0);
+	return;
+	//test consecutive senators	
+	t = new Thread("senatorThread");
+	t->Fork((VoidFunctionPtr) p2_senator,0);
+
+	  //test customer between senators
+	  t = new Thread("customerThread");
+	  t->Fork((VoidFunctionPtr) p2_customer,0);
+	
 	t = new Thread("senatorThread");
 	t->Fork((VoidFunctionPtr) p2_senator,0);
 
