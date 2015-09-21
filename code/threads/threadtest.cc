@@ -32,12 +32,7 @@ const int NUM_CLERKS = 25;//max num of clerks needed.. change later when dynamic
 //Monitor setup:
 //array of lock(ptrs) for each clerk+their lines
 Lock* clerkLock[NUM_CLERKS];
-    for( int i = 0; i < NUM_CLERKS; i++)
-      {
-	char* buffer1 = new char[50];
-	sprintf(buffer1, "ClerkLock%i", i);
-	clerkLock[i] = new Lock(buffer1);
-      }
+    
 //Lock* clerkLineLock[NUM_CLERKS]; //i think we onky need 1 lock for all lines
 Lock* clerkLineLock = new Lock("ClerkLineLock");
 Lock* outsideLock = new Lock("OutsideLock");
@@ -1043,7 +1038,13 @@ void TestSuite() {
 	printf("You chose %c \n", entry);	
 	
 	int clerkNumArray[4];
-	
+	//instantiate all clerk locks (max number)
+	for( int i = 0; i < NUM_CLERKS; i++)
+      {
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", i);
+	clerkLock[i] = new Lock(buffer1);
+      }
 	if(entry != 's')
 	{
 		int num = (int)entry - 48 ;
