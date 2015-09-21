@@ -145,7 +145,8 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]);
     //once we're here, the customer is waiting for me to do my job
-    doJob();
+  	clerkLock[_id]->Acquire(); 
+	doJob();
     clerkCV[_id]->Signal(clerkLock[_id]);
      clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
@@ -909,7 +910,6 @@ void shortLineTest()
 {
 	globalReset();
 	//instantiate two customer threads
-	printf("Creating a clerk\n");
 	Thread *t = new Thread("clerk1");
 	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
 	t = new Thread("c1");
@@ -967,7 +967,7 @@ void TestSuite() {
 	char entry;
 	scanf("%c", &entry);
 	printf("You chose %c \n", entry);	
-	while (entry != 's')
+	if(entry != 's')
 	{
 		int num = (int)entry - 48 ;
 	//remove \n from entry
@@ -980,23 +980,20 @@ void TestSuite() {
 		else
 		{
 			Thread *t;
-			switch(num)
-			{
-				case 1:
-					t = new Thread("test");
-					t->Fork((VoidFunctionPtr)shortLineTest, 0);
-					break;
-				case 4:
-					clerkWaitTest();
-					break;
-				default:
-					break;
-			}			
+			if (num == 1)
+				shortLineTest();
+			else if (num ==2) {}
+			else if (num == 3) {}
+			else if (num == 4) {}
+			else if (num == 5) {}
+			else if (num == 6) {}
+			else if (num == 7) {}	
 			printf("Test completed. Next test: ");
 		}
-		scanf("%c", &entry);
 			printf("\n");
 	}
+	else
+	{
 	int clerkNumArray[4];
 	int numCustomersInput;
 	printf("Enter number of Picture Clerks (between 1 and 5): ");
@@ -1007,14 +1004,14 @@ void TestSuite() {
 	scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
 	printf("\nEnter number of Cashiers (between 1 and 5): ");
 	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
-	printf("\nEnter number of Customers (between 1 and 50): ");
+	printf("\nEnter number of Customers (between 20 and 50): ");
 	scanf("%d", &numCustomersInput);
 	//test: print array to see if stored correctly
 	for (int i = 0; i < NUM_CLERK_TYPES; i++)
 	{
 		//do something, add them to an array? or count?
 	}
-    Thread *t;
+	Thread *t;
     char* name;
     int thread_id = 0;
     int i;
@@ -1071,13 +1068,14 @@ void TestSuite() {
 	sprintf(buffer1, "manager%i", thread_id);
     	t = new Thread(buffer1);
 	t->Fork((VoidFunctionPtr) p2_manager,0);
-
+	}//end else statement
     return;//TODO remove after testing
     
     // Test 1
-
+	Thread *t;
+	int i;
+	char * name;	
     printf("Starting Test 1\n");
-
     t = new Thread("t1_t1");
     t->Fork((VoidFunctionPtr)t1_t1,0);
 
