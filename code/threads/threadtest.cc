@@ -39,14 +39,14 @@ Semaphore* senatorSemaphore = new Semaphore("senatorSemaphore", 1);
 
 //Condition Variables
 Condition* clerkLineCV[NUM_CLERKS];
-//Condition* clerkBribeLineCV[NUM_CLERKS];
+Condition* clerkBribeLineCV[NUM_CLERKS];
 Condition* clerkCV[NUM_CLERKS];//I think we need this? -Jack
 Condition* clerkBreakCV[NUM_CLERKS]; //CV for break, for use with manager
 Condition* senatorCV = new Condition("SenatorCV");
 
 //Monitor Variables
 int clerkLineCount[NUM_CLERKS] = {0};//start big so we can compare later
-//int clerkBribeLineCount[NUM_CLERKS];
+int clerkBribeLineCount[NUM_CLERKS];
 int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=busy,2-on breaK //sidenote:does anyone know how to do enums? would be more expressive?
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
@@ -89,9 +89,9 @@ Clerk::Clerk(char* name, int id)
 	_name = new char[newLen];
 	sprintf(_name, "%s%i", name, id);
 	//Locks
-	char* buffer1 = new char[50];
-	sprintf(buffer1, "ClerkLock%i", id);
-	clerkLock[_id] = new Lock(buffer1);
+	//char* buffer1 = new char[50];
+	//sprintf(buffer1, "ClerkLock%i", id);
+	//clerkLock[_id] = new Lock(buffer1);
 	////clerkLineLock[_id] = new Lock("ClerkLineLock" + _id);
 
 	//CVs & MVs
@@ -100,6 +100,8 @@ Clerk::Clerk(char* name, int id)
 	sprintf(buffer2, "ClerkLineCv%i", id);
 	clerkLineCV[_id] = new Condition(buffer2);
 	clerkLineCount[_id] =0;//Assumption, start empty
+	clerkBribeLineCount[_id] = 0;
+	clerkBribeLineCV[_id] = new Condition(buffer2);
 
 	char* buffer3 = new char[50];
 	sprintf(buffer3, "ClerkCV%i", id);
@@ -122,7 +124,21 @@ printf("%s beginning to run\n", _name);
     clerkLineLock->Acquire();
     //do bribe stuff TODO
     //else if(clerkLineCount[MINE] > 0) //i got someone in line
-    if(clerkLineCount[_id] > 0)
+    if(clerkBribeLineCount[_id] > 0)
+      {
+	printf("%s: is Busy taking a BRIBE\n", _name);
+	clerkLineCV[_id]->Signal(clerkLineLock);
+	clerkState[_id] = 1; //busy
+	clerkLock[_id]->Acquire();
+	clerkLineLock->Release();
+	clerkBribeLineCV[_id]->Wait(clerkLock[_id]);
+	
+	doJob();
+	clerkCV[_id]->Signal(clerkLock[_id]);
+	clerkCV[_id]->Wait(clerkLock[_id]);
+	clerkLock[_id]->Release();
+      }
+    else  if(clerkLineCount[_id] > 0)
       {
 	printf("%s: is Busy\n", _name);
 	clerkLineCV[_id]->Signal(clerkLineLock);
@@ -956,7 +972,17 @@ void TestSuite() {
     char* name;
     int thread_id = 0;
     int i;
+    int totalClerks = clerkNumArray[PICTURE_CLERK_TYPE] + clerkNumArray[APPLICATION_CLERK_TYPE] + clerkNumArray[PASSPORT_CLERK_TYPE] + clerkNumArray[CASHIER_CLERK_TYPE];
     printf("starting MultiClerk test");
+
+    //LOCKS
+    for( int i = 0; i < totalClerks; i++)
+      {
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", i);
+	clerkLock[i] = new Lock(buffer1);
+      }
+
     
     for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
     {
