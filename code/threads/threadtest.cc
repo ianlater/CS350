@@ -1378,7 +1378,7 @@ void TestSuite() {
 			if (num == 1)
 				shortLineTest();
 			else if (num ==2) {
-				printf("Because we implemented the money count not through individual member variables, but in a monitor variable that customers directly access, there will never be a race condition in this instance.")
+				printf("Because we implemented the money count not through individual member variables, but in a monitor variable that customers directly access, there will never be a race condition in this instance.");
 			}
 			else if (num == 3) {cashierTest();}
 			else if (num == 4) {
