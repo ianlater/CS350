@@ -1141,7 +1141,7 @@ void managerWakeTest()
 	//need at least 3 to so cashier doesn't go on break
 	for (int i=0; i < 3; i++){
 	  t = new Thread("c1");
-	  t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+	  t->Fork((VoidFunctionPtr) p2_customer, 0);
 	}
 
 
