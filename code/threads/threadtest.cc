@@ -1069,13 +1069,13 @@ void shortLineTest()
 	//instantiate two customer threads
 	Thread *t = new Thread("clerk1");
 	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	printf("Clerk 1 created \n");
+	printf("Creating two customers:\n");	
 	t = new Thread("c1");
 	t->Fork((VoidFunctionPtr) p2_customer, 0);
 	t = new Thread("c2");
-	t->Fork((VoidFunctionPtr) p2_customer, 0);
-	//instantiate an arbitrary clerk line which will be the shortest
-	//t = new Thread("clerk");
-	//t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
+	t->Fork((VoidFunctionPtr) p2_customer,0);
+	
 }
 void clerkWaitTest()
 {
