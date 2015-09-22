@@ -263,7 +263,7 @@ void Condition::Broadcast(Lock* conditionLock)
 {
 	if (conditionLock != _waitingLock)
 	{
-	  printf("Condition::Broadcast: input lock ptr mismatches _waitingLock");
+	  printf("Condition::Broadcast: input lock ptr mismatches _waitingLock\n");
 	  return;
 	}
 	while (!_waitingQueue.empty()) 

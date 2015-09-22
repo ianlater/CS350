@@ -653,7 +653,6 @@ void Senator::EnterOffice()
 	  clerkLineCV[i]->Signal(clerkLineLock);
 	  clerkLineCV[i]->Wait(clerkLineLock);
 	}
-printf("here%i\n", i);
   }
   //everyone is out of lines now wait for clerks to finish
   for (int i=0; i<NUM_CLERKS;i++) {
@@ -664,7 +663,6 @@ printf("here%i\n", i);
 		clerkCV[i]->Wait(clerkLock[i]);
 	}
     }
-printf("here%i\n", i);
   }
 }
 
@@ -1174,7 +1172,7 @@ void senatorTest()
 	//need at least 3 to so cashier doesn't go on break
 	for (int i=0; i < 3; i++){
 	  t = new Thread("c1");
-	  t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+	  t->Fork((VoidFunctionPtr) p2_customer, 0);
 	}
 
 	//initiate senators to test senator effectiveness/consecutive senators
@@ -1182,9 +1180,10 @@ void senatorTest()
 	t->Fork((VoidFunctionPtr) p2_senator, 0);
 	t = new Thread("senator");
 	t->Fork((VoidFunctionPtr) p2_senator, 0);
-
+/*
 	t = new Thread("manager");
 	t->Fork((VoidFunctionPtr) p2_manager, 0);
+*/
 }
 // --------------------------------------------------
 // TestSuite()
