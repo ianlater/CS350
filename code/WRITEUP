@@ -9,6 +9,10 @@ I. Requirements:
 +Overview
 Using Monitors (that we built) as well as Semaphores, implement a Passport office simulation
 complete with Customers, Senators, Application Clerks, Picture Clerks, Passport Clerks, Managers and Cashiers
++Locks
+Locks should prevent race conditions from happening, and need to be used in critical sections where mutual exclusion needs to occur.
++Conditions
+Condition variables have no state but exist to allow locks and mutual exclusion to occur by waking up and sleeping threads under certain conditions.
 +Customers
 should enter office with some amount of money greater than 100, and immediately seek to get either a picture
 or an application (and then do the opposite of what they chose after). After that, they should go to the
