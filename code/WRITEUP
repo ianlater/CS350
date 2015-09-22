@@ -174,13 +174,11 @@ V. Testing
 	press enter (enter number of each person if s chosen), test will run
 	
 	+Test Output
-	0) Prove that our locks and conditions work (part 1 test).
 	1) Prove that no 2 customers ever choose the same shortest line at the same time.
-		Output: 2 customers are instantiated at 1 clerk; the shortest line will always be at the only clerk and there is no race condition trying to get to the clerk. 
 	2) Prove that managers only read from one Clerk's total money received, at a time
 	3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.
+		Output: Customer doesn't say it's left till cashier records they've given customer passport. Next cashier customer interaction doesn't happen till customer leaves office.
 	4) Prove that Clerks go on break when they have no one waiting in their line.
-		Output: All four types of clerk are instantiated with no customers; all go on break.
 	5) Prove that Managers get Clerks off their break when lines get too long.
 		Output: Clerk goes on break prior to customers getting in line + manager doesn't wake up clerk till third customer
 	6) Prove that total sales never sufers from a race condition.
