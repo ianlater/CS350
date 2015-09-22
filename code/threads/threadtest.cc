@@ -439,20 +439,15 @@ void Customer::run()
 		  }
 		if (senatorInBuilding && this !=senators.front()) {
 		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
-/*
-		  if (clerkBribeLineCount[_myLine] > 0 && clerkLineCount[_myLine] > 0) {
-		    clerkState[_myLine] = 0;
+  			//make sure to signal senator who may be in line 
+			if(_isBribing) {
+			  clerkBribeLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			else {
+			  clerkLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			  clerkLineLock->Release();
 		  }
-*/
-   
-		if(_isBribing) {
-		  clerkBribeLineCV[_myLine]->Signal(clerkLineLock);
-		}
-		else {
-		  clerkLineCV[_myLine]->Signal(clerkLineLock);
-		}
-		  clerkLineLock->Release();
-		}
 
 		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
 		checkSenator(); //after this point senator is gone- get back in line
@@ -598,14 +593,12 @@ void Senator::EnterOffice()
 	  clerkLineLock->Acquire();
 	  clerkBribeLineCV[i]->Signal(clerkLineLock);
 	  clerkBribeLineCV[i]->Wait(clerkLineLock);
-	  //clerkLineLock->Release();
 	}
 	//wait for regular line to empty
 	while (clerkLineCount[i] > 0) {
 	  clerkLineLock->Acquire();
 	  clerkLineCV[i]->Signal(clerkLineLock);
-	 // clerkLineCV[i]->Wait(clerkLineLock);
-	  clerkLineLock->Release();
+	  clerkLineCV[i]->Wait(clerkLineLock);
 	}
 printf("here%i\n", i);
   }
@@ -615,8 +608,7 @@ printf("here%i\n", i);
 	while (clerkState[i] == 1) {
 		clerkLock[i]->Acquire();
 		clerkCV[i]->Signal(clerkLock[i]);
-		clerkLock[i]->Release();
-	//	clerkCV[i]->Wait(clerkLock[i]);
+		clerkCV[i]->Wait(clerkLock[i]);
 	}
     }
 printf("here%i\n", i);
@@ -681,7 +673,7 @@ void Manager::run()
 			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1) )
+			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
 			{
 				//wake up clerk
 				clerkLock[i]->Acquire();	
