@@ -124,6 +124,16 @@ void Clerk::run()
 printf("%s beginning to run\n", _name);
   while(true)
   {
+/*
+  if (senatorInBuilding) {
+	clerkState[_id] = 0;
+	clerkLock[_id]->Acquire();
+//	clerkCV[_id]->Signal(clerkLock[_id]);
+	clerkLock[_id]->Release();
+//	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
+  }
+  else {
+*/
     //acquire clerkLineLock when i want to update line values 
     clerkLineLock->Acquire();
     //do bribe stuff TODO
@@ -143,12 +153,13 @@ printf("%s beginning to run\n", _name);
 	printf("%s has received SSN ", _name);
 	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
 	printf("%d\n", clerkCurrentCustomer[_id]);
+
 	doJob();
 	//printf("%s: Did job for cust: ", _name);
 	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
-	clerkLock[_id]->Release();
+	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkLock[_id]->Release();
       }
     else  if(clerkLineCount[_id] > 0)
       {
@@ -164,27 +175,33 @@ printf("%s beginning to run\n", _name);
 	printf("%s has received SSN ", _name);
 	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
 	printf("%d\n", clerkCurrentCustomer[_id]);
+
 	doJob();
 	//printf("%s: Did job for cust: ", _name);
 	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
-    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
+    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0)  //go on break
       {
 	//acquire my lock
 	clerkLock[_id]->Acquire();
 	//set my status
 	clerkState[_id] = 2;
+
+	//release clerk line lock after signalling possible senator
+	if (senatorInBuilding) {
+		clerkBribeLineCV[_id]->Signal(clerkLineLock);
+		clerkLineCV[_id]->Signal(clerkLineLock);
+	}
 	printf("%s is going on break\n", _name);
-	//release clerk line lock
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
 	printf("%s is coming off break\n", _name);
 	//clerkLock[_id]->Acquire();
       }
+ // }
   }
 
 }
@@ -345,14 +362,13 @@ Customer::Customer(char* name)
 	numCustomers++;
 }
 
-Customer::Customer(char* name, int* credentials)
+Customer::Customer(char* name, int* credentials) 
 {
-  for(int i=0;i<NUM_CLERK_TYPES;i++)
-    {
-      _credentials[i] = credentials[i];
-    }
-  _id =numCustomers;
-        _ssn = numCustomers + 1000;
+	for(int i=0;i<NUM_CLERK_TYPES;i++) {
+	  _credentials[i] = credentials[i];
+	}
+        _id =numCustomers;
+	_ssn = numCustomers + 1000;
 	_name = new char[strlen(name) + 16];
 	sprintf(_name, "%s%i",name,_id);
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
@@ -432,8 +448,6 @@ void Customer::run()
 {
   while(true)
   {
-	//if just completed clerk, senator may have cleared other lines and some clerks may be free but need to make sure it's not because senator in building
-	checkSenator();
 
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
 	pickLine();
@@ -453,43 +467,56 @@ void Customer::run()
 	      clerkLineCount[_myLine]++;
 	    }
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
-		//clerkCV[_myLine]->Signal(clerkLock[_myLine]);prob wrong
 		if(_isBribing)
 		  {
 		    clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineLock->Acquire();   
 		    clerkBribeLineCount[_myLine]--;
+		    printf("bribe line%i count: %i",_myLine, clerkBribeLineCount[_myLine]);
 		  }
 		else
 		  {
 		    clerkLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineLock->Acquire();   
 		    clerkLineCount[_myLine]--;
+		    printf("regular line%i count: %i",_myLine, clerkLineCount[_myLine]);
 		  }
 		if (senatorInBuilding && this !=senators.front()) {
 		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
-		}
+  			//make sure to signal senator who may be in line 
+			if(_isBribing) {
+			  clerkBribeLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			else {
+			  clerkLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			  clerkLineLock->Release();
+		  }
 
 		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
-		checkSenator(); //after this point senator is gone- get back in line
-		clerkLineLock->Acquire();
-		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
-		if (_rememberLine && clerkState[_myLine] == 1) {
-		  if(_isBribing)
-		    {
-		      clerkBribeLineCount[_myLine]++;
-		       clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
-		      clerkBribeLineCount[_myLine]--;
-		    }
-		  else
-		    {
-		      clerkLineCount[_myLine]++;
-			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
-			clerkLineCV[_myLine]->Wait(clerkLineLock);
-			clerkLineCount[_myLine]--;
-		    }
+		checkSenator(); //after this point senator is gone- get back in line if you were kicked out
+		if (_rememberLine) {
+			clerkLineLock->Acquire();
+			//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
+			if (clerkState[_myLine] != 0) {
+			  if(_isBribing)
+			    {
+			      clerkBribeLineCount[_myLine]++;
+			       clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+			      clerkBribeLineCount[_myLine]--;
+			    }
+			  else
+			    {
+			      clerkLineCount[_myLine]++;
+				printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+				clerkLineCV[_myLine]->Wait(clerkLineLock);
+				clerkLineCount[_myLine]--;
+			    }
+			}
 		}
 		//at this point we assume won't have to go outside till finished with current clerk
-	} 	
-	
+	}
+
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
@@ -527,6 +554,7 @@ void Customer::run()
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+
 	_myLine = -1;
 	_rememberLine = false;
 	
@@ -606,14 +634,35 @@ void Senator::EnterOffice()
     if (clerkLineCV[i] != NULL) {
 	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
     }
-/*
+
     if (clerkBribeLineCV[i] != NULL) {
 	clerkBribeLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
     }
-*/ 
+  }
+ 
+  clerkLineLock->Release();
+  for (int i=0; i<NUM_CLERKS;i++) {
+	//wait for bribe line to empty
+	while(clerkBribeLineCount[i] > 0) {
+	  clerkLineLock->Acquire();
+	  clerkBribeLineCV[i]->Signal(clerkLineLock);
+	  clerkBribeLineCV[i]->Wait(clerkLineLock);
+	}
+	//wait for regular line to empty
+	while (clerkLineCount[i] > 0) {
+	  clerkLineLock->Acquire();
+	  clerkLineCV[i]->Signal(clerkLineLock);
+	  clerkLineCV[i]->Wait(clerkLineLock);
+	}
+  }
+  //everyone is out of lines now wait for clerks to finish
+  for (int i=0; i<NUM_CLERKS;i++) {
     if (clerkLock[i] != NULL) {
-	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
-	clerkLock[i]->Release();
+	while (clerkState[i] == 1) {
+		clerkLock[i]->Acquire();
+		clerkCV[i]->Signal(clerkLock[i]);
+		clerkCV[i]->Wait(clerkLock[i]);
+	}
     }
   }
 }
@@ -623,9 +672,6 @@ void Senator::ExitOffice()
   senators.pop();//remove self from senator q
   senatorInBuilding = false;
   senatorSemaphore->V();
-//  outsideLock->Acquire();//leave building 
-//  senatorCV->Broadcast(outsideLock);//notify all waiting customers/senators
-//  outsideLock->Release();//giveup outside lock
 }
 
 void Senator::run()
@@ -673,29 +719,26 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	for (int x = 0; x < 90000; x++)//replace this loop with something else later
+	for (int i = 0; i < 1000; i++)
+		currentThread->Yield();
+	for (int i = 0; i < NUM_CLERKS; i++)
 	{
-		for (int i = 0; i < 100; i++)
-			currentThread->Yield();
-		for (int i = 0; i < NUM_CLERKS; i++)
+		if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
 		{
-			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1) )
-			{
-				//wake up clerk
-				clerkLock[i]->Acquire();	
-				printf("%s waking up ", _name);
-				printf("%s\n", clerks[i]->GetName());
-				clerkState[i] = 0;//set to available	
-				clerkBreakCV[i]->Signal(clerkLock[i]);	
-				clerkLock[i]->Release();	
-			}
+			//wake up clerk
+			clerkLock[i]->Acquire();	
+			printf("%s waking up ", _name);
+			printf("%s\n", clerks[i]->GetName());
+			clerkState[i] = 0;//set to available	
+			clerkBreakCV[i]->Signal(clerkLock[i]);	
+			clerkLock[i]->Release();	
 		}
 	}
 	OutputEarnings();
 	if (numCustomers == 0) {
 		break;
-		}
 	}
+  }
 }
 //----------------------------------------------------------------------
 // SimpleThread
@@ -757,6 +800,12 @@ void p2_customerAtCashier()
   int credentials[NUM_CLERK_TYPES] = {1,1,1,0};
   Customer custAtCashier = Customer("testCustomerAtCashier", credentials);
   custAtCashier.run();
+}
+void p2_customerWPassport()
+{
+  int credentials[NUM_CLERK_TYPES] = {0,0,1,0};
+  Customer custWCreds = Customer("testCustomerWCreds", credentials);
+  custWCreds.run();
 }
 
 void p2_senator()
@@ -1046,244 +1095,8 @@ void t5_t2() {
 // Repeatable test code
 //---------------------------------------------------
 /*1*/
-void shortLineTest()
-{
-	//instantiate two customer threads
-	Thread *t = new Thread("clerk1");
-	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
-	t = new Thread("c1");
-	t->Fork((VoidFunctionPtr) p2_customer, 0);
-	t = new Thread("c2");
-	t->Fork((VoidFunctionPtr) p2_customer, 0);
-	//instantiate an arbitrary clerk line which will be the shortest
-	//t = new Thread("clerk");
-	//t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
-}
-/*2*/
-void managerClerkTest()
-{
-}
-/*3*/
-void cashierTest()
-{
-}
-/*4*/
-void clerkWaitTest()
-{
-	Thread *t = new Thread("clerk");
-	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
-	t = new Thread("clerk2");
-	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
-	t = new Thread("clerk3");
-	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
-	t = new Thread("clerk4");
-	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
-}
-/*5*/
-void managerBreakTest()
-{
-}
-/*6*/
-int salesUpdate()
-{
-  int temp = 0;
-  	for (int i =0; i < NUM_CLERK_TYPES; i++) {
-		temp += totalEarnings[i];
-	}
-	return temp;
-}
-void salesRCTest()
-{
-  int updateCount = 15;
-  int total = 0;
-
-  Thread* t;
-  t = new Thread("manager");
-  t->Fork((VoidFunctionPtr)  p2_manager, 0);
-  t = new Thread("cash");
-  t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
-  //t = new Thread("cash0");
-  //t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
-  t = new Thread("cust");
-  for(int i = 0; i <updateCount; i++)
-    {
-      t->Fork((VoidFunctionPtr) p2_customerAtCashier, 0);
-      t = new Thread("cust0");
-    }
-
-  while(updateCount != 0)
-    {
-      int newTotal = salesUpdate();
-      if(newTotal!= total)
-	{
-	  total = newTotal;
-	  updateCount--;
-	  printf("****SALES UPDATED: ONLY %d CUSTOMERS LEFT TO UPDATE SALES*****\n", updateCount);
-	}
-      currentThread->Yield();
-    }
-  printf("TEST COMPLETE\n");
-
-
-
-}
-/*7*/
-void senatorTest()
-{
-}
-// --------------------------------------------------
-// TestSuite()
-//     This is the main thread of the test suite.  It runs the
-//     following tests:
-//
-//       1.  Show that a thread trying to release a lock it does not
-//       hold does not work
-//
-//       2.  Show that Signals are not stored -- a Signal with no
-//       thread waiting is ignored
-//
-//       3.  Show that Signal only wakes 1 thread
-//
-//	 4.  Show that Broadcast wakes all waiting threads
-//
-//       5.  Show that Signalling a thread waiting under one lock
-//       while holding another is a Fatal error
-//
-//     Fatal errors terminate the thread in question.
-// --------------------------------------------------
-void TestSuite() {
-  
-  printf("Test Suite has started! Start the trials of pain\n\n");
-	printf("Repeatable tests:\n");
-	printf("1) Prove that no 2 customers ever choose the same shortest line at the same time.\n");
-	printf("2) Prove that managers only read from one Clerk's total money received, at a time\n");
-	printf("3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.\n");
-	printf("4) Prove that Clerks go on break when they have no one waiting in their line.\n");
-	printf("5) Prove that Managers get Clerks off their break when lines get too long.\n");
-	printf("6) Prove that total sales never sufers from a race condition.\n");
-	printf("7) Prove that Customers behave properly when Senators arrive.\n");
-	printf("Enter a number between 1 and 7 to choose a test to run, or type s to begin the big system test.\n"); 
-	char entry;
-	scanf("%c", &entry);
-	printf("You chose %c \n", entry);	
-	
-	int clerkNumArray[4];
-	//instantiate all clerk locks (max number)
-	for( int i = 0; i < NUM_CLERKS; i++)
-      {
-	char* buffer1 = new char[50];
-	sprintf(buffer1, "ClerkLock%i", i);
-	clerkLock[i] = new Lock(buffer1);
-	//clerks[i] =new  Clerk();
-      }
-	if(entry != 's')
-	{
-		int num = (int)entry - 48 ;
-	//remove \n from entry
-		char garbage;
-		scanf("%c", &garbage);	
-		if (num>7 || num <= 0)
-		{
-			printf("Please enter a valid entry.\n");
-		} 
-		else
-		{
-			Thread *t;
-			if (num == 1)
-				shortLineTest();
-			else if (num ==2) {}
-			else if (num == 3) {}
-			else if (num == 4) {
-				clerkWaitTest();
-			}
-			else if (num == 5) {}
-			else if (num == 6) {
-			  salesRCTest();
-			}
-			else if (num == 7) {}	
-			printf("Test completed. ");
-		}
-			printf("\n");
-	}
-	else
-	{
-	int numCustomersInput;
-	printf("Enter number of Picture Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
-	printf("\nEnter number of Application Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[APPLICATION_CLERK_TYPE]);
-	printf("\nEnter number of Passport Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
-	printf("\nEnter number of Cashiers (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
-	printf("\nEnter number of Customers (between 20 and 50): ");
-	scanf("%d", &numCustomersInput);
-	//test: print array to see if stored correctly
-	for (int i = 0; i < NUM_CLERK_TYPES; i++)
-	{
-		//do something, add them to an array? or count?
-	}
-	Thread *t;
-    char* name;
-    int thread_id = 0;
-    int i;
-    printf("starting MultiClerk test");
-
-    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "pic%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE];i++ )
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "app%i", thread_id);
-    	t = new Thread(buffer1);
-       	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE];i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "pas%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE]; i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "cas%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-    	thread_id++;
-    }
-  for (int i = 0; i< numCustomersInput; i++) { 
-  	char* buffer1 = new char[5];
-	sprintf(buffer1, "cus%i", thread_id);
-    	t = new Thread(buffer1);
-    	//t = new Thread(thread_id);
-    t->Fork((VoidFunctionPtr) p2_customer,0);
-    thread_id++;
-  }
-  //new senator thread
-  //	char* buffer1 = new char[10];
-//	sprintf(buffer1, "senator%i", thread_id);
-//	thread_id++;
-//	t = new Thread(buffer1);
-//	t->Fork((VoidFunctionPtr) p2_senator, 0);
-
-	char* buffer1 = new char[10];
-	sprintf(buffer1, "manager%i", thread_id);
-    	t = new Thread(buffer1);
-	t->Fork((VoidFunctionPtr) p2_manager,0);
-	}//end else statement
-    return;//TODO remove after testing
-    
-    // Test 1
+void p1Test(){
+	    // Test 1
 	Thread *t;
 	int i;
 	char * name;	
@@ -1362,6 +1175,300 @@ void TestSuite() {
 
     t = new Thread("t5_t2");
     t->Fork((VoidFunctionPtr)t5_t2,0);
+}
+/*1*/
+void shortLineTest()
+{
+	//instantiate two customer threads
+	Thread *t = new Thread("clerk1");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	printf("Clerk 1 created \n");
+	printf("Creating two customers:\n");	
+	t = new Thread("c1");
+	t->Fork((VoidFunctionPtr) p2_customer, 0);
+	t = new Thread("c2");
+	t->Fork((VoidFunctionPtr) p2_customer,0);
+	
+}
+/*2*/
+void managerClerkTest()
+{
+}
+/*3*/
+void cashierTest()
+{
+	Thread *t = new Thread("clerk");
+        t = new Thread("clerk4");
+        t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  //need at least 3 to so cashier doesn't go on break
+  for (int i=0; i < 3; i++){
+	t = new Thread("c1");
+	t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+  }
+
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+}
+/*4*/
+void clerkWaitTest()
+{
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("clerk2");
+	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+	t = new Thread("clerk3");
+	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+	t = new Thread("clerk4");
+	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+}
+/*5*/
+void managerWakeTest()
+{
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+	//wait for clerks to go to sleep
+	for(int i=0; i < 200; i++)
+	  currentThread->Yield();
+	//need at least 3 to so cashier doesn't go on break
+	for (int i=0; i < 3; i++){
+	  t = new Thread("c1");
+	  t->Fork((VoidFunctionPtr) p2_customer, 0);
+	}
+
+
+}
+/*6*/
+int salesUpdate()
+{
+  int temp = 0;
+  	for (int i =0; i < NUM_CLERK_TYPES; i++) {
+		temp += totalEarnings[i];
+	}
+	return temp;
+}
+void salesRCTest()
+{
+  int updateCount = 15;
+  int total = 0;
+
+  Thread* t;
+  t = new Thread("manager");
+  t->Fork((VoidFunctionPtr)  p2_manager, 0);
+  t = new Thread("cash");
+  t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  //t = new Thread("cash0");
+  //t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  t = new Thread("cust");
+  for(int i = 0; i <updateCount; i++)
+    {
+      t->Fork((VoidFunctionPtr) p2_customerAtCashier, 0);
+      t = new Thread("cust0");
+    }
+
+  while(updateCount != 0)
+    {
+      int newTotal = salesUpdate();
+      if(newTotal!= total)
+	{
+	  total = newTotal;
+	  updateCount--;
+	  printf("****SALES UPDATED: ONLY %d CUSTOMERS LEFT TO UPDATE SALES*****\n", updateCount);
+	}
+      currentThread->Yield();
+    }
+  printf("TEST COMPLETE\n");
+
+
+
+}
+
+/*7*/
+void senatorTest()
+{
+	//initiate all clerks
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("clerk2");
+	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+	t = new Thread("clerk3");
+	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+	t = new Thread("clerk4");
+	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+	
+	//initiate some customers
+	//need at least 3 to so cashier doesn't go on break
+	for (int i=0; i < 3; i++){
+	  t = new Thread("c1");
+	  t->Fork((VoidFunctionPtr) p2_customer, 0);
+	}
+
+	//initiate senators to test senator effectiveness/consecutive senators
+	t = new Thread("senator");
+	t->Fork((VoidFunctionPtr) p2_senator, 0);
+	t = new Thread("senator");
+	t->Fork((VoidFunctionPtr) p2_senator, 0);
+/*
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+*/
+}
+// --------------------------------------------------
+// TestSuite()
+//     This is the main thread of the test suite.  It runs the
+//     following tests:
+//
+//       1.  Show that a thread trying to release a lock it does not
+//       hold does not work
+//
+//       2.  Show that Signals are not stored -- a Signal with no
+//       thread waiting is ignored
+//
+//       3.  Show that Signal only wakes 1 thread
+//
+//	 4.  Show that Broadcast wakes all waiting threads
+//
+//       5.  Show that Signalling a thread waiting under one lock
+//       while holding another is a Fatal error
+//
+//     Fatal errors terminate the thread in question.
+// --------------------------------------------------
+void TestSuite() {
+  
+  printf("Test Suite has started! Start the trials of pain\n\n");
+	printf("Repeatable tests:\n");
+	printf("0) Run part 1 tests (locks and conditions).\n");
+	printf("1) Prove that no 2 customers ever choose the same shortest line at the same time.\n");
+	printf("2) Prove that managers only read from one Clerk's total money received, at a time\n");
+	printf("3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.\n");
+	printf("4) Prove that Clerks go on break when they have no one waiting in their line.\n");
+	printf("5) Prove that Managers get Clerks off their break when lines get too long.\n");
+	printf("6) Prove that total sales never sufers from a race condition.\n");
+	printf("7) Prove that Customers behave properly when Senators arrive.\n");
+	printf("Enter a number between 1 and 7 to choose a test to run, or type s to begin the big system test.\n"); 
+	char entry;
+	scanf("%c", &entry);
+	printf("You chose %c \n", entry);	
+	
+	int clerkNumArray[4];
+	//instantiate all clerk locks (max number)
+	for( int i = 0; i < NUM_CLERKS; i++)
+      {
+	char* buffer1 = new char[50];
+	sprintf(buffer1, "ClerkLock%i", i);
+	clerkLock[i] = new Lock(buffer1);
+	//clerks[i] =new  Clerk();
+      }
+	if(entry != 's')
+	{
+		int num = (int)entry - 48 ;
+	//remove \n from entry
+		char garbage;
+		scanf("%c", &garbage);	
+		if (num>7 || num < 0)
+		{
+			printf("Please enter a valid entry.\n");
+		} 
+		else
+		{
+			Thread *t;
+			if (num == 0)
+				p1Test();
+			if (num == 1)
+				shortLineTest();
+			else if (num ==2) {}
+			else if (num == 3) {cashierTest();}
+			else if (num == 4) {
+				clerkWaitTest();
+			}
+			else if (num == 5) {managerWakeTest();}
+			else if (num == 6) {salesRCTest();}
+			else if (num == 7) {senatorTest();}	
+			printf("Test completed. ");
+		}
+			printf("\n");
+	}
+	else
+	{
+		int numCustomersInput;
+		printf("Enter number of Picture Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
+		printf("\nEnter number of Application Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[APPLICATION_CLERK_TYPE]);
+		printf("\nEnter number of Passport Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
+		printf("\nEnter number of Cashiers (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
+		printf("\nEnter number of Customers (between 20 and 50): ");
+		scanf("%d", &numCustomersInput);
+		//test: print array to see if stored correctly
+		for (int i = 0; i < NUM_CLERK_TYPES; i++)
+		{
+			//do something, add them to an array? or count?
+		}
+		Thread *t;
+	    char* name;
+	    int thread_id = 0;
+	    int i;
+	    printf("starting MultiClerk test");
+
+	    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "pic%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE];i++ )
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "app%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE];i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "pas%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE]; i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "cas%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
+		thread_id++;
+	    }
+	  for (int i = 0; i< numCustomersInput; i++) { 
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "cus%i", thread_id);
+		t = new Thread(buffer1);
+		//t = new Thread(thread_id);
+	    t->Fork((VoidFunctionPtr) p2_customer,0);
+	    thread_id++;
+	  }
+	  //new senator thread
+	  	char* buffer1 = new char[10];
+		sprintf(buffer1, "senator%i", thread_id);
+		thread_id++;
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_senator, 0);
+
+		buffer1 = new char[10];
+		sprintf(buffer1, "manager%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_manager,0);
+	}//end else statement
+
+    return;//TODO remove after testing
+    
+
 
 }
 #endif
