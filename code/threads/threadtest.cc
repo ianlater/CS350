@@ -180,7 +180,6 @@ printf("%s beginning to run\n", _name);
 	//printf("%s: Did job for cust: ", _name);
 	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0)  //go on break
@@ -1090,30 +1089,25 @@ void t5_t2() {
 //---------------------------------------------------
 // Repeatable test code
 //---------------------------------------------------
+/*1*/
 void shortLineTest()
 {
 	//instantiate two customer threads
 	Thread *t = new Thread("clerk1");
 	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	printf("Clerk 1 created \n");
+	printf("Creating two customers:\n");	
 	t = new Thread("c1");
 	t->Fork((VoidFunctionPtr) p2_customer, 0);
 	t = new Thread("c2");
-	t->Fork((VoidFunctionPtr) p2_customer, 0);
-	//instantiate an arbitrary clerk line which will be the shortest
-	//t = new Thread("clerk");
-	//t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
+	t->Fork((VoidFunctionPtr) p2_customer,0);
+	
 }
-void clerkWaitTest()
+/*2*/
+void managerClerkTest()
 {
-	Thread *t = new Thread("clerk");
-	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
-	t = new Thread("clerk2");
-	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
-	t = new Thread("clerk3");
-	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
-	t = new Thread("clerk4");
-	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
 }
+/*3*/
 void cashierTest()
 {
 	Thread *t = new Thread("clerk");
@@ -1128,7 +1122,19 @@ void cashierTest()
 	t = new Thread("manager");
 	t->Fork((VoidFunctionPtr) p2_manager, 0);
 }
-
+/*4*/
+void clerkWaitTest()
+{
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("clerk2");
+	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+	t = new Thread("clerk3");
+	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+	t = new Thread("clerk4");
+	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+}
+/*5*/
 void managerWakeTest()
 {
 	Thread *t = new Thread("clerk");
@@ -1146,7 +1152,12 @@ void managerWakeTest()
 
 
 }
+/*6*/
+void salesRCTest()
+{
+}
 
+/*7*/
 void senatorTest()
 {
 	//initiate all clerks
@@ -1174,7 +1185,6 @@ void senatorTest()
 
 	t = new Thread("manager");
 	t->Fork((VoidFunctionPtr) p2_manager, 0);
-
 }
 // --------------------------------------------------
 // TestSuite()
