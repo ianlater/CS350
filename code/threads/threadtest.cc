@@ -156,11 +156,11 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
 	printf("%s: about to do job for BRIBE****\n", _name );
-	///clerkLock[_id]->Acquire();ian
+//	clerkLock[_id]->Acquire();//ian
 	doJob();
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
-	clerkLock[_id]->Release();
+	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkLock[_id]->Release();
       }
     else  if(clerkLineCount[_id] > 0)
       {
@@ -172,11 +172,13 @@ printf("%s beginning to run\n", _name);
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
     	//once we're here, the customer is waiting for me to do my job
+//	clerkLock[_id]->Acquire();
 	doJob();
     	clerkCV[_id]->Signal(clerkLock[_id]);
-     	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+	clerkCV[_id]->Wait(clerkLock[_id]);
+//     	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
-    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
+    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0)  //go on break
       {
 	//acquire my lock
 	clerkLock[_id]->Acquire();
@@ -453,7 +455,7 @@ void Customer::run()
 		checkSenator(); //after this point senator is gone- get back in line
 		clerkLineLock->Acquire();
 		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
-		if (_rememberLine && clerkState[_myLine] == 1) {
+		if (_rememberLine && clerkState[_myLine] != 0) {
 		  if(_isBribing)
 		    {
 		      clerkBribeLineCount[_myLine]++;
