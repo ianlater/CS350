@@ -1064,6 +1064,87 @@ void t5_t2() {
 //---------------------------------------------------
 // Repeatable test code
 //---------------------------------------------------
+void p1Test(){
+	    // Test 1
+	Thread *t;
+	int i;
+	char * name;	
+    printf("Starting Test 1\n");
+    t = new Thread("t1_t1");
+    t->Fork((VoidFunctionPtr)t1_t1,0);
+
+    t = new Thread("t1_t2");
+    t->Fork((VoidFunctionPtr)t1_t2,0);
+
+    t = new Thread("t1_t3");
+    t->Fork((VoidFunctionPtr)t1_t3,0);
+
+    // Wait for Test 1 to complete
+    printf("waiting for Test 1 to complete...\n");
+    for ( int i = 0; i < 2; i++ )
+	t1_done.P();
+
+    // Test 2
+
+    printf("Starting Test 2.  Note that it is an error if thread t2_t2 ");
+    printf("completes!\n");
+    
+    t = new Thread("t2_t1");
+    printf("created new thread t2_t1");
+    t->Fork((VoidFunctionPtr)t2_t1,0);
+    printf("forked t2_t1");
+    t = new Thread("t2_t2");
+    t->Fork((VoidFunctionPtr)t2_t2,0);
+    printf("forked t2_t2");
+    // Wait for Test 2 to complete
+    printf("waiting for test 2 to complete");
+    t2_done.P();
+
+    // Test 3
+
+    printf("Starting Test 3\n");
+
+    for (  i = 0 ; i < 5 ; i++ ) {
+	name = new char[20];
+	sprintf(name,"t3_waiter%d",i);
+	t = new Thread(name);
+	t->Fork((VoidFunctionPtr)t3_waiter,0);
+    }
+    t = new Thread("t3_signaller");
+    t->Fork((VoidFunctionPtr)t3_signaller,0);
+
+    // Wait for Test 3 to complete
+    for (  i = 0; i < 2; i++ )
+	t3_done.P();
+
+    // Test 4
+
+    printf("Starting Test 4\n");
+
+    for (  i = 0 ; i < 5 ; i++ ) {
+	name = new char[20];
+	sprintf(name,"t4_waiter%d",i);
+	t = new Thread(name);
+	t->Fork((VoidFunctionPtr)t4_waiter,0);
+    }
+    t = new Thread("t4_signaller");
+    t->Fork((VoidFunctionPtr)t4_signaller,0);
+
+    // Wait for Test 4 to complete
+    for (  i = 0; i < 6; i++ )
+	t4_done.P();
+
+    // Test 5
+
+    printf("Starting Test 5.  Note that it is an error if thread t5_t1\n");
+    printf("completes\n");
+
+    t = new Thread("t5_t1");
+    t->Fork((VoidFunctionPtr)t5_t1,0);
+
+    t = new Thread("t5_t2");
+    t->Fork((VoidFunctionPtr)t5_t2,0);
+}
 void shortLineTest()
 {
 	//instantiate two customer threads
@@ -1112,6 +1193,7 @@ void TestSuite() {
   
   printf("Test Suite has started! Start the trials of pain\n\n");
 	printf("Repeatable tests:\n");
+	printf("0) Run part 1 tests (locks and conditions).\n");
 	printf("1) Prove that no 2 customers ever choose the same shortest line at the same time.\n");
 	printf("2) Prove that managers only read from one Clerk's total money received, at a time\n");
 	printf("3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.\n");
@@ -1138,13 +1220,15 @@ void TestSuite() {
 	//remove \n from entry
 		char garbage;
 		scanf("%c", &garbage);	
-		if (num>7 || num <= 0)
+		if (num>7 || num < 0)
 		{
 			printf("Please enter a valid entry.\n");
 		} 
 		else
 		{
 			Thread *t;
+			if (num == 0)
+				p1Test();
 			if (num == 1)
 				shortLineTest();
 			else if (num ==2) {}
@@ -1238,85 +1322,7 @@ void TestSuite() {
 
     return;//TODO remove after testing
     
-    // Test 1
-	Thread *t;
-	int i;
-	char * name;	
-    printf("Starting Test 1\n");
-    t = new Thread("t1_t1");
-    t->Fork((VoidFunctionPtr)t1_t1,0);
 
-    t = new Thread("t1_t2");
-    t->Fork((VoidFunctionPtr)t1_t2,0);
-
-    t = new Thread("t1_t3");
-    t->Fork((VoidFunctionPtr)t1_t3,0);
-
-    // Wait for Test 1 to complete
-    printf("waiting for Test 1 to complete...\n");
-    for ( int i = 0; i < 2; i++ )
-	t1_done.P();
-
-    // Test 2
-
-    printf("Starting Test 2.  Note that it is an error if thread t2_t2 ");
-    printf("completes!\n");
-    
-    t = new Thread("t2_t1");
-    printf("created new thread t2_t1");
-    t->Fork((VoidFunctionPtr)t2_t1,0);
-    printf("forked t2_t1");
-    t = new Thread("t2_t2");
-    t->Fork((VoidFunctionPtr)t2_t2,0);
-    printf("forked t2_t2");
-    // Wait for Test 2 to complete
-    printf("waiting for test 2 to complete");
-    t2_done.P();
-
-    // Test 3
-
-    printf("Starting Test 3\n");
-
-    for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char[20];
-	sprintf(name,"t3_waiter%d",i);
-	t = new Thread(name);
-	t->Fork((VoidFunctionPtr)t3_waiter,0);
-    }
-    t = new Thread("t3_signaller");
-    t->Fork((VoidFunctionPtr)t3_signaller,0);
-
-    // Wait for Test 3 to complete
-    for (  i = 0; i < 2; i++ )
-	t3_done.P();
-
-    // Test 4
-
-    printf("Starting Test 4\n");
-
-    for (  i = 0 ; i < 5 ; i++ ) {
-	name = new char[20];
-	sprintf(name,"t4_waiter%d",i);
-	t = new Thread(name);
-	t->Fork((VoidFunctionPtr)t4_waiter,0);
-    }
-    t = new Thread("t4_signaller");
-    t->Fork((VoidFunctionPtr)t4_signaller,0);
-
-    // Wait for Test 4 to complete
-    for (  i = 0; i < 6; i++ )
-	t4_done.P();
-
-    // Test 5
-
-    printf("Starting Test 5.  Note that it is an error if thread t5_t1\n");
-    printf("completes\n");
-
-    t = new Thread("t5_t1");
-    t->Fork((VoidFunctionPtr)t5_t1,0);
-
-    t = new Thread("t5_t2");
-    t->Fork((VoidFunctionPtr)t5_t2,0);
 
 }
 #endif
