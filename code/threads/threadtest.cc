@@ -1,4 +1,4 @@
-// threadtest.cc 
+ // threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
@@ -52,6 +52,8 @@ int clerkState[NUM_CLERKS];//keep track of state of clerks with ints 0=free,1=bu
 int totalEarnings[NUM_CLERK_TYPES] = {0};//keep track of money submitted by each type of clerk
 int numCustomers = 0;
 bool senatorInBuilding = false;
+int clerkCurrentCustomer[NUM_CLERKS];//relate clerk id to customer id
+int clerkCurrentCustomerSSN[NUM_CLERKS];//relate clerk id to customer ssn
 
 
 //---------------------------------------------------------------------
@@ -128,15 +130,22 @@ printf("%s beginning to run\n", _name);
     //else if(clerkLineCount[MINE] > 0) //i got someone in line
     if(clerkBribeLineCount[_id] > 0)
       {
-	printf("%s: is Busy taking a BRIBE\n", _name);
+	//printf("%s: is Busy taking a BRIBE\n", _name);
 	clerkBribeLineCV[_id]->Signal(clerkLineLock);
+	printf("%s has signalled a Customer to come to their counter\n", _name);
 	clerkState[_id] = 1; //busy
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
-	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
-	printf("%s: about to do job for BRIBE****\n", _name );
-	///clerkLock[_id]->Acquire();ian
+	clerkCV[_id]->Wait(clerkLock[_id]);
+	//	printf("%s: about to do job for BRIBE****\n", _name );
+	printf("%s has received $500 from customer", _name);
+	printf("%d (BRIBE)\n", clerkCurrentCustomer[_id]);
+	printf("%s has received SSN ", _name);
+	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
+	printf("%d\n", clerkCurrentCustomer[_id]);
 	doJob();
+	//printf("%s: Did job for cust: ", _name);
+	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
 	//clerkCV[_id]->Wait(clerkLock[_id]);
 	clerkLock[_id]->Release();
@@ -145,15 +154,22 @@ printf("%s beginning to run\n", _name);
       {
 	printf("%s: is Busy\n", _name);
 	clerkLineCV[_id]->Signal(clerkLineLock);
+	printf("%s has signalled a Customer to come to their counter\n", _name);
 	clerkState[_id] = 1;//im helping a customer
 	//acquire clerk lock and release line lock
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
     //once we're here, the customer is waiting for me to do my job
+	printf("%s has received SSN ", _name);
+	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
+	printf("%d\n", clerkCurrentCustomer[_id]);
 	doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+	//printf("%s: Did job for cust: ", _name);
+	//printf("%d\n", clerkCurrentCustomer[_id]);
+	clerkCV[_id]->Signal(clerkLock[_id]);
+	//clerkCV[_id]->Wait(clerkLock[_id]);
+	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
       {
@@ -161,11 +177,12 @@ printf("%s beginning to run\n", _name);
 	clerkLock[_id]->Acquire();
 	//set my status
 	clerkState[_id] = 2;
-	printf("%s going on break\n", _name);
+	printf("%s is going on break\n", _name);
 	//release clerk line lock
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
+	printf("%s is coming off break\n", _name);
 	//clerkLock[_id]->Acquire();
       }
   }
@@ -191,11 +208,12 @@ ApplicationClerk::ApplicationClerk(char* name, int id) : Clerk(name, id)
 void ApplicationClerk::doJob()
 {
 
-  printf("Filing application\n");
+  ///printf("Filing application\n");
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
-  printf("%s: Here you go!\n", _name);
+  printf("%s: Has recorded a completed application for Customer", _name);
+  printf("%d\n", clerkCurrentCustomer[_id]);
 }
 ////////////////////////////
 //Picture Clerk
@@ -216,11 +234,12 @@ PictureClerk::PictureClerk(char* name, int id) : Clerk(name, id)
 
 void PictureClerk::doJob()
 {
-  printf("Taking a gorgeous picture\n");
+  printf("%s has taken a picture of Customer", _name);
+  printf("%d\n", clerkCurrentCustomer[_id]);
   //required delay of 20 -100 cycles before going back
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
-  printf("%s: Here you go!\n", _name);
+  //printf("%s: Here you go!\n", _name);
 }
 
 //////////////////////////
@@ -248,7 +267,8 @@ void PassportClerk::doJob()
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
 
-  printf("%s: Here's your passport\n", _name);
+  printf("%s has recorded Customer", _name);
+  printf("%d\n passport documentation\n", clerkCurrentCustomer[_id]);
 }
 
 
@@ -274,10 +294,13 @@ void CashierClerk::doJob()
   //TODO validate they have passport
   printf("Thank you. One moment\n");
   //TODO cashier needs to record that this customer in particular has been issued a passport and the money recieved 
+  printf("%s has provided Customer", _name);
+  printf("%d their completed passport\n", clerkCurrentCustomer[_id]);
   for(int i = 0; i < 50; i++)
     currentThread->Yield();
 
-  printf("Here's your completed passport\n");
+  printf("%s has recorded that Customer", _name);
+  printf("%d has been given their completed passport\n", clerkCurrentCustomer[_id]);
 }
 
 ////////////////////////
@@ -301,6 +324,7 @@ private:
   char* _name;
   int _money;
   int _myLine;//-1 represents not in a line
+  int _id;
   int _ssn; //unique ssn for each customer
   int _credentials[NUM_CLERK_TYPES];
   bool _rememberLine;
@@ -310,9 +334,10 @@ std::queue<Customer*> senators;//parent type customer to allow for abstraction o
 
 Customer::Customer(char* name) 
 {
-	_ssn = numCustomers;
+        _id =numCustomers;
+	_ssn = numCustomers + 1000;
 	_name = new char[strlen(name) + 16];
-	sprintf(_name, "%s%i",name,_ssn);
+	sprintf(_name, "%s%i",name,_id);
 	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
 	_myLine = -1;
 	_rememberLine = false;
@@ -349,24 +374,26 @@ void Customer::giveData(int clerkType)
 	  case APPLICATION_CLERK_TYPE:
 		printf("%s: may I have application please?\n", _name);
 		if(_isBribing)
-		  totalEarnings[APPLICATION_CLERK_TYPE] += 100;
+		  totalEarnings[APPLICATION_CLERK_TYPE] += 500;
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		//ask for a picture to be taken
 		printf("%s: i would like a picture\n", _name);
 		if(_isBribing)
-		  totalEarnings[PICTURE_CLERK_TYPE] += 100;
+		  totalEarnings[PICTURE_CLERK_TYPE] += 500;
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
 		printf("%s: ready for my passport\n", _name);
 		if(_isBribing)
-		  totalEarnings[PASSPORT_CLERK_TYPE] += 100;
+		  totalEarnings[PASSPORT_CLERK_TYPE] += 500;
 		break;
 
 	  case CASHIER_CLERK_TYPE:
-		printf("%s: Here's payment\n", _name);
+		printf("%s has given Cashier ", _name);
+		printf("%s $100\n", clerks[_myLine]->GetName());
+		_money-=100;
 		totalEarnings[CASHIER_CLERK_TYPE] += 100;
 		break;
 	}
@@ -396,9 +423,17 @@ void Customer::run()
 	//if the clerk is busy or on break, get into line
 	if (clerkState[_myLine] != 0) {
 	  if(_isBribing)
-	    clerkBribeLineCount[_myLine]++;
+	    {
+	      printf("%s has gotten in a bribe line for ", _name);
+	      printf("%s\n", clerks[_myLine]->GetName());//feels wrong
+	      clerkBribeLineCount[_myLine]++;
+	    }
 	  else
-	    clerkLineCount[_myLine]++;
+	    {
+	      printf("%s has gotten in a regular line for ", _name);
+	      printf("%s\n", clerks[_myLine]->GetName());//feels wrong
+	      clerkLineCount[_myLine]++;
+	    }
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
 		//clerkCV[_myLine]->Signal(clerkLock[_myLine]);prob wrong
 		if(_isBribing)
@@ -441,12 +476,16 @@ void Customer::run()
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
 	clerkLock[_myLine]->Acquire();//we are now in a new CS, need to share data with my clerk
-
+	clerkCurrentCustomerSSN[_myLine] = _ssn;
+	printf("%s has given SSN ", _name);
+	printf("%d", _ssn);
+	printf("to %s\n", clerks[_myLine]->GetName());
+	clerkCurrentCustomer[_myLine] = _id;
 	int type = clerks[_myLine]->GetType();
 	giveData(type);
 	_isBribing = false;
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
-	//now we wait for clerk to take pic
+	//now we wait for clerk to do job
 	clerkCV[_myLine]->Wait(clerkLock[_myLine]);
 	
 	//set credentials
@@ -458,12 +497,14 @@ void Customer::run()
 	  int picApproval = rand() % 10;//generate random num between 0 and 10
 	  if(picApproval >8)
 	    {
-	      printf("\n%s: I approve of this picture\n", _name);
+	      printf("%s: does like their picture from ", _name);
+	      printf("%s\n", clerks[_myLine]->GetName());
 	      //store that i have pic
 	    }
 	  else
 	    {
-	      printf("%s: this picture is heinous! retake\n", _name);
+	      printf("%s: does not like their picture from ", _name);
+	      printf("%s, please retake\n", clerks[_myLine]->GetName());
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
@@ -474,7 +515,7 @@ void Customer::run()
 	if(_credentials[CASHIER_CLERK_TYPE])
 	  break;
   }
-  printf("%s: WE OUTTA HERE\n", _name);
+  printf("%s: IS LEAVING THE PASSPORT OFFICE\n", _name);
 }
 int testLine = 69;
 void Customer::pickLine()
@@ -496,7 +537,7 @@ void Customer::pickLine()
 	    }
 	  int desireToBribe = rand() % 10;
 	  //if i want to bribe, let's lock at bribe lines
-	  if(_money > 100 && desireToBribe > 8)
+	  if(_money > 600 && desireToBribe > 8)
 	    {
 	      for(int i = 0; i < NUM_CLERKS; i++)
 		{
@@ -504,7 +545,8 @@ void Customer::pickLine()
 		    {
 		      if(clerkBribeLineCount[i] <=  lineSize)//for TESTING. do less than only for real
 			{
-			  printf("%s: I'm BRIBING\n", _name);
+			  //printf("%s: I'm BRIBING\n", _name);
+			  _money -= 500;
 			  _myLine = i;
 			  _isBribing = true;
 			  lineSize = clerkBribeLineCount[i];
