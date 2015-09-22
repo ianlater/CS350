@@ -9,10 +9,13 @@ I. Requirements:
 +Overview
 Using Monitors (that we built) as well as Semaphores, implement a Passport office simulation
 complete with Customers, Senators, Application Clerks, Picture Clerks, Passport Clerks, Managers and Cashiers
+
 +Locks
 Locks should prevent race conditions from happening, and need to be used in critical sections where mutual exclusion needs to occur.
+
 +Conditions
 Condition variables have no state but exist to allow locks and mutual exclusion to occur by waking up and sleeping threads under certain conditions.
+
 +Customers
 should enter office with some amount of money greater than 100, and immediately seek to get either a picture
 or an application (and then do the opposite of what they chose after). After that, they should go to the
@@ -20,6 +23,7 @@ Passport clerk to be certified, and then pay at the cashier.
 When picking lines, they will always choose the shortest one. If they have extra money, they can pay 500 to
 use the bribe line. They will only choose the bribe option if it has the shortest line possible AND they can
 afford it. They pay the bribe fee at the counter.
+
 +Senators
 Senators inherit from customers, and behave in the same way. The only difference is that upon entering the office,
 any other non-senator customer in line will leave (remembering their line), and the senator will go through and get 
@@ -31,19 +35,23 @@ determine what line to go into, and then leave.
 Application clerks are clerks that, when a customer walks up, take some time to process an application, and then inform
 the customer that the process is complete. The Customer stands at the counter during this brief time, and once completed,
 leaves for their next destination.
+
 +Picture Clerks
 Picture Clerks are clerks that take a picture of a customer. Once the customer approaches the counter, this clerk
 will take a picture, and inform the customer that it is taken. Randomly, after receiving the picture notification, the customer
 will refuse the picture. At this point, the clerk will retake a picture of the same customer immediately. This will happen until the 
 customer is happy, and leaves.
+
 +Passport Clerks
 Customers should only go to clerks after they have already successfully gone to both Picture and Application clerks. Because Picture and Application clerks
 process customer information while the customer watches at the counter, the Passport clerk should never experience an unprepared customer. After the customer approaches,
 a delay will occur while this clerk "processes", after which, the passport clerk will say that the customer has documentation, and the customer will leave.
+
 +Managers
 There is only one manager, and it will output earnings on a simulated timer, which is really just a for loop, until all other threads are done.
 The earnings output will be grouped by clerk type, with cashier having the sum of all the paid passports, and the rest of the clerks showing how much they
 were bribed
+
 +Cashiers
 Cashiers are the final clerks customers will ever go to. They are essentially a clerk, and after some processing time, they will confirm that the 
 customer has their documents, take payment, and send the customer on their way.
@@ -101,13 +109,13 @@ pickLine - called while this thread has control of Line Critical Section, determ
 private:
 isNextClerkType(int type) - used within pickLine to determine whether customer should consider this line, given current credentials
 giveData(int clerkType) - called once an interaction with any clerk is established. Responds based on clerk type to determine customer action 
-checkSenator() - uses the senator Semaphore to determine whether a senator is in building before making decision. 
+checkSenator() - Tests MV for senator in the building and that it is not current senator(since senators are customers they shouldn't shut themselves out). If there's a senator, the customer waits by trying to acquire the senator semapohre. as soon as they're free they release the semaphore to free up another customer. This function is called at the beginning of the customer cycle to catch customers who may have just finished clerk interactions and also right after customers leave line since they may have been sent out by the senators broadcast. 
 name - for debug purposes
 myLine - corresponds to unique id of clerk I'm in line/interacting with
 id - unique id assigned upon construction
 ssn - social security number. unique to each customer. 1000 + id
 credentials[4] - array of ints that are set when a clerk provides customer with correct document. used by customer to determine right decision to make
-rememberLine - int where customer saves their line number before leaving after a senator appears 
+rememberLine - int where customer saves their line number before leaving after a senator appears. this has the similar checks for the senator that checkSenator has. It is used by pick line to skip choosing a new line and also to determine if the customer was evicted by senator and should thus go through the nested process that repeats getting in line (including the possiblity that they were first in line and should in fact go straight to clerk interaction)
 isBribing - boolean that starts false and is set true if customer can afford to bribe and bribing is best choice. set true in pickline, and set false after interaction
 
 +Manager - is its own class
@@ -118,13 +126,13 @@ private:
 outputEarnings() - uses totalEarnings[] array to print amount of money each clerk type has made on time interval
 name - for debug purposes
 
-+Senators
++Senators - inherits from customer
 public:
 constructor/destructor
 run() - major function that includes main while loop that runs thread
 private:
-EnterOffice() - occurs at start of run() with semaphore test, Broadcasts to all customers to tell them to leave, and waits for clerks to finish current jobs
-ExitOffice() - removes from list of senators, tells whole office that they can resume operations as normal (assuming there are no more senators)
+EnterOffice() - occurs at start of run() with semaphore test so that only one senator can be in office at a time and also to have customers "wait outside" at critical points. The senator then broadcasts to all lines to evict the customers, and waits for them to do so before waiting for each clerk lock aka waiting for clerks to finish current jobs
+ExitOffice() - removes from list of senators, tells whole office that they can resume operations as normal via "releasing" semaphore
 
 +Design note
 when threads are created, each class's run() is invoked. This includes the while(true) that every class has, even customer. The while is in customer, because we re-use the loop to go to each clerk,
