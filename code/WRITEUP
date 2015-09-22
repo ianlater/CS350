@@ -179,8 +179,10 @@ V. Testing
 	3) Prove that Customers do not leave until they are given their passport by the Cashier. The Cashier does not start on another customer until they know that the last Customer has left their area.
 	4) Prove that Clerks go on break when they have no one waiting in their line.
 	5) Prove that Managers get Clerks off their break when lines get too long.
+		Output: Clerk goes on break prior to customers getting in line + manager doesn't wake up clerk till third customer
 	6) Prove that total sales never sufers from a race condition.
 	7) Prove that Customers behave properly when Senators arrive.
+		Output: Customers go outside when senator arrives and senator doesn't execute anything till both lines are empty
 
 	
 VI. Discussion
