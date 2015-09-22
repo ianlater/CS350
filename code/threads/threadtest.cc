@@ -191,8 +191,10 @@ printf("%s beginning to run\n", _name);
 	clerkState[_id] = 2;
 
 	//release clerk line lock after signalling possible senator
-	clerkBribeLineCV[_id]->Signal(clerkLineLock);
-	clerkLineCV[_id]->Signal(clerkLineLock);
+	if (senatorInBuilding) {
+		clerkBribeLineCV[_id]->Signal(clerkLineLock);
+		clerkLineCV[_id]->Signal(clerkLineLock);
+	}
 	printf("%s is going on break\n", _name);
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
@@ -700,22 +702,19 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	for (int x = 0; x < 90; x++)//replace this loop with something else later
+	for (int i = 0; i < 1000; i++)
+		currentThread->Yield();
+	for (int i = 0; i < NUM_CLERKS; i++)
 	{
-		for (int i = 0; i < 100; i++)
-			currentThread->Yield();
-		for (int i = 0; i < NUM_CLERKS; i++)
+		if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
 		{
-			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
-			{
-				//wake up clerk
-				clerkLock[i]->Acquire();	
-				printf("%s waking up ", _name);
-				printf("%s\n", clerks[i]->GetName());
-				clerkState[i] = 0;//set to available	
-				clerkBreakCV[i]->Signal(clerkLock[i]);	
-				clerkLock[i]->Release();	
-			}
+			//wake up clerk
+			clerkLock[i]->Acquire();	
+			printf("%s waking up ", _name);
+			printf("%s\n", clerks[i]->GetName());
+			clerkState[i] = 0;//set to available	
+			clerkBreakCV[i]->Signal(clerkLock[i]);	
+			clerkLock[i]->Release();	
 		}
 	}
 	OutputEarnings();
@@ -1225,13 +1224,13 @@ void TestSuite() {
 	    thread_id++;
 	  }
 	  //new senator thread
-	  //	char* buffer1 = new char[10];
-	//	sprintf(buffer1, "senator%i", thread_id);
-	//	thread_id++;
-	//	t = new Thread(buffer1);
-	//	t->Fork((VoidFunctionPtr) p2_senator, 0);
+	  	char* buffer1 = new char[10];
+		sprintf(buffer1, "senator%i", thread_id);
+		thread_id++;
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_senator, 0);
 
-		char* buffer1 = new char[10];
+		buffer1 = new char[10];
 		sprintf(buffer1, "manager%i", thread_id);
 		t = new Thread(buffer1);
 		t->Fork((VoidFunctionPtr) p2_manager,0);
