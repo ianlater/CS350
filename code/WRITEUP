@@ -185,6 +185,7 @@ V. Testing
 	5) Prove that Managers get Clerks off their break when lines get too long.
 		Output: Clerk goes on break prior to customers getting in line + manager doesn't wake up clerk till third customer
 	6) Prove that total sales never sufers from a race condition.
+		Output: 15 customers go to clerk to pay. after each customer pays, a counter decrements that started at 15. if no race conditions, the counter will stop at 0. a print statement will say TEST COMPLETE
 	7) Prove that Customers behave properly when Senators arrive.
 		Output: Customers go outside when senator arrives and senator doesn't execute anything till both lines are empty
 
