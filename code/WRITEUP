@@ -1,53 +1,175 @@
-
-_______PROJECT WRITEUP_______
-
-	Group 29
-Ian Later, Carrie Sun, Jack Lucas
-
-
-Title:  Writeup for Project x, Fall/Spring 201x
- Date:  mm/dd/yy
- Group:	Name	Email	
-		???	???	
-		???	???	
- 
+Title: Writeup for Project 1, Fall 2015
+Date: 9/21/2015
+Group: Name-----------Email
+	   John Lucas	  johnluca@usc.edu
+	   Ian Later	  later@usc.edu
+	   Carrie Sun	  carriesu@usc.edu
+	  
 I. Requirements:
-- Describe what's your understanding of the requirements from the assignment statement. With the requirement analysis, you would be clear about what you are supposed to do.
++Overview
+Using Monitors (that we built) as well as Semaphores, implement a Passport office simulation
+complete with Customers, Senators, Application Clerks, Picture Clerks, Passport Clerks, Managers and Cashiers
++Customers
+should enter office with some amount of money greater than 100, and immediately seek to get either a picture
+or an application (and then do the opposite of what they chose after). After that, they should go to the
+Passport clerk to be certified, and then pay at the cashier.
+When picking lines, they will always choose the shortest one. If they have extra money, they can pay 500 to
+use the bribe line. They will only choose the bribe option if it has the shortest line possible AND they can
+afford it. They pay the bribe fee at the counter.
++Senators
+Senators inherit from customers, and behave in the same way. The only difference is that upon entering the office,
+any other non-senator customer in line will leave (remembering their line), and the senator will go through and get 
+his passport. Once he leaves, the customers will return to their spots. Customers that were interacting with a clerk
+when the senator walks in finish their interaction. If multiple senators are present, a semaphore and global boolean are used
+such that the first senator finishes everything, then the second senator enters. If a customer arrives during this, they will 
+determine what line to go into, and then leave.
++Application Clerks
+Application clerks are clerks that, when a customer walks up, take some time to process an application, and then inform
+the customer that the process is complete. The Customer stands at the counter during this brief time, and once completed,
+leaves for their next destination.
++Picture Clerks
+Picture Clerks are clerks that take a picture of a customer. Once the customer approaches the counter, this clerk
+will take a picture, and inform the customer that it is taken. Randomly, after receiving the picture notification, the customer
+will refuse the picture. At this point, the clerk will retake a picture of the same customer immediately. This will happen until the 
+customer is happy, and leaves.
++Passport Clerks
+Customers should only go to clerks after they have already successfully gone to both Picture and Application clerks. Because Picture and Application clerks
+process customer information while the customer watches at the counter, the Passport clerk should never experience an unprepared customer. After the customer approaches,
+a delay will occur while this clerk "processes", after which, the passport clerk will say that the customer has documentation, and the customer will leave.
++Managers
+There is only one manager, and it will output earnings on a simulated timer, which is really just a for loop, until all other threads are done.
+The earnings output will be grouped by clerk type, with cashier having the sum of all the paid passports, and the rest of the clerks showing how much they
+were bribed
++Cashiers
+Cashiers are the final clerks customers will ever go to. They are essentially a clerk, and after some processing time, they will confirm that the 
+customer has their documents, take payment, and send the customer on their way.
 
-II. Assumptions:
-	- Reasonable assumptions you take for your scheme.
+II. Assumptions
+1. The Passport office does not keep a record of all customers and what they have done. Instead, the customers keep track of their own credentials. This
+makes it so the customer is the authority on whether or not they can receive credentials from a clerk, not the clerk checking a database.
+2. Customers can always at least afford to pay the cashier
+3. There is always at least one of each clerk
+4. There are always at least 20 customers at start, to avoid clerks getting told incorrectly to go on break.
 
-III. Design:
-- This section is to cover your logic and ideas as to how  you are going to solve the problem presented.  This should include a description of classes, algorithms, etc. This is not code. You must document ALL parts of a project.
+III. Design
++Solve multithreading
+we used a number of Monitors, and Semaphores:
+LOCKS
+clerkLock[NUM_CLERKS] - each clerk gets 1 Lock for interaction with customer
+clerkLineLock - one lock TOTAL to be used to pick shortest line
+outsideLock - used in senator situation to keep customers out and decide when to come back
+senatorSemaphore - used in senator situation to make sure one senator at a time uses office, and released to allow customers back in
+CV's
+clerkLineCV[NUM_CLERKS] - 
+clerkBribeLineCV[NUM_CLERKS]
+clerkCV[NUM_CLERKS] - used between customer and clerk to exchange information in interaction
+clerkBreakCV[NUM_CLERKS]
+senatorCV
+MV's (shared data that is guaranteed thread safe by use of Monitors)
+clerkLineCount[] - list of ints, one for each clerkID, that is updated to reflect line length
+clerkBribeLineCount[] - same as clerkLineCount, but for BribeLines
+clerkState[] - list of ints, one for each clerk, updated to reflect if clerk is FREE, BUSY, or ON_BREAK
+totalEarnings[] - list of ints updated by customer upon payment, and outpus by Manager periodically
+senatorInBuilding - boolean, lets other customers know when to react to senator
+clerkCurrentCustomer[] - list of ints that relate clerk id to the id of the current customer. produced by customer consumed by clerk
+clerkCurrentCustomerSSN[] - same as clerkCurrentCustomer, but used to pass SSN to clerks
 
-IV. Implementation:
-	+ Files Modified
-	+ Files added
++Main Classes for all people
++Clerk - for Cashier, Application, Passport, and Picture clerks
+public members:
+constructor/destructor
+Name Getter
+Type Getter - what kind of clerk this is
+virtual doJob() - to be implemented specifically by each child
+run() - no params, the while loop that runs the whole thread
+protected members:
+type (integer corresponding to what kind of clerk this is)
+name (for debug purposes)
+id (unique for each clerk, assigned on construction)
 
-	+ Data Structures added, and the file they were added to.
-	+ Data Structures modified, and the file they were added to.
-		-For example,
-			class Lock		-- in file threads.cc/threads.h
-			{
-				//. Modified fields.
-			}
++Customer - for Customer(literally) and Senators
+public members:
+constructor/destructor
+Name Getter
+run (no params, the while loop that runs the whole thread)
+protected:
+pickLine - called while this thread has control of Line Critical Section, determines which line to go into based on this customer's credentials and load of lines. Also determines Bribery)
+private:
+isNextClerkType(int type) - used within pickLine to determine whether customer should consider this line, given current credentials
+giveData(int clerkType) - called once an interaction with any clerk is established. Responds based on clerk type to determine customer action 
+checkSenator() - uses the senator Semaphore to determine whether a senator is in building before making decision. 
+name - for debug purposes
+myLine - corresponds to unique id of clerk I'm in line/interacting with
+id - unique id assigned upon construction
+ssn - social security number. unique to each customer. 1000 + id
+credentials[4] - array of ints that are set when a clerk provides customer with correct document. used by customer to determine right decision to make
+rememberLine - int where customer saves their line number before leaving after a senator appears 
+isBribing - boolean that starts false and is set true if customer can afford to bribe and bribing is best choice. set true in pickline, and set false after interaction
 
-	+ Functions added and in which file.
-	+ Functions modified and in which file.
++Manager - is its own class
+public: 
+constructor/destructor
+run() - major function that includes while loop that runs whole thread. Manager's is special in that it is simulating a timer with a for loop in which it yields until outputting earnings, then repeats. also manages clerk breaks
+private:
+outputEarnings() - uses totalEarnings[] array to print amount of money each clerk type has made on time interval
+name - for debug purposes
 
-V. Testing:  (For each test case, you must show)
-	+ How to test
-- How to run the test cases, the commands, the arguments and so on.
-	+ Test Output
-- Describe the testing output. You don't have to dump all the output info. Just make sure your description can exactly reflect your output. The grader of your submission will be wanting to compare the output they get with what you say the output is.
++Senators
+public:
+constructor/destructor
+run() - major function that includes main while loop that runs thread
+private:
+EnterOffice() - occurs at start of run() with semaphore test, Broadcasts to all customers to tell them to leave, and waits for clerks to finish current jobs
+ExitOffice() - removes from list of senators, tells whole office that they can resume operations as normal (assuming there are no more senators)
 
-VI. Discussion:
-	+ Experiment expectation.  (What is supposed to happen.)
-	+ Experiment result.  (What actually happened.)
-	+ Explanation
-		- Explain your experiment result - how it proves what 
-		  you were supposed to prove.
++Design note
+when threads are created, each class's run() is invoked. This includes the while(true) that every class has, even customer. The while is in customer, because we re-use the loop to go to each clerk,
+give the correct data for the interaction, and determine next steps. Customers break out of the while loop by breaking upon finishing with the Cashier.
+Randomness is also used in many situations, such as customers deciding to bribe, or customers not liking their photo. It is also used to make "dumb customers" that try to go to a line they are not prepared for.
 
+IV. Implementation
+	+Files Modified
+	threadtest.cc
+	synch.cc
+	synch.h
+	+Files Added
+	N/A
+	+Data Structures added, and file added to
+	Clerk (and child classes), Customer (and child class), Manager - threadtest.cc
+	
+	+Data Structures modified, and the file added to
+	Lock, Condition - synch.h and synch.cc
+	
+	+Functions added and in which file
+	All members of Clerk - threadtest.cc
+	All members of ApplicationClerk - threadtest.cc
+	All members of PictureClerk - threadtest.cc
+	All members of PassportClerk - threadtest.cc
+	All memebrs of CashierClerk - threadtest.cc
+	All members of Customer - threadtest.cc
+	All members of Senators - threadtest.cc
+	All Manager of Senator - threadtest.cc
+	Rpeatable test code functions - threadtest.cc
+	
+	+Functions modified and in which file
+	all Lock and Condtion functions - synch.cc, synch.h
+	
+V. Testing
+	+How to test
+	while in code/threads directory,
+	enter "nachos -T"
+	read prompts, and enter 1-7 OR s to pick repeatable test OR custom run office
+	press enter (enter number of each person if s chosen), test will run
+	
+	+Test Output
+	
+VI. Discussion
+	+Experiment expectation (What is supposed to happen)
+		Customers and Clerks will act according to out understanding of the requirements. Regardless of number of customers( as long as larger than 20), and as long as at least one of each clerk,
+		customers should go through whole process properly, with some bribes and mistakes made, in order to file in and get passports.
+	+Experiment result. (What actually happened)
+		Results are as expected, however there is a bit of a delay in ending the program. IT IS NOT FAILING. The Manager simply needs to tick once to print its data, and then the program will exit after that.
+	+Explanation
+		Manager's for loop that simulates a timer needs to tick to finish its process, and to check to finish as a thread. This is seen as generally acceptable.
+	
 VIII. Miscellaneous:
-- Whatever else you want the grader know about your development.  You can create your own subsections headings here.
-
