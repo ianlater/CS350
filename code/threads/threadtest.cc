@@ -523,6 +523,7 @@ void Customer::run()
 	    {
 	      printf("%s: does not like their picture from ", _name);
 	      printf("%s, please retake\n", clerks[_myLine]->GetName());
+	      //_credentials[type] = false;//lets seeye
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
