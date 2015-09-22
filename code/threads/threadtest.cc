@@ -153,12 +153,13 @@ printf("%s beginning to run\n", _name);
 	printf("%s has received SSN ", _name);
 	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
 	printf("%d\n", clerkCurrentCustomer[_id]);
+
 	doJob();
 	//printf("%s: Did job for cust: ", _name);
 	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
-	//clerkCV[_id]->Wait(clerkLock[_id]);
-	clerkLock[_id]->Release();
+	clerkCV[_id]->Wait(clerkLock[_id]);
+	//clerkLock[_id]->Release();
       }
     else  if(clerkLineCount[_id] > 0)
       {
@@ -174,22 +175,24 @@ printf("%s beginning to run\n", _name);
 	printf("%s has received SSN ", _name);
 	printf("%d from Customer", clerkCurrentCustomerSSN[_id]);
 	printf("%d\n", clerkCurrentCustomer[_id]);
+
 	doJob();
 	//printf("%s: Did job for cust: ", _name);
 	//printf("%d\n", clerkCurrentCustomer[_id]);
 	clerkCV[_id]->Signal(clerkLock[_id]);
 	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
-    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
+    else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0)  //go on break
       {
 	//acquire my lock
 	clerkLock[_id]->Acquire();
 	//set my status
 	clerkState[_id] = 2;
-	printf("%s is going on break\n", _name);
+
 	//release clerk line lock after signalling possible senator
 	clerkBribeLineCV[_id]->Signal(clerkLineLock);
 	clerkLineCV[_id]->Signal(clerkLineLock);
+	printf("%s is going on break\n", _name);
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
@@ -475,7 +478,7 @@ void Customer::run()
 		checkSenator(); //after this point senator is gone- get back in line
 		clerkLineLock->Acquire();
 		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
-		if (_rememberLine && clerkState[_myLine] == 1) {
+		if (_rememberLine && clerkState[_myLine] != 0) {
 		  if(_isBribing)
 		    {
 		      clerkBribeLineCount[_myLine]++;
@@ -1158,79 +1161,79 @@ void TestSuite() {
 	}
 	else
 	{
-	int numCustomersInput;
-	printf("Enter number of Picture Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
-	printf("\nEnter number of Application Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[APPLICATION_CLERK_TYPE]);
-	printf("\nEnter number of Passport Clerks (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
-	printf("\nEnter number of Cashiers (between 1 and 5): ");
-	scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
-	printf("\nEnter number of Customers (between 20 and 50): ");
-	scanf("%d", &numCustomersInput);
-	//test: print array to see if stored correctly
-	for (int i = 0; i < NUM_CLERK_TYPES; i++)
-	{
-		//do something, add them to an array? or count?
-	}
-	Thread *t;
-    char* name;
-    int thread_id = 0;
-    int i;
-    printf("starting MultiClerk test");
+		int numCustomersInput;
+		printf("Enter number of Picture Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[PICTURE_CLERK_TYPE]);
+		printf("\nEnter number of Application Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[APPLICATION_CLERK_TYPE]);
+		printf("\nEnter number of Passport Clerks (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[PASSPORT_CLERK_TYPE]);
+		printf("\nEnter number of Cashiers (between 1 and 5): ");
+		scanf("%d", &clerkNumArray[CASHIER_CLERK_TYPE]);
+		printf("\nEnter number of Customers (between 20 and 50): ");
+		scanf("%d", &numCustomersInput);
+		//test: print array to see if stored correctly
+		for (int i = 0; i < NUM_CLERK_TYPES; i++)
+		{
+			//do something, add them to an array? or count?
+		}
+		Thread *t;
+	    char* name;
+	    int thread_id = 0;
+	    int i;
+	    printf("starting MultiClerk test");
 
-    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "pic%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE];i++ )
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "app%i", thread_id);
-    	t = new Thread(buffer1);
-       	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE];i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "pas%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
-    	thread_id++;
-    }
-    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE]; i++)
-    {
-    	char* buffer1 = new char[5];
-	sprintf(buffer1, "cas%i", thread_id);
-    	t = new Thread(buffer1);
-    	t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
-    	thread_id++;
-    }
-  for (int i = 0; i< numCustomersInput; i++) { 
-  	char* buffer1 = new char[5];
-	sprintf(buffer1, "cus%i", thread_id);
-    	t = new Thread(buffer1);
-    	//t = new Thread(thread_id);
-    t->Fork((VoidFunctionPtr) p2_customer,0);
-    thread_id++;
-  }
-  //new senator thread
-  //	char* buffer1 = new char[10];
-//	sprintf(buffer1, "senator%i", thread_id);
-//	thread_id++;
-//	t = new Thread(buffer1);
-//	t->Fork((VoidFunctionPtr) p2_senator, 0);
+	    for (int i = 0; i < clerkNumArray[PICTURE_CLERK_TYPE]; i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "pic%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[APPLICATION_CLERK_TYPE];i++ )
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "app%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[PASSPORT_CLERK_TYPE];i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "pas%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+		thread_id++;
+	    }
+	    for (int i = 0; i < clerkNumArray[CASHIER_CLERK_TYPE]; i++)
+	    {
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "cas%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_cashierClerk,0);
+		thread_id++;
+	    }
+	  for (int i = 0; i< numCustomersInput; i++) { 
+		char* buffer1 = new char[5];
+		sprintf(buffer1, "cus%i", thread_id);
+		t = new Thread(buffer1);
+		//t = new Thread(thread_id);
+	    t->Fork((VoidFunctionPtr) p2_customer,0);
+	    thread_id++;
+	  }
+	  //new senator thread
+	  //	char* buffer1 = new char[10];
+	//	sprintf(buffer1, "senator%i", thread_id);
+	//	thread_id++;
+	//	t = new Thread(buffer1);
+	//	t->Fork((VoidFunctionPtr) p2_senator, 0);
 
-	char* buffer1 = new char[10];
-	sprintf(buffer1, "manager%i", thread_id);
-    	t = new Thread(buffer1);
-	t->Fork((VoidFunctionPtr) p2_manager,0);
+		char* buffer1 = new char[10];
+		sprintf(buffer1, "manager%i", thread_id);
+		t = new Thread(buffer1);
+		t->Fork((VoidFunctionPtr) p2_manager,0);
 	}//end else statement
 
     return;//TODO remove after testing
