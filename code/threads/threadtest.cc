@@ -1,8 +1,8 @@
- // threadtest.cc 
+// threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
-//	back and forth between themselves by calling Thread::Yield, 
+//	back and forth between themselves by cbbballing Thread::Yield, 
 //	to illustratethe inner workings of the thread system.
 //
 // Copyright (c) 1992-1993 The Regents of the University of California.
@@ -550,6 +550,7 @@ void Customer::run()
 	    {
 	      printf("%s: does not like their picture from ", _name);
 	      printf("%s, please retake\n", clerks[_myLine]->GetName());
+	      //_credentials[type] = false;//lets seeye
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
@@ -794,6 +795,12 @@ void p2_customer()
   cust.run();
 }
 
+void p2_customerAtCashier()
+{
+  int credentials[NUM_CLERK_TYPES] = {1,1,1,0};
+  Customer custAtCashier = Customer("testCustomerAtCashier", credentials);
+  custAtCashier.run();
+}
 void p2_customerWPassport()
 {
   int credentials[NUM_CLERK_TYPES] = {0,0,1,0};
@@ -1233,8 +1240,48 @@ void managerWakeTest()
 
 }
 /*6*/
+int salesUpdate()
+{
+  int temp = 0;
+  	for (int i =0; i < NUM_CLERK_TYPES; i++) {
+		temp += totalEarnings[i];
+	}
+	return temp;
+}
 void salesRCTest()
 {
+  int updateCount = 15;
+  int total = 0;
+
+  Thread* t;
+  t = new Thread("manager");
+  t->Fork((VoidFunctionPtr)  p2_manager, 0);
+  t = new Thread("cash");
+  t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  //t = new Thread("cash0");
+  //t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  t = new Thread("cust");
+  for(int i = 0; i <updateCount; i++)
+    {
+      t->Fork((VoidFunctionPtr) p2_customerAtCashier, 0);
+      t = new Thread("cust0");
+    }
+
+  while(updateCount != 0)
+    {
+      int newTotal = salesUpdate();
+      if(newTotal!= total)
+	{
+	  total = newTotal;
+	  updateCount--;
+	  printf("****SALES UPDATED: ONLY %d CUSTOMERS LEFT TO UPDATE SALES*****\n", updateCount);
+	}
+      currentThread->Yield();
+    }
+  printf("TEST COMPLETE\n");
+
+
+
 }
 
 /*7*/
@@ -1311,6 +1358,7 @@ void TestSuite() {
 	char* buffer1 = new char[50];
 	sprintf(buffer1, "ClerkLock%i", i);
 	clerkLock[i] = new Lock(buffer1);
+	//clerks[i] =new  Clerk();
       }
 	if(entry != 's')
 	{
@@ -1335,7 +1383,7 @@ void TestSuite() {
 				clerkWaitTest();
 			}
 			else if (num == 5) {managerWakeTest();}
-			else if (num == 6) {}
+			else if (num == 6) {salesRCTest();}
 			else if (num == 7) {senatorTest();}	
 			printf("Test completed. ");
 		}
