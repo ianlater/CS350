@@ -597,15 +597,15 @@ void Senator::EnterOffice()
 	while(clerkBribeLineCount[i] > 0) {
 	  clerkLineLock->Acquire();
 	  clerkBribeLineCV[i]->Signal(clerkLineLock);
-	  //clerkBribeLineCV[i]->Wait(clerkLineLock);
-	  clerkLineLock->Release();
+	  clerkBribeLineCV[i]->Wait(clerkLineLock);
+	  //clerkLineLock->Release();
 	}
 	//wait for regular line to empty
 	while (clerkLineCount[i] > 0) {
 	  clerkLineLock->Acquire();
 	  clerkLineCV[i]->Signal(clerkLineLock);
-	  clerkLineCV[i]->Wait(clerkLineLock);
-	 // clerkLineLock->Release();
+	 // clerkLineCV[i]->Wait(clerkLineLock);
+	  clerkLineLock->Release();
 	}
 printf("here%i\n", i);
   }
