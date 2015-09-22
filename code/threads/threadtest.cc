@@ -329,6 +329,7 @@ class Customer
 {
 public:
   Customer(char* name);
+  Customer(char* name, int credentials[]);
   ~Customer(){numCustomers--;};
   char* GetName(){return _name;}
   void run();
@@ -361,6 +362,22 @@ Customer::Customer(char* name)
 	_rememberLine = false;
 	numCustomers++;
 }
+
+Customer::Customer(char* name, int* credentials) 
+{
+	for(int i=0;i<NUM_CLERK_TYPES;i++) {
+	  _credentials[i] = credentials[i];
+	}
+        _id =numCustomers;
+	_ssn = numCustomers + 1000;
+	_name = new char[strlen(name) + 16];
+	sprintf(_name, "%s%i",name,_id);
+	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+	_myLine = -1;
+	_rememberLine = false;
+	numCustomers++;
+}
+
 bool Customer::isNextClerkType(int type)
 {
     //for adding customers who go out of order, we can add in a random number check that returns true randomly
@@ -478,23 +495,25 @@ void Customer::run()
 		  }
 
 		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
-		checkSenator(); //after this point senator is gone- get back in line
-		clerkLineLock->Acquire();
-		//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
-		if (_rememberLine && clerkState[_myLine] != 0) {
-		  if(_isBribing)
-		    {
-		      clerkBribeLineCount[_myLine]++;
-		       clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
-		      clerkBribeLineCount[_myLine]--;
-		    }
-		  else
-		    {
-		      clerkLineCount[_myLine]++;
-			printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
-			clerkLineCV[_myLine]->Wait(clerkLineLock);
-			clerkLineCount[_myLine]--;
-		    }
+		checkSenator(); //after this point senator is gone- get back in line if you were kicked out
+		if (_rememberLine) {
+			clerkLineLock->Acquire();
+			//you may be the first one in line now so check. in the case that you were senator you wouldn't remember line 
+			if (clerkState[_myLine] != 0) {
+			  if(_isBribing)
+			    {
+			      clerkBribeLineCount[_myLine]++;
+			       clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+			      clerkBribeLineCount[_myLine]--;
+			    }
+			  else
+			    {
+			      clerkLineCount[_myLine]++;
+				printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
+				clerkLineCV[_myLine]->Wait(clerkLineLock);
+				clerkLineCount[_myLine]--;
+			    }
+			}
 		}
 		//at this point we assume won't have to go outside till finished with current clerk
 	}
@@ -720,8 +739,8 @@ void Manager::run()
 	OutputEarnings();
 	if (numCustomers == 0) {
 		break;
-		}
 	}
+  }
 }
 //----------------------------------------------------------------------
 // SimpleThread
@@ -776,6 +795,13 @@ void p2_customer()
 {
   Customer cust = Customer("testCustomer");
   cust.run();
+}
+
+void p2_customerWPassport()
+{
+  int credentials[NUM_CLERK_TYPES] = {0,0,1,0};
+  Customer custWCreds = Customer("testCustomerWCreds", credentials);
+  custWCreds.run();
 }
 
 void p2_senator()
@@ -1088,6 +1114,68 @@ void clerkWaitTest()
 	t = new Thread("clerk4");
 	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
 }
+void cashierTest()
+{
+	Thread *t = new Thread("clerk");
+        t = new Thread("clerk4");
+        t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  //need at least 3 to so cashier doesn't go on break
+  for (int i=0; i < 3; i++){
+	t = new Thread("c1");
+	t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+  }
+
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+}
+
+void managerWakeTest()
+{
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+	//wait for clerks to go to sleep
+	for(int i=0; i < 200; i++)
+	  currentThread->Yield();
+	//need at least 3 to so cashier doesn't go on break
+	for (int i=0; i < 3; i++){
+	  t = new Thread("c1");
+	  t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+	}
+
+
+}
+
+void senatorTest()
+{
+	//initiate all clerks
+	Thread *t = new Thread("clerk");
+	t->Fork((VoidFunctionPtr) p2_pictureClerk, 0);
+	t = new Thread("clerk2");
+	t->Fork((VoidFunctionPtr) p2_applicationClerk, 0);
+	t = new Thread("clerk3");
+	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
+	t = new Thread("clerk4");
+	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+	
+	//initiate some customers
+	//need at least 3 to so cashier doesn't go on break
+	for (int i=0; i < 3; i++){
+	  t = new Thread("c1");
+	  t->Fork((VoidFunctionPtr) p2_customerWPassport, 0);
+	}
+
+	//initiate senators to test senator effectiveness/consecutive senators
+	t = new Thread("senator");
+	t->Fork((VoidFunctionPtr) p2_senator, 0);
+	t = new Thread("senator");
+	t->Fork((VoidFunctionPtr) p2_senator, 0);
+
+	t = new Thread("manager");
+	t->Fork((VoidFunctionPtr) p2_manager, 0);
+
+}
 // --------------------------------------------------
 // TestSuite()
 //     This is the main thread of the test suite.  It runs the
@@ -1148,13 +1236,13 @@ void TestSuite() {
 			if (num == 1)
 				shortLineTest();
 			else if (num ==2) {}
-			else if (num == 3) {}
+			else if (num == 3) {cashierTest();}
 			else if (num == 4) {
 				clerkWaitTest();
 			}
-			else if (num == 5) {}
+			else if (num == 5) {managerWakeTest();}
 			else if (num == 6) {}
-			else if (num == 7) {}	
+			else if (num == 7) {senatorTest();}	
 			printf("Test completed. ");
 		}
 			printf("\n");
