@@ -1,8 +1,8 @@
- // threadtest.cc 
+// threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
-//	back and forth between themselves by calling Thread::Yield, 
+//	back and forth between themselves by cbbballing Thread::Yield, 
 //	to illustratethe inner workings of the thread system.
 //
 // Copyright (c) 1992-1993 The Regents of the University of California.
@@ -311,6 +311,7 @@ class Customer
 {
 public:
   Customer(char* name);
+  Customer(char* name, int credentials[]);
   ~Customer(){numCustomers--;};
   char* GetName(){return _name;}
   void run();
@@ -343,6 +344,23 @@ Customer::Customer(char* name)
 	_rememberLine = false;
 	numCustomers++;
 }
+
+Customer::Customer(char* name, int* credentials)
+{
+  for(int i=0;i<NUM_CLERK_TYPES;i++)
+    {
+      _credentials[i] = credentials[i];
+    }
+  _id =numCustomers;
+        _ssn = numCustomers + 1000;
+	_name = new char[strlen(name) + 16];
+	sprintf(_name, "%s%i",name,_id);
+	_money =  100 + 500*(rand() % 4);//init money increments of 100,600,1100,1600
+	_myLine = -1;
+	_rememberLine = false;
+	numCustomers++;
+}
+
 bool Customer::isNextClerkType(int type)
 {
     //for adding customers who go out of order, we can add in a random number check that returns true randomly
@@ -733,6 +751,13 @@ void p2_customer()
   cust.run();
 }
 
+void p2_customerAtCashier()
+{
+  int credentials[NUM_CLERK_TYPES] = {1,1,1,0};
+  Customer custAtCashier = Customer("testCustomerAtCashier", credentials);
+  custAtCashier.run();
+}
+
 void p2_senator()
 {
   Senator senator = Senator("testSenator");
@@ -1058,8 +1083,48 @@ void managerBreakTest()
 {
 }
 /*6*/
+int salesUpdate()
+{
+  int temp = 0;
+  	for (int i =0; i < NUM_CLERK_TYPES; i++) {
+		temp += totalEarnings[i];
+	}
+	return temp;
+}
 void salesRCTest()
 {
+  int updateCount = 15;
+  int total = 0;
+
+  Thread* t;
+  t = new Thread("manager");
+  t->Fork((VoidFunctionPtr)  p2_manager, 0);
+  t = new Thread("cash");
+  t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  //t = new Thread("cash0");
+  //t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+  t = new Thread("cust");
+  for(int i = 0; i <updateCount; i++)
+    {
+      t->Fork((VoidFunctionPtr) p2_customerAtCashier, 0);
+      t = new Thread("cust0");
+    }
+
+  while(updateCount != 0)
+    {
+      int newTotal = salesUpdate();
+      if(newTotal!= total)
+	{
+	  total = newTotal;
+	  updateCount--;
+	  printf("****SALES UPDATED: ONLY %d CUSTOMERS LEFT TO UPDATE SALES*****\n", updateCount);
+	}
+      currentThread->Yield();
+    }
+  printf("TEST COMPLETE\n");
+
+
+
 }
 /*7*/
 void senatorTest()
@@ -1108,6 +1173,7 @@ void TestSuite() {
 	char* buffer1 = new char[50];
 	sprintf(buffer1, "ClerkLock%i", i);
 	clerkLock[i] = new Lock(buffer1);
+	//clerks[i] =new  Clerk();
       }
 	if(entry != 's')
 	{
@@ -1130,7 +1196,9 @@ void TestSuite() {
 				clerkWaitTest();
 			}
 			else if (num == 5) {}
-			else if (num == 6) {}
+			else if (num == 6) {
+			  salesRCTest();
+			}
 			else if (num == 7) {}	
 			printf("Test completed. ");
 		}
