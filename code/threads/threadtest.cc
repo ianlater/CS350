@@ -1019,6 +1019,7 @@ void t5_t2() {
 //---------------------------------------------------
 // Repeatable test code
 //---------------------------------------------------
+/*1*/
 void shortLineTest()
 {
 	//instantiate two customer threads
@@ -1032,6 +1033,15 @@ void shortLineTest()
 	//t = new Thread("clerk");
 	//t->Fork((VoidFunctionPtr) p2_pictureClerk,0);
 }
+/*2*/
+void managerClerkTest()
+{
+}
+/*3*/
+void cashierTest()
+{
+}
+/*4*/
 void clerkWaitTest()
 {
 	Thread *t = new Thread("clerk");
@@ -1042,6 +1052,18 @@ void clerkWaitTest()
 	t->Fork((VoidFunctionPtr) p2_passportClerk, 0);
 	t = new Thread("clerk4");
 	t->Fork((VoidFunctionPtr) p2_cashierClerk, 0);
+}
+/*5*/
+void managerBreakTest()
+{
+}
+/*6*/
+void salesRCTest()
+{
+}
+/*7*/
+void senatorTest()
+{
 }
 // --------------------------------------------------
 // TestSuite()
