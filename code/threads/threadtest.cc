@@ -1,4 +1,4 @@
-// threadtest.cc 
+ // threadtest.cc 
 //	Simple test case for the threads assignment.
 //
 //	Create two threads, and have them context switch
