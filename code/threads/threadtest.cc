@@ -122,6 +122,16 @@ void Clerk::run()
 printf("%s beginning to run\n", _name);
   while(true)
   {
+/*
+  if (senatorInBuilding) {
+	clerkState[_id] = 0;
+	clerkLock[_id]->Acquire();
+//	clerkCV[_id]->Signal(clerkLock[_id]);
+	clerkLock[_id]->Release();
+//	clerkCV[_id]->Wait(clerkLock[_id]);//SLEEPING FOREVER HERE IS THIS RIGHT? was in b4
+  }
+  else {
+*/
     //acquire clerkLineLock when i want to update line values 
     clerkLineLock->Acquire();
     //do bribe stuff TODO
@@ -150,10 +160,10 @@ printf("%s beginning to run\n", _name);
 	clerkLock[_id]->Acquire();
 	clerkLineLock->Release();
 	clerkCV[_id]->Wait(clerkLock[_id]); //WAS IN b4
-    //once we're here, the customer is waiting for me to do my job
+    	//once we're here, the customer is waiting for me to do my job
 	doJob();
-    clerkCV[_id]->Signal(clerkLock[_id]);
-     clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
+    	clerkCV[_id]->Signal(clerkLock[_id]);
+     	clerkLock[_id]->Release(); //we're done here, back to top of while for next cust
       }
     else if (clerkLineCount[_id] == 0 && clerkBribeLineCount[_id] == 0) //go on break
       {
@@ -162,12 +172,15 @@ printf("%s beginning to run\n", _name);
 	//set my status
 	clerkState[_id] = 2;
 	printf("%s going on break\n", _name);
-	//release clerk line lock
+	//release clerk line lock after signalling possible senator
+	clerkBribeLineCV[_id]->Signal(clerkLineLock);
+	clerkLineCV[_id]->Signal(clerkLineLock);
 	clerkLineLock->Release();
 	//wait on clerkBreakCV from manager
 	clerkBreakCV[_id]->Wait(clerkLock[_id]);
 	//clerkLock[_id]->Acquire();
       }
+ // }
   }
 
 }
@@ -387,33 +400,43 @@ void Customer::run()
 {
   while(true)
   {
-	//if just completed clerk, senator may have cleared other lines and some clerks may be free but need to make sure it's not because senator in building
-	checkSenator();
 
 	clerkLineLock->Acquire();//im going to consume linecount values, this is a CS
 	pickLine();
 	//now, _myLine is the index of the shortest line
 	//if the clerk is busy or on break, get into line
 	if (clerkState[_myLine] != 0) {
-	  if(_isBribing)
-	    clerkBribeLineCount[_myLine]++;
-	  else
-	    clerkLineCount[_myLine]++;
+		if(_isBribing)
+		  clerkBribeLineCount[_myLine]++;
+		else {
+		  clerkLineCount[_myLine]++;
+		}
 		printf("%s: waiting in line for %s\n", _name, clerks[_myLine]->GetName());
-		//clerkCV[_myLine]->Signal(clerkLock[_myLine]);prob wrong
 		if(_isBribing)
 		  {
 		    clerkBribeLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineLock->Acquire();   
 		    clerkBribeLineCount[_myLine]--;
+		    printf("bribe line%i count: %i",_myLine, clerkBribeLineCount[_myLine]);
 		  }
 		else
 		  {
 		    clerkLineCV[_myLine]->Wait(clerkLineLock);
+		    clerkLineLock->Acquire();   
 		    clerkLineCount[_myLine]--;
+		    printf("regular line%i count: %i",_myLine, clerkLineCount[_myLine]);
 		  }
 		if (senatorInBuilding && this !=senators.front()) {
 		  _rememberLine = true;//you're in line being kicked out by senatr. senator can't kick self out
-		}
+  			//make sure to signal senator who may be in line 
+			if(_isBribing) {
+			  clerkBribeLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			else {
+			  clerkLineCV[_myLine]->Signal(clerkLineLock);
+			}
+			  clerkLineLock->Release();
+		  }
 
 		//senator may have sent everyone out of lineCV so this nesting is for getting back in line	
 		checkSenator(); //after this point senator is gone- get back in line
@@ -435,8 +458,8 @@ void Customer::run()
 		    }
 		}
 		//at this point we assume won't have to go outside till finished with current clerk
-	} 	
-	
+	}
+
 	clerkState[_myLine] = 1;
 	clerkLineLock->Release();//i no longer need to consume lineCount values, leave this CS
 
@@ -467,6 +490,7 @@ void Customer::run()
 	    }
 	}
 	clerkCV[_myLine]->Signal(clerkLock[_myLine]);
+
 	_myLine = -1;
 	_rememberLine = false;
 	
@@ -545,15 +569,38 @@ void Senator::EnterOffice()
     if (clerkLineCV[i] != NULL) {
 	clerkLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
     }
-/*
+
     if (clerkBribeLineCV[i] != NULL) {
 	clerkBribeLineCV[i]->Broadcast(clerkLineLock); //clear out lines. they will stop because of semaphore after leaving line/before returning to it
     }
-*/ 
+  }
+ 
+  clerkLineLock->Release();
+  for (int i=0; i<NUM_CLERKS;i++) {
+	//wait for bribe line to empty
+	while(clerkBribeLineCount[i] > 0) {
+	  clerkLineLock->Acquire();
+	  clerkBribeLineCV[i]->Signal(clerkLineLock);
+	  clerkBribeLineCV[i]->Wait(clerkLineLock);
+	}
+	//wait for regular line to empty
+	while (clerkLineCount[i] > 0) {
+	  clerkLineLock->Acquire();
+	  clerkLineCV[i]->Signal(clerkLineLock);
+	  clerkLineCV[i]->Wait(clerkLineLock);
+	}
+printf("here%i\n", i);
+  }
+  //everyone is out of lines now wait for clerks to finish
+  for (int i=0; i<NUM_CLERKS;i++) {
     if (clerkLock[i] != NULL) {
-	clerkLock[i]->Acquire();//swait till each one is acquired i.e. nobody busy
-	clerkLock[i]->Release();
+	while (clerkState[i] == 1) {
+		clerkLock[i]->Acquire();
+		clerkCV[i]->Signal(clerkLock[i]);
+		clerkCV[i]->Wait(clerkLock[i]);
+	}
     }
+printf("here%i\n", i);
   }
 }
 
@@ -562,9 +609,6 @@ void Senator::ExitOffice()
   senators.pop();//remove self from senator q
   senatorInBuilding = false;
   senatorSemaphore->V();
-//  outsideLock->Acquire();//leave building 
-//  senatorCV->Broadcast(outsideLock);//notify all waiting customers/senators
-//  outsideLock->Release();//giveup outside lock
 }
 
 void Senator::run()
@@ -612,13 +656,13 @@ void Manager::OutputEarnings()
 void Manager::run()
 {
   while(true) {
-	for (int x = 0; x < 90000; x++)//replace this loop with something else later
+	for (int x = 0; x < 90; x++)//replace this loop with something else later
 	{
 		for (int i = 0; i < 100; i++)
 			currentThread->Yield();
 		for (int i = 0; i < NUM_CLERKS; i++)
 		{
-			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1) )
+			if (clerkState[i] == 2 && (clerkLineCount[i] >= 3 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
 			{
 				//wake up clerk
 				clerkLock[i]->Acquire();	
@@ -1148,6 +1192,7 @@ void TestSuite() {
     	t = new Thread(buffer1);
 	t->Fork((VoidFunctionPtr) p2_manager,0);
 	}//end else statement
+
     return;//TODO remove after testing
     
     // Test 1
