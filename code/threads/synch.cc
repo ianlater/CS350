@@ -221,6 +221,7 @@ void Condition::Wait(Lock* conditionLock)
 	_waitingQueue.push(currentThread);
 	conditionLock->Release();
 	currentThread->Sleep();
+	conditionLock->Acquire();
 
 	//do I restore interupts at the end? 
 	(void) interrupt->SetLevel(oldLevel);
