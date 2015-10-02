@@ -129,7 +129,78 @@ Yield:
 	syscall
 	j	$31
 	.end Yield
+	
+	.globl Acquire
+	.ent	Acquire
+Acquire:
+	addiu $2, $0, SC_Acquire
+	syscall
+	j	$31
+	.end Acquire
 
+	.global Release
+	.ent	Release
+Release:
+	addiu $2, $0, SC_Release
+	syscall
+	j	$31
+	.end Release
+
+	.global Wait
+	.ent Wait
+Wait:
+	addiu $2, $0, SC_Wait
+	syscall
+	j	$31
+	.end Wait
+
+	.global Signal
+	.ent Signal
+Signal:
+	addiu $2, $0, SC_Signal
+	syscall
+	j	$31
+	.end Signal
+
+	.global Broadcast
+	.ent Broadcast
+Broadcast:
+	addiu $2, $0, SC_Broadcast
+	syscall
+	j	$31
+	.end Broadcast
+	
+	.global CreateLock
+	.ent CreateLock
+CreateLock:
+	addiu $2, $0, SC_CreateLock
+	syscall
+	j	$31
+	.end CreateLock
+
+	.global DestroyLock
+	.ent DestroyLock
+DestroyLock:
+	addiu $2, $0, SC_DestroyLock
+	syscall
+	j	$31
+	.end DestroyLock
+
+	.global CreateCondition
+	.ent CreateCondition
+CreateCondition:
+	addiu $2, $0, SC_CreateCondition
+	syscall
+	j	$31
+	.end CreateCondition
+
+	.global DestroyCondition
+	.ent DestroyCondition
+DestroyCondition:
+	addiu $2, $0, SC_DestroyCondition
+	syscall
+	j	$31
+	.end DestroyCondition
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main

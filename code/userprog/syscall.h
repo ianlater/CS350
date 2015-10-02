@@ -29,6 +29,15 @@
 #define SC_Close	8
 #define SC_Fork		9
 #define SC_Yield	10
+#define SC_Acquire	11
+#define SC_Release	12
+#define SC_Wait		13
+#define SC_Signal	14
+#define SC_Broadcast	15
+#define SC_CreateLock	16
+#define SC_DestroyLock	17
+#define SC_CreateCondition	18
+#define SC_DestroyCondition	19
 
 #define MAXFILENAME 256
 
@@ -125,6 +134,31 @@ void Fork(void (*func)());
  * or not. 
  */
 void Yield();		
+
+/*Create a lock, returns the ID of the lock which is an index in an array, NOT the pointer to it*/
+int CreateLock();
+
+/*Destroy a lock, parameter is ID of the lock*/
+void DestroyLock(int id);
+
+/*Acquire a lock
+*/
+void Acquire();
+
+/*Release a lock*/
+void Release();
+
+/*create a condition*/
+int CreateCondition();
+
+/*Destroy a condition, parameter is ID of the condition*/
+void DestroyCondition(int id);
+
+//TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast
+
+void Signal();
+void Wait();
+void Broadcast();
 
 #endif /* IN_ASM */
 
