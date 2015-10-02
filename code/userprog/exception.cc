@@ -81,6 +81,100 @@ int copyout(unsigned int vaddr, int len, char *buf) {
     return n;
 }
 
+/* Fork a thread to run a procedure ("func") in the *same* address space 
+ * as the current thread.
+ */
+void Fork_Syscall(void (*func)())
+{
+	//TODO
+}
+
+/* Yield the CPU to another runnable thread, whether in this address space 
+ * or not. 
+ */
+void Yield_Syscall()
+{
+	//TODO
+}
+/* This user program is done (status = 0 means exited normally). */
+void Exit_Syscall(int status)
+{
+	//TODO
+}
+
+/*
+ * Lock Syscalls
+*/
+// Creates a new Lock object in kernel space. Returns the kernel lock table index to the user program.
+int CreateLock_Syscall()
+{
+	//TODO
+}
+
+// Takes an integer number as an argument, which is the table index of the lock to "acquire".
+int Acquire_Syscall(int lockIndex)
+{
+	//TODO
+}
+
+// Takes an integer number as an argument - the lock table index of the lock to release.
+int Release_Syscall(int lockIndex)
+{
+	//TODO
+}
+
+// Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
+int DestroyLock_Syscall(int lockIndex)
+{
+	//TODO
+}
+
+/*
+ * Condition Syscalls
+*/
+
+// Creates a new Condition object in kernel space.
+int CreateCondition_Syscall()
+{
+	//TODO
+}
+// 
+int DestroyCondition_Syscall(int conditionIndex)
+{
+	//TODO
+}
+// 
+int Wait_Syscall(int lockIndex, int conditionIndex)
+{
+	//TODO
+}
+
+// 
+int Signal_Syscall(int lockIndex, int conditionIndex)
+{
+	//TODO
+}
+
+// 
+int Broadcast_Syscall(int lockIndex, int conditionIndex)
+{
+	//TODO
+}
+
+
+/* A unique identifier for an executing user program (address space) */
+typedef int SpaceId;	
+ 
+/* Run the executable, stored in the Nachos file "name", and return the 
+ * address space identifier
+ */
+SpaceId Exec_Syscall(char *name)
+{
+	//TODO
+	return -1;
+}
+
+
 void Create_Syscall(unsigned int vaddr, int len) {
     // Create the file with the name in the user buffer pointed to by
     // vaddr.  The file name is at most MAXFILENAME chars long.  No
