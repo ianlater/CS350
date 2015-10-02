@@ -29,6 +29,11 @@
 #define SC_Close	8
 #define SC_Fork		9
 #define SC_Yield	10
+#define SC_Acquire	11
+#define SC_Release	12
+#define SC_Wait		13
+#define SC_Signal	14
+#define SC_Broadcast	15
 
 #define MAXFILENAME 256
 
