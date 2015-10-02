@@ -1473,4 +1473,15 @@ void TestSuite() {
 
 
 }
+
+/*********************************************
+ *Project 2 tests BELOW. triggered with -P2
+ *
+ *
+ *********************************************
+ */
+void Part2()
+{
+  printf("/nSTARTING PROJECT 2 TEST SUITE/n");
+}
 #endif

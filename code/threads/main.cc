@@ -97,8 +97,8 @@ main(int argc, char **argv)
 #ifdef THREADS
         if (!strcmp(*argv, "-T"))               // Test Suite
             TestSuite();
-	// if (!strcmp(*argv, "-P2"))               // Problem 2
-	  // Problem2();//TODO define this for part 2
+	 if (!strcmp(*argv, "-P2"))               // Part 2
+	   Part2();
 #endif //THREADS
 #ifdef USER_PROGRAM
         if (!strcmp(*argv, "-x")) {        	// run a user program
