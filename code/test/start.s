@@ -169,6 +169,38 @@ Broadcast:
 	syscall
 	j	$31
 	.end Broadcast
+	
+	.global CreateLock
+	.ent CreateLock
+CreateLock:
+	addiu $2, $0, SC_CreateLock
+	syscall
+	j	$31
+	.end CreateLock
+
+	.global DestroyLock
+	.ent DestroyLock
+DestroyLock:
+	addiu $2, $0, SC_DestroyLock
+	syscall
+	j	$31
+	.end DestroyLock
+
+	.global CreateCondition
+	.ent CreateCondition
+CreateCondition:
+	addiu $2, $0, SC_CreateCondition
+	syscall
+	j	$31
+	.end CreateCondition
+
+	.global DestroyCondition
+	.ent DestroyCondition
+DestroyCondition:
+	addiu $2, $0, SC_DestroyCondition
+	syscall
+	j	$31
+	.end DestroyCondition
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main
