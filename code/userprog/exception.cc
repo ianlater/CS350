@@ -24,10 +24,22 @@
 #include "copyright.h"
 #include "system.h"
 #include "syscall.h"
+#include "synch.h"
 #include <stdio.h>
 #include <iostream>
 
 using namespace std;
+
+const int TABLE_SIZE = 200;//shoud there be a max size?
+
+struct KernelCondition{
+private:
+  Condition* condition;
+  AddrSpace* addrSpace;
+  bool isToBeDeleted;
+};
+
+KernelCondition* ConditionTable [TABLE_SIZE];
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
