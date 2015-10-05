@@ -9,11 +9,11 @@
 // All rights reserved.  See copyright.h for copyright notice and limitation 
 // of liability and disclaimer of warranty provisions.
 
-#include <queue>
 #include "copyright.h"
 #include "system.h"
 #ifdef CHANGED
 #include "synch.h"
+#include <queue>
 #endif
 
 #ifdef CHANGED

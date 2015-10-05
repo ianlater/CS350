@@ -49,4 +49,16 @@ extern SynchDisk   *synchDisk;
 extern PostOffice* postOffice;
 #endif
 
+
 #endif // SYSTEM_H
+
+/*
+class Lock;
+class AddrSpace;
+
+struct KernelLock{
+		Lock* lock;
+		AddrSpace * addrspace;
+
+}           
+*/
