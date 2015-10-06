@@ -361,6 +361,11 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "Close syscall.\n");
 		Close_Syscall(machine->ReadRegister(4));
 		break;
+		
+		case SC_CreateLock:
+			Debug('a', "Create lock syscall. \n");
+			rv = CreateLock_Syscall();
+			break;
 	}
 
 	// Put in the return value and increment the PC
