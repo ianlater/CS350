@@ -129,6 +129,9 @@ int CreateLock_Syscall()
 	//TODO
 	//math for vaddr? address in kernel space
 	//construction of lock and insertion into table
+
+	Lock newLock = new Lock("lock");//change to accept argument in the future
+	
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
