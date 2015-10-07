@@ -33,13 +33,22 @@ using namespace std;
 const int TABLE_SIZE = 200;//shoud there be a max size?
 
 struct KernelCondition{
+  KernelCondition(Condition* c, AddrSpace* a);
 private:
-  Condition* condition;
+  Condition* cv;
   AddrSpace* addrSpace;
   bool isToBeDeleted;
 };
 
+KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
+{
+  cv = c;
+  addrSpace = a;
+  isToBeDeleted = false;
+}
+
 KernelCondition* ConditionTable [TABLE_SIZE];
+int currentCVIndex = 0; //the index of the lowest free index of ConditionTable
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -146,9 +155,32 @@ int DestroyLock_Syscall(int lockIndex)
 */
 
 // Creates a new Condition object in kernel space.
-int CreateCondition_Syscall()
+int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in value
 {
-	//TODO
+    char *buf = new char[len+1];	// Kernel buffer to put the name in
+
+    if (!buf) return -1;//TODO EXCEPTION
+
+    if( copyin(vaddr,len,buf) == -1 ) {
+	printf("%s","Bad pointer passed to Create\n");
+	delete buf;
+	return -1; //TODO EXCEPTION
+    }
+
+    buf[len]='\0';
+    printf("\nNAME:%s \n", buf);
+
+  Condition* cv = new Condition(buf);
+  //build KernelCondtion
+  KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
+
+  if(cv)
+    {
+      ConditionTable[currentCVIndex++] = newKC;
+    }
+  printf("creating CV: %i\n", currentCVIndex-1);
+  return currentCVIndex;
+
 }
 // 
 int DestroyCondition_Syscall(int conditionIndex)
@@ -373,6 +405,11 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "Close syscall.\n");
 		Close_Syscall(machine->ReadRegister(4));
 		break;
+	case SC_CreateCondition:
+	  DEBUG('a', "Create Condition syscall. \n");
+	  rv = CreateCondition_Syscall(machine->ReadRegister(4),
+				       machine->ReadRegister(5));
+	  break;
 	}
 
 	// Put in the return value and increment the PC
