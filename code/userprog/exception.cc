@@ -107,6 +107,8 @@ void Fork_Syscall(void (*func)())
 void Yield_Syscall()
 {
 	//TODO
+	currentThread->Yield();
+	//print("Yield");
 }
 /* This user program is done (status = 0 means exited normally). */
 void Exit_Syscall(int status)
