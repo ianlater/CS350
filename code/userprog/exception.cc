@@ -38,9 +38,15 @@ private:
   AddrSpace* addrSpace;
   bool isToBeDeleted;
 };
+struct KernelLock{
+private:
+	Lock* lock;
+	AddrSpace* addrSpace;
 
+};
 KernelCondition* ConditionTable [TABLE_SIZE];
-
+KernelLock* LockTable [TABLE_SIZE];
+int lockCounter = 0; // is this necessary to keep track of the lock?
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -121,6 +127,8 @@ void Exit_Syscall(int status)
 int CreateLock_Syscall()
 {
 	//TODO
+	//math for vaddr? address in kernel space
+	//construction of lock and insertion into table
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
