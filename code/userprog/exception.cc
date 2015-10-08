@@ -42,11 +42,13 @@ struct KernelLock{
 	KernelLock(Lock* l, AddrSpace* a);
 	Lock* lock;
 	AddrSpace* addrSpace;
+  	bool isToBeDeleted;
 };
 KernelLock::KernelLock(Lock* l, AddrSpace* a)
 {
 	lock = l;
 	addrSpace = a;
+	isToBeDeleted = false;
 }
 KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
 {
@@ -154,7 +156,19 @@ int Acquire_Syscall(int lockIndex)
 // Takes an integer number as an argument - the lock table index of the lock to release.
 int Release_Syscall(int lockIndex)
 {
-	//TODO
+  /* 
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "DestroyLock::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (kl) {
+		if (kl->lockQueueEmpty && kl->isToBeDelted) {
+		  delete kl->lock;
+		  delete kl;
+		}
+        }
+  */
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
@@ -171,6 +185,9 @@ int DestroyLock_Syscall(int lockIndex)
 		if (kl->lockQueueEmpty) {
 		  delete kl->lock;
 		  delete kl;
+		}
+		else {
+			kl->isToBeDeleted = true;
 		}
 	}
 	*/
