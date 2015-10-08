@@ -162,6 +162,7 @@ int Release_Syscall(int lockIndex)
 		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
 	}
 	KernelLock* kl = LockTable[lockIndex];
+	kl->Release();
 	if (kl) {
 		if (kl->lock->isLockQueueEmpty() && kl->isToBeDelted) {
 		  delete kl->lock;
