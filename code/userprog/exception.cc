@@ -385,7 +385,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		
 		case SC_CreateLock:
-			Debug('a', "Create lock syscall. \n");
+			DEBUG('a', "Create lock syscall. \n");
 			rv = CreateLock_Syscall();
 			break;
 	}
