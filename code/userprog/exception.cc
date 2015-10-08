@@ -34,7 +34,6 @@ const int TABLE_SIZE = 200;//shoud there be a max size?
 
 struct KernelCondition{
   KernelCondition(Condition* c, AddrSpace* a);
-private:
   Condition* cv;
   AddrSpace* addrSpace;
   bool isToBeDeleted;
@@ -159,12 +158,16 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 {
     char *buf = new char[len+1];	// Kernel buffer to put the name in
 
-    if (!buf) return -1;//TODO EXCEPTION
+    if (!buf) 
+      {
+	printf("%s", "Can't allocate kernel buffer in CreateCondition\n");
+	return -1;
+      }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to Create\n");
+	printf("%s","Bad pointer passed to CreateCondition\n");
 	delete buf;
-	return -1; //TODO EXCEPTION
+	return -1;
     }
 
     buf[len]='\0';
@@ -225,7 +228,7 @@ void Create_Syscall(unsigned int vaddr, int len) {
     // way to return errors, though...
     char *buf = new char[len+1];	// Kernel buffer to put the name in
 
-    if (!buf) return;
+    if (!buf)
 
     if( copyin(vaddr,len,buf) == -1 ) {
 	printf("%s","Bad pointer passed to Create\n");
