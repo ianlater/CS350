@@ -163,7 +163,7 @@ int Release_Syscall(int lockIndex)
 	}
 	KernelLock* kl = LockTable[lockIndex];
 	if (kl) {
-		if (kl->lockQueueEmpty && kl->isToBeDelted) {
+		if (kl->lock->isLockQueueEmpty() && kl->isToBeDelted) {
 		  delete kl->lock;
 		  delete kl;
 		}
@@ -182,7 +182,7 @@ int DestroyLock_Syscall(int lockIndex)
 	}
 	KernelLock* kl = LockTable[lockIndex];
 	if (kl) {
-		if (kl->lockQueueEmpty) {
+		if (kl->lock->isLockQueueEmpty()) {
 		  delete kl->lock;
 		  delete kl;
 		}
@@ -240,8 +240,8 @@ int DestroyCondition_Syscall(int conditionIndex)
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
 	if (kc) {
-		if (kc->condition->QueueEmpty()) {
-		  delete kc->condition;
+		if (kc->cv->isWaitQueueEmpty()) {
+		  delete kc->cv;
 		  delete kc;
 		} 
 		else {
@@ -260,7 +260,20 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
 int Signal_Syscall(int lockIndex, int conditionIndex)
 {
 	/*
-	if (kc->QueueEmpty() && kc->isToBeDeleted)
+
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelCondition* kc = ConditionTable[conditionIndex];
+
+	kc->cv->Signal(kl->lock);
+	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
 	{
 		delete kc->cv;
 		delete kc;
@@ -271,7 +284,26 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 // 
 int Broadcast_Syscall(int lockIndex, int conditionIndex)
 {
-	//TODO
+	/*
+
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelCondition* kc = ConditionTable[conditionIndex];
+
+	kc->cv->Broadcast(kl->lock);
+	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
+	{
+		delete kc->cv;
+		delete kc;
+	}
+	*/
 }
 
 
