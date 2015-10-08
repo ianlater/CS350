@@ -39,7 +39,6 @@ private:
   bool isToBeDeleted;
 };
 struct KernelLock{
-private:
 	Lock* lock;
 	AddrSpace* addrSpace;
 
@@ -129,11 +128,14 @@ void Exit_Syscall(int status)
 int CreateLock_Syscall()
 {
 	//TODO
-	//math for vaddr? address in kernel space
 	//construction of lock and insertion into table
 
-	Lock newLock = new Lock("lock");//change to accept argument in the future
-	
+	Lock* newLock = new Lock("lock");//change to accept argument in the future
+	KernelLock* kLock = new KernelLock;
+	kLock->lock = newLock;
+	kLock->addrSpace = currentThread->space;	
+	LockTable[lockCounter] = kLock;
+	return lockCounter++;
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
@@ -388,7 +390,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 		
 		case SC_CreateLock:
-			Debug('a', "Create lock syscall. \n");
+			DEBUG('a', "Create lock syscall. \n");
 			rv = CreateLock_Syscall();
 			break;
 	}
