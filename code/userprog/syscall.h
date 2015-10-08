@@ -142,11 +142,13 @@ int CreateLock();
 void DestroyLock(int id);
 
 /*Acquire a lock
+int param is the index for the lock for that customer
 */
-void Acquire();
+void Acquire(int custNumLock);
 
-/*Release a lock*/
-void Release();
+/*Release a lock
+int param is the index for the lock for that customer*/
+void Release(int custNumLock);
 
 /*create a condition*/
 int CreateCondition();

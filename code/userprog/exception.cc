@@ -38,7 +38,11 @@ struct KernelCondition{
   AddrSpace* addrSpace;
   bool isToBeDeleted;
 };
-
+struct KernelLock{
+private:
+	Lock* lock;
+	AddrSpace* addrSpace;
+};
 KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
 {
   cv = c;
@@ -47,8 +51,9 @@ KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
 }
 
 KernelCondition* ConditionTable [TABLE_SIZE];
-int currentCVIndex = 0; //the index of the lowest free index of ConditionTable
-
+KernelLock* LockTable [TABLE_SIZE];
+int lockCounter = 0; // is this necessary to keep track of the lock?
+int conditionCounter = 0; //index of the lowest free index of ConditionTable
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -115,6 +120,8 @@ void Fork_Syscall(void (*func)())
 void Yield_Syscall()
 {
 	//TODO
+	currentThread->Yield();
+	//print("Yield");
 }
 /* This user program is done (status = 0 means exited normally). */
 void Exit_Syscall(int status)
@@ -129,6 +136,8 @@ void Exit_Syscall(int status)
 int CreateLock_Syscall()
 {
 	//TODO
+	//math for vaddr? address in kernel space
+	//construction of lock and insertion into table
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
@@ -179,10 +188,10 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
   if(cv)
     {
-      ConditionTable[currentCVIndex++] = newKC;
+      ConditionTable[conditionCounter++] = newKC;
     }
-  printf("creating CV: %i\n", currentCVIndex-1);
-  return currentCVIndex;
+  printf("creating CV: %i\n", conditionCounter-1);
+  return conditionCounter;
 
 }
 // 
@@ -408,11 +417,15 @@ void ExceptionHandler(ExceptionType which) {
 		DEBUG('a', "Close syscall.\n");
 		Close_Syscall(machine->ReadRegister(4));
 		break;
-	case SC_CreateCondition:
-	  DEBUG('a', "Create Condition syscall. \n");
-	  rv = CreateCondition_Syscall(machine->ReadRegister(4),
-				       machine->ReadRegister(5));
-	  break;
+	    case SC_CreateCondition:
+	        DEBUG('a', "Create Condition syscall. \n");
+	        rv = CreateCondition_Syscall(machine->ReadRegister(4),
+					     machine->ReadRegister(5));
+		break;
+	    case SC_CreateLock:
+			DEBUG('a', "Create lock syscall. \n");
+			rv = CreateLock_Syscall();
+			break;
 	}
 
 	// Put in the return value and increment the PC
