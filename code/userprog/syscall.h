@@ -156,7 +156,7 @@ int CreateCondition();
 /*Destroy a condition, parameter is ID of the condition*/
 void DestroyCondition(int id);
 
-//TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast
+/*TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast*/
 
 void Signal();
 void Wait();
