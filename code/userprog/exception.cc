@@ -33,19 +33,26 @@ using namespace std;
 const int TABLE_SIZE = 200;//shoud there be a max size?
 
 struct KernelCondition{
-private:
-  Condition* condition;
+  KernelCondition(Condition* c, AddrSpace* a);
+  Condition* cv;
   AddrSpace* addrSpace;
   bool isToBeDeleted;
 };
 struct KernelLock{
 	Lock* lock;
 	AddrSpace* addrSpace;
-
 };
+KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
+{
+  cv = c;
+  addrSpace = a;
+  isToBeDeleted = false;
+}
+
 KernelCondition* ConditionTable [TABLE_SIZE];
 KernelLock* LockTable [TABLE_SIZE];
 int lockCounter = 0; // is this necessary to keep track of the lock?
+int conditionCounter = 0; //index of the lowest free index of ConditionTable
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -161,9 +168,36 @@ int DestroyLock_Syscall(int lockIndex)
 */
 
 // Creates a new Condition object in kernel space.
-int CreateCondition_Syscall()
+int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in value
 {
-	//TODO
+    char *buf = new char[len+1];	// Kernel buffer to put the name in
+
+    if (!buf) 
+      {
+	printf("%s", "Can't allocate kernel buffer in CreateCondition\n");
+	return -1;
+      }
+
+    if( copyin(vaddr,len,buf) == -1 ) {
+	printf("%s","Bad pointer passed to CreateCondition\n");
+	delete buf;
+	return -1;
+    }
+
+    buf[len]='\0';
+    printf("\nNAME:%s \n", buf);
+
+  Condition* cv = new Condition(buf);
+  //build KernelCondtion
+  KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
+
+  if(cv)
+    {
+      ConditionTable[conditionCounter++] = newKC;
+    }
+  printf("creating CV: %i\n", conditionCounter-1);
+  return conditionCounter;
+
 }
 // 
 int DestroyCondition_Syscall(int conditionIndex)
@@ -208,7 +242,7 @@ void Create_Syscall(unsigned int vaddr, int len) {
     // way to return errors, though...
     char *buf = new char[len+1];	// Kernel buffer to put the name in
 
-    if (!buf) return;
+    if (!buf)
 
     if( copyin(vaddr,len,buf) == -1 ) {
 	printf("%s","Bad pointer passed to Create\n");
@@ -389,7 +423,12 @@ void ExceptionHandler(ExceptionType which) {
 		Close_Syscall(machine->ReadRegister(4));
 		break;
 		
-		case SC_CreateLock:
+	    case SC_CreateCondition:
+	        DEBUG('a', "Create Condition syscall. \n");
+	        rv = CreateCondition_Syscall(machine->ReadRegister(4),
+					     machine->ReadRegister(5));
+		break;
+	    case SC_CreateLock:
 			DEBUG('a', "Create lock syscall. \n");
 			rv = CreateLock_Syscall();
 			break;
