@@ -132,12 +132,25 @@ void Exit_Syscall(int status)
  * Lock Syscalls
 */
 // Creates a new Lock object in kernel space. Returns the kernel lock table index to the user program.
-int CreateLock_Syscall()
+int CreateLock_Syscall(unsigned int vaddr, int len)
 {
-	//TODO
-	//construction of lock and insertion into table
+	char *buf = new char[len+1];	// Kernel buffer to put the name in
 
-	Lock* newLock = new Lock("lock");//change to accept argument in the future
+    if (!buf) 
+      {
+	printf("%s", "Can't allocate kernel buffer in CreateLock\n");
+	return -1;
+      }
+
+    if( copyin(vaddr,len,buf) == -1 ) {
+	printf("%s","Bad pointer passed to CreateLock\n");
+	delete buf;
+	return -1;
+    }
+    buf[len]='\0';
+    printf("\nNAME:%s \n", buf);
+
+	Lock* newLock = new Lock(buf);//change to accept argument in the future
 	KernelLock* kLock = new KernelLock;
 	kLock->lock = newLock;
 	kLock->addrSpace = currentThread->space;	
@@ -430,7 +443,7 @@ void ExceptionHandler(ExceptionType which) {
 		break;
 	    case SC_CreateLock:
 			DEBUG('a', "Create lock syscall. \n");
-			rv = CreateLock_Syscall();
+			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
 			break;
 	}
 
