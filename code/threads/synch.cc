@@ -108,6 +108,12 @@ Lock::Lock(char* debugName) {
 	_waitQueue = new List;
 }
 Lock::~Lock() {}
+
+bool Lock::isLockWaitQueueEmpty()
+{
+  return _waitQueue->IsEmpty();
+}
+
 void Lock::Acquire() {
 
 	//disable interrupts
@@ -188,6 +194,12 @@ Condition::Condition(char* debugName) {
 }
 
 Condition::~Condition() { }
+
+bool Condition::isWaitQueueEmpty()
+{
+  return _waitingQueue.empty();
+}
+
 
 void Condition::Wait(Lock* conditionLock) 
 { 

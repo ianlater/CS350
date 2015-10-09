@@ -39,9 +39,17 @@ struct KernelCondition{
   bool isToBeDeleted;
 };
 struct KernelLock{
+	KernelLock(Lock* l, AddrSpace* a);
 	Lock* lock;
 	AddrSpace* addrSpace;
+  	bool isToBeDeleted;
 };
+KernelLock::KernelLock(Lock* l, AddrSpace* a)
+{
+	lock = l;
+	addrSpace = a;
+	isToBeDeleted = false;
+}
 KernelCondition::KernelCondition(Condition* c, AddrSpace* a)
 {
   cv = c;
@@ -150,10 +158,8 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
     buf[len]='\0';
     printf("\nNAME:%s \n", buf);
 
-	Lock* newLock = new Lock(buf);//change to accept argument in the future
-	KernelLock* kLock = new KernelLock;
-	kLock->lock = newLock;
-	kLock->addrSpace = currentThread->space;	
+	Lock* newLock = new Lock(buf);
+	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
 	LockTable[lockCounter] = kLock;
 	return lockCounter++;
 }
@@ -167,13 +173,42 @@ int Acquire_Syscall(int lockIndex)
 // Takes an integer number as an argument - the lock table index of the lock to release.
 int Release_Syscall(int lockIndex)
 {
-	//TODO
+  /* 
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "DestroyLock::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	kl->Release();
+	if (kl) {
+		if (kl->lock->isLockQueueEmpty() && kl->isToBeDelted) {
+		  delete kl->lock;
+		  delete kl;
+		}
+        }
+  */
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
 int DestroyLock_Syscall(int lockIndex)
 {
-	//TODO
+   /*
+    * check LockIndex numerically for in bounds
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "DestroyLock::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (kl) {
+		if (kl->lock->isLockQueueEmpty()) {
+		  delete kl->lock;
+		  delete kl;
+		}
+		else {
+			kl->isToBeDeleted = true;
+		}
+	}
+	*/
 }
 
 /*
@@ -215,7 +250,23 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 // 
 int DestroyCondition_Syscall(int conditionIndex)
 {
-	//TODO
+	 /*
+    * check conditionIndex numerically for in bounds
+	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
+		char errorMessage[100] = "DestroyCondition::Error: Condition Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelCondition* kc = ConditionTable[conditionIndex];
+	if (kc) {
+		if (kc->cv->isWaitQueueEmpty()) {
+		  delete kc->cv;
+		  delete kc;
+		} 
+		else {
+			kc->isToBeDeleted = true;
+		}
+	}
+	*/
 }
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)
@@ -226,13 +277,51 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
 // 
 int Signal_Syscall(int lockIndex, int conditionIndex)
 {
-	//TODO
+	/*
+
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelCondition* kc = ConditionTable[conditionIndex];
+
+	kc->cv->Signal(kl->lock);
+	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
+	{
+		delete kc->cv;
+		delete kc;
+	}
+	*/
 }
 
 // 
 int Broadcast_Syscall(int lockIndex, int conditionIndex)
 {
-	//TODO
+	/*
+
+	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelLock* kl = LockTable[lockIndex];
+	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
+		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
+		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+	}
+	KernelCondition* kc = ConditionTable[conditionIndex];
+
+	kc->cv->Broadcast(kl->lock);
+	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
+	{
+		delete kc->cv;
+		delete kc;
+	}
+	*/
 }
 
 
