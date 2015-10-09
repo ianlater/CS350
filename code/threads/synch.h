@@ -77,6 +77,7 @@ class Lock {
 					// holds this lock.  Useful for
 					// checking in Release, and in
 					// Condition variable ops below.
+    bool isLockWaitQueueEmpty();	//useful for syscalls and not deleting locks held by other processes
 
   private:
     char* name;				// for debugging
@@ -133,6 +134,7 @@ class Condition {
     void Signal(Lock *conditionLock);   // conditionLock must be held by
     void Broadcast(Lock *conditionLock);// the currentThread for all of 
 					// these operations
+    bool isWaitQueueEmpty(); 		//used in syscalls
 
   private:
     char* name;
