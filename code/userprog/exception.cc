@@ -167,7 +167,26 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
 int Acquire_Syscall(int lockIndex)
 {
-	//TODO
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock is null");
+      return -1;
+    }
+  //Lock exists and input was proper so far, check if lock belongs to this addrSpace
+  if(kl->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock does not belong to this address space");
+      return -1;
+    }
+  //all good to go, do acquire
+  kl->lock->Acquire();
+  return 1;
 }
 
 // Takes an integer number as an argument - the lock table index of the lock to release.
@@ -303,8 +322,8 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
       return -1;
     }
-  KernelLock* k1 = LockTable[lockIndex];
-  if(!k1)
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
     {
       printf("%s\n", "Signal::ERROR: Lock is null");
       return -1;
@@ -315,8 +334,8 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n","Signal::ERROR: Condition Index is out of bounds");
       return -1;
     }
-  KernelCondition* c1 = ConditionTable[conditionIndex];
-  if(!c1)
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
     {
       printf("%s\n","Signal::ERROR: Condition is null");
       return -1;
@@ -324,17 +343,18 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 
   //Ok, now we know lock and condition are both valid
   //check if this lock AND condition belong to this thread
-  if(k1->addrSpace != currentThread->space || c1->addrSpace != currentThread->space)
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
     {
       printf("%s\n", "Signal::ERROR: lock or cv does not belong to this thread");
       return -1;
     }
   //We're all good!
-  c1->cv->Signal(k1->lock);
-  if(c1->cv->isWaitQueueEmpty() && k1->isToBeDeleted)//not totally sure about this...
+  kc->cv->Signal(kl->lock);
+  if(kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)//not totally sure about this...
     {
-      delete c1->cv;
-      delete c1;
+      delete kc->cv;
+      delete kc;
+      DEBUG('a', "Deleting CV after signalling\n");
     }
   return 1;
 }
