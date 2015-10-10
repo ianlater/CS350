@@ -297,6 +297,46 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 		delete kc;
 	}
 	*/
+  
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* k1 = LockTable[lockIndex];
+  if(!k1)
+    {
+      printf("%s\n", "Signal::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Signal::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* c1 = ConditionTable[conditionIndex];
+  if(!c1)
+    {
+      printf("%s\n","Signal::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(k1->addrSpace != currentThread->space || c1->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Signal::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  c1->cv->Signal(k1->lock);
+  if(c1->cv->isWaitQueueEmpty() && k1->isToBeDeleted)//not totally sure about this...
+    {
+      delete c1->cv;
+      delete c1;
+    }
+  return 1;
 }
 
 // 
