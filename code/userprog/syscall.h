@@ -136,7 +136,7 @@ void Fork(void (*func)());
 void Yield();		
 
 /*Create a lock, returns the ID of the lock which is an index in an array, NOT the pointer to it*/
-int CreateLock();
+int CreateLock(char* name, int len);
 
 /*Destroy a lock, parameter is ID of the lock*/
 void DestroyLock(int id);
@@ -151,7 +151,7 @@ int param is the index for the lock for that customer*/
 void Release(int custNumLock);
 
 /*create a condition*/
-int CreateCondition();
+int CreateCondition(char* name, int len);
 
 /*Destroy a condition, parameter is ID of the condition*/
 void DestroyCondition(int id);
