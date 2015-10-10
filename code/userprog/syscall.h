@@ -38,6 +38,7 @@
 #define SC_DestroyLock	17
 #define SC_CreateCondition	18
 #define SC_DestroyCondition	19
+#define SC_Print	20
 
 #define MAXFILENAME 256
 
@@ -162,6 +163,8 @@ void Signal();
 void Wait();
 void Broadcast();
 
+/*print syscall*/
+void Print(char* string, int len);
 #endif /* IN_ASM */
 
 #endif /* SYSCALL_H */
