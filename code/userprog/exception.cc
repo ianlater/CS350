@@ -206,6 +206,34 @@ int Release_Syscall(int lockIndex)
 		}
         }
   */
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Release::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Release::ERROR: Lock is null");
+      return -1;
+    }
+  //does this lock belong to current address space?
+  if(kl->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Release::ERROR: Lock does not belong to this address space");
+      return -1;
+    }
+
+  //error checking done, do action
+  kl->lock->Release();
+  //check isToBeDeleted
+  if(kl->lock->isLockWaitQueueEmpty() && kl->isToBeDeleted)
+    {
+      DEBUG('a', "Deleting Lock in release\n");
+      delete kl->lock;
+      delete kl;
+    }
+  return 1;
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
