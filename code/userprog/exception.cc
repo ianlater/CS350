@@ -280,8 +280,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     }
 
     buf[len]='\0';
-    printf("\nNAME:%s \n", buf);
-
+    printf("\nNAME:%s\n", buf);
   Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
@@ -290,8 +289,13 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     {
       ConditionTable[conditionCounter++] = newKC;
     }
-  printf("creating CV: %i\n", conditionCounter-1);
-  return conditionCounter;
+  else
+    {
+      printf("%s\n", "CreatCondition::ERROR: ERROR, on creating cv?");
+      return -1;
+    }
+  //printf("creating CV: %i\n", conditionCounter-1);
+  return conditionCounter-1;//mehh
 
 }
 // 
@@ -318,7 +322,40 @@ int DestroyCondition_Syscall(int conditionIndex)
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)
 {
-	//TODO
+    if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Wait::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Wait::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
+    {
+      printf("%s\n","Wait::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Wait::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  kc->cv->Wait(kl->lock);
+  return 1;
 }
 
 // 
@@ -410,6 +447,47 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
 		delete kc;
 	}
 	*/
+
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Broadcaste::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  kc->cv->Broadcast(kl->lock);
+  if(kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)//not totally sure about this...
+    {
+      delete kc->cv;
+      delete kc;
+      DEBUG('a', "Deleting CV after Broadcasting\n");
+    }
+  return 1;
 }
 
 
@@ -619,9 +697,33 @@ void ExceptionHandler(ExceptionType which) {
 					     machine->ReadRegister(5));
 		break;
 	    case SC_CreateLock:
-			DEBUG('a', "Create lock syscall. \n");
-			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
+		DEBUG('a', "Create lock syscall. \n");
+		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_Acquire:
+	        DEBUG('a', "Acquire Lock syscall. \n");
+	        rv = Acquire_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_Release:
+	      DEBUG('a', "Release Lock Syscall. \n");
+	      rv = Release_Syscall(machine->ReadRegister(4));
+	      break;
+	case SC_Wait:
+	  DEBUG('a', "Wait Condition Syscall. \n");
+	  rv = Wait_Syscall(machine->ReadRegister(4),
+			    machine->ReadRegister(5));
+	  break;
+	case SC_Signal:
+	  DEBUG('a', "Signal Condition Syscall. \n");
+	  rv = Signal_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
+	  break;
+	case SC_Broadcast:
+	  DEBUG('a', "Broadcast Condition Syscall. \n");
+	  rv = Broadcast_Syscall(machine->ReadRegister(4),
+				 machine->ReadRegister(5));
+	  break;
+		
 	}
 
 	// Put in the return value and increment the PC
