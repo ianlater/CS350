@@ -243,12 +243,12 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	if (kl->lock->isLockWaitQueueEmpty()) {
-	  DEBUG('a', "Destroying Lock %i\n", lockIndex);
+	  DEBUG('a', "Destroying Lock\n");
 	  delete kl->lock;
 	  delete kl;
 	}
 	else {
-	  DEBUG('a', "Marking lock %i for deletion\n", lockIndex);
+	  DEBUG('a', "Marking lock for deletion\n");
 	  kl->isToBeDeleted = true;
 	}
 	return 1;
