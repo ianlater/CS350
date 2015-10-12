@@ -167,7 +167,26 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
 int Acquire_Syscall(int lockIndex)
 {
-	//TODO
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock is null");
+      return -1;
+    }
+  //Lock exists and input was proper so far, check if lock belongs to this addrSpace
+  if(kl->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Acquire::ERROR: Lock does not belong to this address space");
+      return -1;
+    }
+  //all good to go, do acquire
+  kl->lock->Acquire();
+  return 1;
 }
 
 // Takes an integer number as an argument - the lock table index of the lock to release.
@@ -187,6 +206,34 @@ int Release_Syscall(int lockIndex)
 		}
         }
   */
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Release::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Release::ERROR: Lock is null");
+      return -1;
+    }
+  //does this lock belong to current address space?
+  if(kl->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Release::ERROR: Lock does not belong to this address space");
+      return -1;
+    }
+
+  //error checking done, do action
+  kl->lock->Release();
+  //check isToBeDeleted
+  if(kl->lock->isLockWaitQueueEmpty() && kl->isToBeDeleted)
+    {
+      DEBUG('a', "Deleting Lock in release\n");
+      delete kl->lock;
+      delete kl;
+    }
+  return 1;
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
@@ -233,8 +280,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     }
 
     buf[len]='\0';
-    printf("\nNAME:%s \n", buf);
-
+    printf("\nNAME:%s\n", buf);
   Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
@@ -243,8 +289,13 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     {
       ConditionTable[conditionCounter++] = newKC;
     }
-  printf("creating CV: %i\n", conditionCounter-1);
-  return conditionCounter;
+  else
+    {
+      printf("%s\n", "CreatCondition::ERROR: ERROR, on creating cv?");
+      return -1;
+    }
+  //printf("creating CV: %i\n", conditionCounter-1);
+  return conditionCounter-1;//mehh
 
 }
 // 
@@ -271,7 +322,40 @@ int DestroyCondition_Syscall(int conditionIndex)
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)
 {
-	//TODO
+    if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Wait::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Wait::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
+    {
+      printf("%s\n","Wait::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Wait::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  kc->cv->Wait(kl->lock);
+  return 1;
 }
 
 // 
@@ -297,6 +381,47 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 		delete kc;
 	}
 	*/
+  
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Signal::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Signal::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
+    {
+      printf("%s\n","Signal::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Signal::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  kc->cv->Signal(kl->lock);
+  if(kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)//not totally sure about this...
+    {
+      delete kc->cv;
+      delete kc;
+      DEBUG('a', "Deleting CV after signalling\n");
+    }
+  return 1;
 }
 
 // 
@@ -322,6 +447,47 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
 		delete kc;
 	}
 	*/
+
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock Index out of bounds");
+      return -1;
+    }
+  KernelLock* kl = LockTable[lockIndex];
+  if(!kl)
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock is null");
+      return -1;
+    }
+  //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+  KernelCondition* kc = ConditionTable[conditionIndex];
+  if(!kc)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition is null");
+      return -1;
+    }
+
+  //Ok, now we know lock and condition are both valid
+  //check if this lock AND condition belong to this thread
+  if(kl->addrSpace != currentThread->space || kc->addrSpace != currentThread->space)
+    {
+      printf("%s\n", "Broadcaste::ERROR: lock or cv does not belong to this thread");
+      return -1;
+    }
+  //We're all good!
+  kc->cv->Broadcast(kl->lock);
+  if(kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)//not totally sure about this...
+    {
+      delete kc->cv;
+      delete kc;
+      DEBUG('a', "Deleting CV after Broadcasting\n");
+    }
+  return 1;
 }
 
 
@@ -531,9 +697,33 @@ void ExceptionHandler(ExceptionType which) {
 					     machine->ReadRegister(5));
 		break;
 	    case SC_CreateLock:
-			DEBUG('a', "Create lock syscall. \n");
-			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
+		DEBUG('a', "Create lock syscall. \n");
+		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_Acquire:
+	        DEBUG('a', "Acquire Lock syscall. \n");
+	        rv = Acquire_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_Release:
+	      DEBUG('a', "Release Lock Syscall. \n");
+	      rv = Release_Syscall(machine->ReadRegister(4));
+	      break;
+	case SC_Wait:
+	  DEBUG('a', "Wait Condition Syscall. \n");
+	  rv = Wait_Syscall(machine->ReadRegister(4),
+			    machine->ReadRegister(5));
+	  break;
+	case SC_Signal:
+	  DEBUG('a', "Signal Condition Syscall. \n");
+	  rv = Signal_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
+	  break;
+	case SC_Broadcast:
+	  DEBUG('a', "Broadcast Condition Syscall. \n");
+	  rv = Broadcast_Syscall(machine->ReadRegister(4),
+				 machine->ReadRegister(5));
+	  break;
+		
 	}
 
 	// Put in the return value and increment the PC
