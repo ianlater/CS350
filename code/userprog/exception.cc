@@ -231,15 +231,25 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
-	if (kl) {
-		if (kl->lock->isLockWaitQueueEmpty()) {
-		  printf("Destroying Lock\n");
-		  delete kl->lock;
-		}
-		else {
-		  printf("Marking lock for deletion\n");
-			kl->isToBeDeleted = true;
-		}
+	if(!kl)
+	{
+		printf("%s\n", "Release::ERROR: Lock is null");
+		return -1;
+	}
+	//does this lock belong to current address space?
+	if(kl->addrSpace != currentThread->space)
+	{
+		printf("%s\n", "Release::ERROR: Lock does not belong to this address space");
+		return -1;
+	}
+	if (kl->lock->isLockWaitQueueEmpty()) {
+	  DEBUG('a', "Destroying Lock\n");
+	  delete kl->lock;
+	  delete kl;
+	}
+	else {
+	  DEBUG('a', "Marking lock for deletion\n");
+	  kl->isToBeDeleted = true;
 	}
 	return 1;
   /**/
@@ -294,16 +304,24 @@ int DestroyCondition_Syscall(int conditionIndex)
 		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
-	if (kc) {
-		if (kc->cv->isWaitQueueEmpty()) {
-		  printf("Deleting Condition %i\n", conditionIndex);
-		  delete kc->cv;
-		  delete kc;
-		} 
-		else {
-			printf("Marking cv for deletion\n");
-			kc->isToBeDeleted = true;
-		}
+	if (!kc) {
+		printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
+		return -1;
+	}
+	//does this condition belong to current address space?
+	if(kc->addrSpace != currentThread->space)
+	{
+		printf("%s\n", "DestroyCondition::ERROR: Lock does not belong to this address space");
+		return -1;
+	}
+	if (kc->cv->isWaitQueueEmpty()) {
+		DEBUG('a', "Deleting Condition %i\n", conditionIndex);
+		delete kc->cv;
+		delete kc;
+	} 
+	else {
+		DEBUG('a', "Marking cv for deletion\n");
+		kc->isToBeDeleted = true;
 	}
 	return 1;
 	/**/
