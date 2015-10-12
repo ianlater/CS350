@@ -154,7 +154,7 @@ void Release(int custNumLock);
 int CreateCondition(char* name, int len);
 
 /*Destroy a condition, parameter is ID of the condition*/
-int DestroyCondition(int id);
+void DestroyCondition(int id);
 
 /*TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast*/
 
