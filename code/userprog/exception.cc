@@ -127,7 +127,7 @@ void Fork_Syscall(void (*func)())
 void Yield_Syscall()
 {
 	//TODO
-	printf("Yield\n");
+	DEBUG('a', "Yield\n");
 	currentThread->Yield();
 }
 /* This user program is done (status = 0 means exited normally). */
