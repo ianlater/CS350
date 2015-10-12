@@ -10,4 +10,6 @@ int main()
 {
 	int lock = CreateLock("lock", 4);
 	int condition = CreateCondition("condition", 9);
+	DestroyCondition(-1);
+	DestroyCondition(condition);
 }

@@ -127,8 +127,8 @@ void Fork_Syscall(void (*func)())
 void Yield_Syscall()
 {
 	//TODO
+	printf("Yield\n");
 	currentThread->Yield();
-	//print("Yield");
 }
 /* This user program is done (status = 0 means exited normally). */
 void Exit_Syscall(int status)
@@ -173,42 +173,40 @@ int Acquire_Syscall(int lockIndex)
 // Takes an integer number as an argument - the lock table index of the lock to release.
 int Release_Syscall(int lockIndex)
 {
-  /* 
+  /**/ 
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
-		char errorMessage[100] = "DestroyLock::Error: Lock Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+		printf("Releae::Error: Lock Index out of bounds\n");
 	}
 	KernelLock* kl = LockTable[lockIndex];
-	kl->Release();
+	kl->lock->Release();
 	if (kl) {
-		if (kl->lock->isLockQueueEmpty() && kl->isToBeDelted) {
+		if (kl->lock->isLockWaitQueueEmpty() && kl->isToBeDeleted) {
+		  printf("Destroying lock\n");
 		  delete kl->lock;
-		  delete kl;
 		}
         }
-  */
+  /**/
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
 int DestroyLock_Syscall(int lockIndex)
 {
-   /*
-    * check LockIndex numerically for in bounds
+   /**/
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
-		char errorMessage[100] = "DestroyLock::Error: Lock Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+		printf("DestroyLock::Error: Lock Index out of bounds\n");
 	}
 	KernelLock* kl = LockTable[lockIndex];
 	if (kl) {
-		if (kl->lock->isLockQueueEmpty()) {
+		if (kl->lock->isLockWaitQueueEmpty()) {
+		  printf("Destroying Lock\n");
 		  delete kl->lock;
-		  delete kl;
 		}
 		else {
+		  printf("Marking lock for deletion\n");
 			kl->isToBeDeleted = true;
 		}
 	}
-	*/
+  /**/
 }
 
 /*
@@ -250,23 +248,23 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 // 
 int DestroyCondition_Syscall(int conditionIndex)
 {
-	 /*
-    * check conditionIndex numerically for in bounds
+	 /**/
 	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
-		char errorMessage[100] = "DestroyCondition::Error: Condition Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
+		printf("DestroyCondition::Error: Condition Index out of bounds\n");
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
 	if (kc) {
 		if (kc->cv->isWaitQueueEmpty()) {
+		  printf("Deleting Condition %i\n", conditionIndex);
 		  delete kc->cv;
 		  delete kc;
 		} 
 		else {
+			printf("Marking cv for deletion\n");
 			kc->isToBeDeleted = true;
 		}
 	}
-	*/
+	/**/
 }
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)
@@ -531,9 +529,21 @@ void ExceptionHandler(ExceptionType which) {
 					     machine->ReadRegister(5));
 		break;
 	    case SC_CreateLock:
-			DEBUG('a', "Create lock syscall. \n");
-			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
+		DEBUG('a', "Create lock syscall. \n");
+		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_DestroyLock:
+		DEBUG('a', "Destroy lock syscall. \n");
+		rv = DestroyLock_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_Release:
+		DEBUG('a', "Release syscall\n");
+		rv = Release_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_DestroyCondition:
+		DEBUG('a', "Destroy condition syscall. \n");
+		rv = DestroyCondition_Syscall(machine->ReadRegister(4));
+		break;
 	}
 
 	// Put in the return value and increment the PC
