@@ -194,6 +194,7 @@ int DestroyLock_Syscall(int lockIndex)
    /**/
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
 		printf("DestroyLock::Error: Lock Index out of bounds\n");
+		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
 	if (kl) {
@@ -206,6 +207,7 @@ int DestroyLock_Syscall(int lockIndex)
 			kl->isToBeDeleted = true;
 		}
 	}
+	return 1;
   /**/
 }
 
@@ -251,6 +253,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 	 /**/
 	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
 		printf("DestroyCondition::Error: Condition Index out of bounds\n");
+		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
 	if (kc) {
@@ -264,6 +267,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 			kc->isToBeDeleted = true;
 		}
 	}
+	return 1;
 	/**/
 }
 // 
