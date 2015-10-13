@@ -501,6 +501,25 @@ void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int 
     delete[] buf2;
 }
 
+/*Print cstring from vaddr with option for int  arguments 1 and 2*/
+void PrintInt_Syscall(unsigned int vaddr, int len, int arg1, int arg2) {
+    
+    char *buf;		// Kernel buffer for output
+    
+    if ( !(buf = new char[len]) ) {
+	printf("%s","Error allocating kernel buffer for write!\n");
+	return;
+    } else {
+        if ( copyin(vaddr,len,buf) == -1 ) {
+	    printf("%s","Bad pointer passed to to write: data not written\n");
+	    delete[] buf;
+	    return;
+	}
+    }  
+    printf(buf, arg1, arg2);
+
+    delete[] buf;
+}
 
 /* A unique identifier for an executing user program (address space) */
 typedef int SpaceId;	
@@ -745,6 +764,13 @@ void ExceptionHandler(ExceptionType which) {
 	    case SC_Print:
 		DEBUG('a', "Print syscall.\n");
 		Print_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6),
+			      machine->ReadRegister(7));
+		break;
+	    case SC_PrintInt:
+		DEBUG('a', "PrintInt syscall.\n");
+		PrintInt_Syscall(machine->ReadRegister(4),
 			      machine->ReadRegister(5),
 			      machine->ReadRegister(6),
 			      machine->ReadRegister(7));

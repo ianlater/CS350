@@ -13,6 +13,7 @@ int main()
 	char* arg = "Test";
 	Print("Test %s %s\n", 16, "tes", arg);
 	Print("Test2 %s %i\n", 24, "longeraaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", lock);
+	PrintInt("Int Print Test %i, %i\n", 36, 11, lock);
 	DestroyCondition(-1);
 	DestroyCondition(condition);
 	DestroyLock(-1);
