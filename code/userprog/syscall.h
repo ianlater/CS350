@@ -18,26 +18,27 @@
 /* system call codes -- used by the stubs to tell the kernel which system call
  * is being asked for
  */
-#define SC_Halt		0
-#define SC_Exit		1
-#define SC_Exec		2
-#define SC_Join		3
-#define SC_Create	4
-#define SC_Open		5
-#define SC_Read		6
-#define SC_Write	7
-#define SC_Close	8
-#define SC_Fork		9
-#define SC_Yield	10
-#define SC_Acquire	11
-#define SC_Release	12
-#define SC_Wait		13
-#define SC_Signal	14
-#define SC_Broadcast	15
-#define SC_CreateLock	16
-#define SC_DestroyLock	17
+#define SC_Halt			0
+#define SC_Exit			1
+#define SC_Exec			2
+#define SC_Join			3
+#define SC_Create		4
+#define SC_Open			5
+#define SC_Read			6
+#define SC_Write		7
+#define SC_Close		8
+#define SC_Fork			9
+#define SC_Yield		10
+#define SC_Acquire		11
+#define SC_Release		12
+#define SC_Wait			13
+#define SC_Signal		14
+#define SC_Broadcast		15
+#define SC_CreateLock		16
+#define SC_DestroyLock		17
 #define SC_CreateCondition	18
 #define SC_DestroyCondition	19
+#define SC_Print		20
 
 #define MAXFILENAME 256
 
@@ -161,6 +162,9 @@ void DestroyCondition(int id);
 void Signal();
 void Wait();
 void Broadcast();
+
+/* Print syscall to help user programs print statements*/
+void Print(char* buffer, int size, char* arg1, char* arg2);
 
 #endif /* IN_ASM */
 
