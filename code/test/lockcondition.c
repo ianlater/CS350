@@ -8,9 +8,11 @@
 int a[20];
 int main()
 {
-	Print("Test", 4, "test", "test");
 	int lock = CreateLock("lock", 4);
 	int condition = CreateCondition("condition", 9);
+	char* arg = "Test";
+	Print("Test %s %s\n", 16, "tes", arg);
+	Print("Test2 %s %i\n", 24, "longeraaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", lock);
 	DestroyCondition(-1);
 	DestroyCondition(condition);
 	DestroyLock(-1);

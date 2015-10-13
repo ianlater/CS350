@@ -454,6 +454,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
   return 1;
 }
 
+/*Print cstring from vaddr with option for cstring arguments 1 and 2. all args will only be read to the length parameter*/
 void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int arg2) {
     
     char *buf;		// Kernel buffer for output
@@ -493,9 +494,7 @@ void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int 
 	}
     }
 
-    printf("%s\n", buf);
-    printf("%s\n", buf1);
-    printf("%s\n", buf2);
+    printf(buf, buf1, buf2);
 
     delete[] buf;
     delete[] buf1;
