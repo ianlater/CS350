@@ -488,7 +488,7 @@ void Close_Syscall(int fd) {
     }
 }
 
-void Print_Syscall(unsigned int vaddr, int len)
+void Print_Syscall(unsigned int vaddr, int len, unsigned int arg3, unsigned int arg4)
 {
 	char * buf = new char[len + 1]; //buffer for string
 	if (!buf){
@@ -501,10 +501,13 @@ void Print_Syscall(unsigned int vaddr, int len)
 		return ;
 
 	}
+
+	
+/*	
 	buf[len] = '/0';
 	printf("%s\n", buf);
 	delete[] buf;
-
+*/
 	
 
 		
@@ -558,7 +561,7 @@ void ExceptionHandler(ExceptionType which) {
 			break;
 		case SC_Print:
 			DEBUG('a', "Print syscall. \n");
-			Print_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			Print_Syscall(machine->ReadRegister(4), machine->ReadRegister(5), machine->ReadRegister(6), machine->ReadRegister(7));
 			break;
 	}
 

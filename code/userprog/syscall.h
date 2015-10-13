@@ -164,7 +164,8 @@ void Wait();
 void Broadcast();
 
 /*print syscall*/
-void Print(char* string, int len);
+void Print(char* string, int len, char* arg1, char* arg2);
+
 #endif /* IN_ASM */
 
 #endif /* SYSCALL_H */
