@@ -368,27 +368,6 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
 // 
 int Signal_Syscall(int lockIndex, int conditionIndex)
 {
-	/*
-
-	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
-		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
-	}
-	KernelLock* kl = LockTable[lockIndex];
-	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
-		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
-	}
-	KernelCondition* kc = ConditionTable[conditionIndex];
-
-	kc->cv->Signal(kl->lock);
-	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
-	{
-		delete kc->cv;
-		delete kc;
-	}
-	*/
-  
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
       printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
@@ -431,30 +410,8 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
   return 1;
 }
 
-// 
 int Broadcast_Syscall(int lockIndex, int conditionIndex)
 {
-	/*
-
-	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
-		char errorMessage[100] = "Signal::Error: Lock Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
-	}
-	KernelLock* kl = LockTable[lockIndex];
-	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
-		char errorMessage[100] = "Signal::Error: Condition Index out of bounds";
-		Write_Syscall(errorMessage,strlen(errorMessage),  ConsoleOutput);
-	}
-	KernelCondition* kc = ConditionTable[conditionIndex];
-
-	kc->cv->Broadcast(kl->lock);
-	if (kc->cv->isWaitQueueEmpty() && kc->isToBeDeleted)
-	{
-		delete kc->cv;
-		delete kc;
-	}
-	*/
-
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
       printf("%s\n", "Broadcast::ERROR: Lock Index out of bounds");
@@ -495,6 +452,54 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       DEBUG('a', "Deleting CV after Broadcasting\n");
     }
   return 1;
+}
+
+void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int arg2) {
+    
+    char *buf;		// Kernel buffer for output
+    
+    if ( !(buf = new char[len]) ) {
+	printf("%s","Error allocating kernel buffer for write!\n");
+	return;
+    } else {
+        if ( copyin(vaddr,len,buf) == -1 ) {
+	    printf("%s","Bad pointer passed to to write: data not written\n");
+	    delete[] buf;
+	    return;
+	}
+    }  
+    char *buf1;		// Kernel buffer for output
+    
+    if ( !(buf1 = new char[len]) ) {
+	printf("%s","Error allocating kernel buffer for write!\n");
+	return;
+    }else {
+        if ( copyin(arg1,len,buf1) == -1 ) {
+	    printf("%s","Bad pointer passed to to write: data not written\n");
+	    delete[] buf1;
+	    return;
+	}
+    }
+    char *buf2;		// Kernel buffer for output
+    
+    if ( !(buf2 = new char[len]) ) {
+	printf("%s","Error allocating kernel buffer for write!\n");
+	return;
+    } else {
+        if ( copyin(arg2,len,buf2) == -1 ) {
+	    printf("%s","Bad pointer passed to to write: data not written\n");
+	    delete[] buf2;
+	    return;
+	}
+    }
+
+    printf("%s\n", buf);
+    printf("%s\n", buf1);
+    printf("%s\n", buf2);
+
+    delete[] buf;
+    delete[] buf1;
+    delete[] buf2;
 }
 
 
@@ -738,6 +743,13 @@ void ExceptionHandler(ExceptionType which) {
 	  rv = Broadcast_Syscall(machine->ReadRegister(4),
 				 machine->ReadRegister(5));
 	  break;
+	    case SC_Print:
+		DEBUG('a', "Print syscall.\n");
+		Print_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6),
+			      machine->ReadRegister(7));
+		break;
 		
 	}
 
