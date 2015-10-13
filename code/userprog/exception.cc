@@ -654,6 +654,31 @@ void Close_Syscall(int fd) {
     }
 }
 
+void Print_Syscall(unsigned int vaddr, int len, unsigned int arg3, unsigned int arg4)
+{
+	char * buf = new char[len + 1]; //buffer for string
+	if (!buf){
+		printf("Can't allocate buffer in Print\n");
+		return; 
+	}
+	if (copyin(vaddr,len, buf )== -1){
+		printf("Bad pointer passed to print\n");
+		delete [] buf;	
+		return ;
+
+	}
+
+	
+/*	
+	buf[len] = '/0';
+	printf("%s\n", buf);
+	delete[] buf;
+*/
+	
+
+		
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -697,9 +722,13 @@ void ExceptionHandler(ExceptionType which) {
 					     machine->ReadRegister(5));
 		break;
 	    case SC_CreateLock:
-		DEBUG('a', "Create lock syscall. \n");
-		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
+			DEBUG('a', "Create lock syscall. \n");
+			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+	case SC_Print:
+			DEBUG('a', "Print syscall. \n");
+			Print_Syscall(machine->ReadRegister(4), machine->ReadRegister(5), machine->ReadRegister(6), machine->ReadRegister(7));
+			break;
 	    case SC_Acquire:
 	        DEBUG('a', "Acquire Lock syscall. \n");
 	        rv = Acquire_Syscall(machine->ReadRegister(4));
