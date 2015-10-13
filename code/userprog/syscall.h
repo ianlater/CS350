@@ -39,6 +39,7 @@
 #define SC_CreateCondition	18
 #define SC_DestroyCondition	19
 #define SC_Print		20
+#define SC_PrintInt		21
 
 #define MAXFILENAME 256
 
@@ -165,6 +166,9 @@ void Broadcast();
 
 /* Print syscall to help user programs print statements*/
 void Print(char* buffer, int size, char* arg1, char* arg2);
+
+/* Print syscall to help user programs print ints in statements*/
+void PrintInt(char* buffer, int size, int arg1, int arg2);
 
 #endif /* IN_ASM */
 
