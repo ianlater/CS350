@@ -61,6 +61,14 @@ KernelCondition* ConditionTable [TABLE_SIZE];
 KernelLock* LockTable [TABLE_SIZE];
 int lockCounter = 0; // is this necessary to keep track of the lock?
 int conditionCounter = 0; //index of the lowest free index of ConditionTable
+
+//process table
+struct Process{
+  AddrSpace* addrSpace;
+  int numThreads;//number of threads in this process
+  //more?
+};
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -113,12 +121,48 @@ int copyout(unsigned int vaddr, int len, char *buf) {
     return n;
 }
 
+
+//use nachos thread::fork to get here from Fork
+void Kernel_Thread(int func)
+{
+  //set up my registers
+  currentThread->space->InitRegisters();//zero out
+  machine->WriteRegister(PCReg, func);
+  machine->WriteRegister(NextPCReg, func + 4);
+  //TODO: now, how do i say where stackReg should be?
+  //see SaveState in addrSpace?
+  machine->Run();//now, use the registers i set above and LIVE
+}
+
+
 /* Fork a thread to run a procedure ("func") in the *same* address space 
  * as the current thread.
  */
-void Fork_Syscall(void (*func)())
+void Fork_Syscall(int func)//or should it be void (*func)()
 {
-	//TODO
+  printf("Calling Fork Syscall: %d\n",0);// freePageBitMap->Find());
+  //I get virtualAddress as arg?
+  //create a new thread
+  //update process table
+  //assign THIS (the parent's) AddrSpace to the thread, and then give it its own stack
+  //NOTE: Will need LOCK to lock down shared resources like stack and process table!
+  //last thing done is call internal nachos fork on new, baby thread
+
+  Thread* nt = new Thread("forkedThread");
+  nt->space = currentThread->space;
+  nt->Fork(Kernel_Thread, func);//ready new thread to go to KT function
+
+  return;  
+//see save state?
+  //  machine->WriteRegister(PCReg, func);
+  // machine->WriteRegister(NextPCReg, func + 4);
+  
+
+//TODO: give nt its own stack
+  ////I can do so by changing registers of this new thread?
+
+  //nt->Fork(func, 0);
+  
 }
 
 /* Yield the CPU to another runnable thread, whether in this address space 
@@ -775,6 +819,10 @@ void ExceptionHandler(ExceptionType which) {
 			      machine->ReadRegister(6),
 			      machine->ReadRegister(7));
 		break;
+	case SC_Fork:
+	  DEBUG('a', "Fork syscall. \n");
+	  Fork_Syscall(machine->ReadRegister(4));
+	  break;
 		
 	}
 

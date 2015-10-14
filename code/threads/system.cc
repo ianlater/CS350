@@ -17,6 +17,8 @@ Scheduler *scheduler;			// the ready list
 Interrupt *interrupt;			// interrupt status
 Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
+
+BitMap* freePageBitMap;
 					// for invoking context switches
 
 #ifdef FILESYS_NEEDED
@@ -162,6 +164,8 @@ Initialize(int argc, char **argv)
 #ifdef NETWORK
     postOffice = new PostOffice(netname, rely, 10);
 #endif
+
+    freePageBitMap = new BitMap(NumPhysPages);
 }
 
 //----------------------------------------------------------------------
