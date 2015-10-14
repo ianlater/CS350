@@ -151,7 +151,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
       printf("PPN: %d\n", ppn);
       if(ppn < 0){
         printf("BitMap Find returned <0. OUT OF MEMORY/n");
-	return;
+	interrupt->Halt();
       }
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
 	pageTable[i].physicalPage = ppn;
@@ -161,11 +161,12 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
+	executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-//    CROWLEY SAYS COMMENT OUT. load in page by page...
+/*    CROWLEY SAYS COMMENT OUT. load in page by page...
 bzero(machine->mainMemory, size);
 
 // then, copy in the code and data segments into memory
@@ -181,7 +182,7 @@ bzero(machine->mainMemory, size);
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
-//
+*/
 }
 
 //----------------------------------------------------------------------

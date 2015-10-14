@@ -111,10 +111,12 @@ class Thread {
     ThreadStatus status;		// ready, running or blocked
     char* name;
 
+   
     void StackAllocate(VoidFunctionPtr func, int arg);
     					// Allocate a stack for thread.
 					// Used internally by Fork()
 
+    int threadID; //added by JACK to keep track of threads
 #ifdef USER_PROGRAM
 // A thread running a user program actually has *two* sets of CPU registers -- 
 // one for its state while executing user code, one for its state 

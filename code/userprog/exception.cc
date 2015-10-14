@@ -63,11 +63,13 @@ int lockCounter = 0; // is this necessary to keep track of the lock?
 int conditionCounter = 0; //index of the lowest free index of ConditionTable
 
 //process table
+int processCounter = 1;//TODO fix this. it starts at zero in progtest, so it is 1 now
 struct Process{
   AddrSpace* addrSpace;
   int numThreads;//number of threads in this process
   //more?
 };
+Process* ProcessTabel[TABLE_SIZE];
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
