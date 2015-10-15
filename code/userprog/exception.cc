@@ -638,6 +638,7 @@ void Exit_Syscall(int status){
 		b. Locks/cvs (Match addrspace* w/ processtable)
 
 	*/
+	currentThread->Finish();
 }
 
 
