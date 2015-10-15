@@ -130,11 +130,6 @@ void Yield_Syscall()
 	DEBUG('a', "Yield\n");
 	currentThread->Yield();
 }
-/* This user program is done (status = 0 means exited normally). */
-void Exit_Syscall(int status)
-{
-	//TODO
-}
 
 /*
  * Lock Syscalls
@@ -521,17 +516,71 @@ void PrintInt_Syscall(unsigned int vaddr, int len, int arg1, int arg2) {
     delete[] buf;
 }
 
-/* A unique identifier for an executing user program (address space) */
-typedef int SpaceId;	
- 
-/* Run the executable, stored in the Nachos file "name", and return the 
- * address space identifier
- */
-SpaceId Exec_Syscall(char *name)
-{
-	//TODO
-	return -1;
+void Exec_Thread(){
+	currentThread->space->InitRegisters();             // set the initial register values
+    currentThread->space->RestoreState();              // load page table register
+    machine->Run();                     // jump to the user progam
 }
+/* Exec syscall runs executable and returns int/SpaceId of addrSpace */
+int Exec_Syscall(unsigned int vaddr, int len) 
+{
+	//Open file (
+	 char *buf = new char[len+1];	// Kernel buffer to put the name in
+    OpenFile *executable;			// The new open file
+    int id;				// The openfile id
+    if (!buf) {
+		printf("%s","Can't allocate kernel buffer in Open\n");
+		return -1;
+    }
+    if( copyin(vaddr,len,buf) == -1 ) {
+		printf("%s","Bad pointer passed to Open\n");
+		delete[] buf;
+		return -1;
+    }
+    buf[len]='\0';
+    executable = fileSystem->Open(buf);
+    if ( executable ) {
+		if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
+			return -1;
+		}
+	} else {
+        printf("Unable to open file %s\n", buf);
+        return -1;
+    }
+    delete[] buf;
+
+	// above tweaked from Open_Syscall. Now have OpenFile* executable
+	AddrSpace* space = new AddrSpace(executable);
+	Thread* thread = new Thread();
+	thread->space = space;
+	int spaceId = space->getID();
+	//Update process table
+	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
+	ProcessTable[processCounter++] = process;
+	thread->Fork(Exec_Thread);
+	
+	return spaceId;//machine->WriteRegister(2, space->getID()); done at end of exec	
+}
+
+void Exit_Syscall(int status){
+	/*
+	• reclaim resources: memory, locks, conditions
+	• Must have currentThread->Finish();
+	• Functions that call fork must call Exit
+	1. A thread calls Exit - not the last executing thread
+		a. Reclaim pages of stack (they're contiguous and in sets of 8)
+	2. Last execution thread in last process
+		a. Interrupt->Halt()
+	3. Last execution thread in not last process
+		a. Reclaim all unreclaimed memory:
+			i. Vpn	Ppn	Valid bit
+			ii. If (valid bit) { memoryBitmap->Clear(ppn); }
+			iii. Valid bit = false
+		b. Locks/cvs (Match addrspace* w/ processtable)
+
+	*/
+}
+
 
 
 void Create_Syscall(unsigned int vaddr, int len) {
@@ -774,6 +823,11 @@ void ExceptionHandler(ExceptionType which) {
 			      machine->ReadRegister(5),
 			      machine->ReadRegister(6),
 			      machine->ReadRegister(7));
+		break;
+		case SC_Exec:
+		DEBUG('a', "Exec syscall.\n");
+		Exec_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
 		break;
 		
 	}
