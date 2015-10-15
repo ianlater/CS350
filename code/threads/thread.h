@@ -102,6 +102,9 @@ class Thread {
     char* getName() { return (name); }
     void Print() { printf("%s, ", name); }
 
+    void setID(int i){threadID = i;}
+    int getID(){return threadID;}
+
   private:
     // some of the private data for this class is listed above
     
@@ -117,6 +120,7 @@ class Thread {
 					// Used internally by Fork()
 
     int threadID; //added by JACK to keep track of threads
+
 #ifdef USER_PROGRAM
 // A thread running a user program actually has *two* sets of CPU registers -- 
 // one for its state while executing user code, one for its state 
