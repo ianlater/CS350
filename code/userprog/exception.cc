@@ -610,13 +610,13 @@ int Exec_Syscall(unsigned int vaddr, int len)
 
 	// above tweaked from Open_Syscall. Now have OpenFile* executable
 	AddrSpace* space = new AddrSpace(executable);
-	Thread* thread = new Thread();
+	Thread* thread = new Thread("exec thread");
 	thread->space = space;
 	int spaceId = space->getID();
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	ProcessTable[processCounter++] = process;
-	thread->Fork(Exec_Thread);
+	thread->Fork((VoidFunctionPtr)Exec_Thread,0);
 	
 	return spaceId;//machine->WriteRegister(2, space->getID()); done at end of exec	
 }
