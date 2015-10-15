@@ -62,14 +62,25 @@ KernelLock* LockTable [TABLE_SIZE];
 int lockCounter = 0; // is this necessary to keep track of the lock?
 int conditionCounter = 0; //index of the lowest free index of ConditionTable
 
+int threadCounter = 0;//used to assign ID to threads
+
 //process table
 int processCounter = 1;//TODO fix this. it starts at zero in progtest, so it is 1 now
 struct Process{
   AddrSpace* addrSpace;
   int numThreads;//number of threads in this process
   //more?
+  int threadStackStart[50];
+  Process(AddrSpace* a, int nt);
+  ~Process();
 };
-Process* ProcessTabel[TABLE_SIZE];
+Process::Process(AddrSpace* a, int nt)
+{
+  addrSpace = a;
+  numThreads = nt;
+//map thread id's to stack location?
+}
+Process* ProcessTable[TABLE_SIZE];
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -127,13 +138,19 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
 {
+  //  printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
-  //TODO: now, how do i say where stackReg should be?
-  //see SaveState in addrSpace?
+  //TODO optimize the follwoing line. lots of arrows...
+  int currentProcess = currentThread->space->getID();
+
+  int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
+  machine->WriteRegister(StackReg, stackLoc);
+  printf("\nStack: %d\n",stackLoc);
   machine->Run();//now, use the registers i set above and LIVE
+
 }
 
 
@@ -142,29 +159,25 @@ void Kernel_Thread(int func)
  */
 void Fork_Syscall(int func)//or should it be void (*func)()
 {
-  printf("Calling Fork Syscall: %d\n",0);// freePageBitMap->Find());
-  //I get virtualAddress as arg?
-  //create a new thread
-  //update process table
-  //assign THIS (the parent's) AddrSpace to the thread, and then give it its own stack
+  printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
-  //last thing done is call internal nachos fork on new, baby thread
 
   Thread* nt = new Thread("forkedThread");
+  int threadID = threadCounter++;
+  nt->setID(threadID);
+  int currentProcess = currentThread->space->getID();
+  if(!ProcessTable[currentProcess])
+    {
+      Process* proc = new Process(currentThread->space, 1);
+      ProcessTable[currentProcess] = proc;
+    }
+  ProcessTable[currentProcess]->numThreads++;
+  ProcessTable[currentProcess]->threadStackStart[threadID] = currentThread->space->getBaseDataSize() + (UserStackSize * ProcessTable[currentProcess]->numThreads) - 16;
+
   nt->space = currentThread->space;
-  nt->Fork(Kernel_Thread, func);//ready new thread to go to KT function
+  nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
 
   return;  
-//see save state?
-  //  machine->WriteRegister(PCReg, func);
-  // machine->WriteRegister(NextPCReg, func + 4);
-  
-
-//TODO: give nt its own stack
-  ////I can do so by changing registers of this new thread?
-
-  //nt->Fork(func, 0);
-  
 }
 
 /* Yield the CPU to another runnable thread, whether in this address space 
@@ -179,7 +192,7 @@ void Yield_Syscall()
 /* This user program is done (status = 0 means exited normally). */
 void Exit_Syscall(int status)
 {
-	//TODO
+  currentThread->Finish();
 }
 
 /*
@@ -824,6 +837,10 @@ void ExceptionHandler(ExceptionType which) {
 	case SC_Fork:
 	  DEBUG('a', "Fork syscall. \n");
 	  Fork_Syscall(machine->ReadRegister(4));
+	  break;
+	case SC_Exit:
+	  DEBUG('a', "Exit Syscall. \n");
+	  Exit_Syscall(machine->ReadRegister(4));
 	  break;
 		
 	}

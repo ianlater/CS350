@@ -132,7 +132,10 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
-    numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+    
+    baseDataSize = size;//something to use publicly to find my stack
+
+    numPages = divRoundUp(size, PageSize) + 50 * divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;
@@ -148,7 +151,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
       int ppn = freePageBitMap->Find();
-      printf("PPN: %d\n", ppn);
+      //printf("PPN: %d\n", ppn);
       if(ppn < 0){
         printf("BitMap Find returned <0. OUT OF MEMORY/n");
 	interrupt->Halt();
@@ -225,7 +228,7 @@ AddrSpace::InitRegisters()
    // Set the stack register to the end of the address space, where we
    // allocated the stack; but subtract off a bit, to make sure we don't
    // accidentally reference off the end!
-    machine->WriteRegister(StackReg, numPages * PageSize - 16);
+    machine->WriteRegister(StackReg,  baseDataSize + UserStackSize - 16);//changed to not use numPages by JACK
     DEBUG('a', "Initializing stack register to %x\n", numPages * PageSize - 16);
 }
 
