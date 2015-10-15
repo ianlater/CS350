@@ -17,6 +17,8 @@
 
 #define QUANTUM 100
 
+//int processCounter = 0;//added by JACK to assign to process. should this be done in EXEC later?
+
 //----------------------------------------------------------------------
 // StartProcess
 // 	Run a user program.  Open the executable, load it into
@@ -34,14 +36,14 @@ StartProcess(char *filename)
     }
    
     space = new AddrSpace(executable);
-
+    space->setID(0);//start at zero
     currentThread->space = space;
 
     delete executable;			// close file
 
     space->InitRegisters();		// set the initial register values
     space->RestoreState();		// load page table register
-
+    
     machine->Run();			// jump to the user progam
     ASSERT(FALSE);			// machine->Run never returns;
 					// the address space exits
