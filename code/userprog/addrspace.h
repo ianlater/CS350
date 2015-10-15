@@ -35,12 +35,20 @@ class AddrSpace {
     void SaveState();			// Save/restore address space-specific
     void RestoreState();		// info on a context switch
     Table fileTable;			// Table of openfiles
+    int getID() {return processID;}
+    void setID(int nID){processID = nID;}
+    unsigned int getNumPages(){return numPages;}
+    void setNumPages(unsigned int np){numPages = np;} 
+    int getBaseDataSize(){return baseDataSize;}
 
  private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+    int processID;  //added by JACK to use as key in processTable
+
+    int baseDataSize;
 };
 
 #endif // ADDRSPACE_H
