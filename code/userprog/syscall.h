@@ -157,11 +157,10 @@ int CreateCondition(char* name, int len);
 /*Destroy a condition, parameter is ID of the condition*/
 void DestroyCondition(int id);
 
-/*TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast*/
 
-void Signal();
-void Wait();
-void Broadcast();
+void Signal(int lockIndex, int conditionIndex);
+void Wait(int lockIndex, int conditionIndex);
+void Broadcast(int lockIndex, int conditionIndex);
 
 /* Print syscall to help user programs print statements*/
 void Print(char* buffer, int size, char* arg1, char* arg2);
