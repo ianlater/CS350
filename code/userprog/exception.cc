@@ -61,6 +61,27 @@ KernelCondition* ConditionTable [TABLE_SIZE];
 KernelLock* LockTable [TABLE_SIZE];
 int lockCounter = 0; // is this necessary to keep track of the lock?
 int conditionCounter = 0; //index of the lowest free index of ConditionTable
+
+int threadCounter = 0;//used to assign ID to threads
+
+//process table
+int processCounter = 1;//TODO fix this. it starts at zero in progtest, so it is 1 now
+struct Process{
+  AddrSpace* addrSpace;
+  int numThreads;//number of threads in this process
+  //more?
+  int threadStackStart[50];
+  Process(AddrSpace* a, int nt);
+  ~Process();
+};
+Process::Process(AddrSpace* a, int nt)
+{
+  addrSpace = a;
+  numThreads = nt;
+//map thread id's to stack location?
+}
+Process* ProcessTable[TABLE_SIZE];
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -113,12 +134,50 @@ int copyout(unsigned int vaddr, int len, char *buf) {
     return n;
 }
 
+
+//use nachos thread::fork to get here from Fork
+void Kernel_Thread(int func)
+{
+  //  printf("KERNELTHREAD\n");
+  //set up my registers
+  currentThread->space->InitRegisters();//zero out
+  machine->WriteRegister(PCReg, func);
+  machine->WriteRegister(NextPCReg, func + 4);
+  //TODO optimize the follwoing line. lots of arrows...
+  int currentProcess = currentThread->space->getID();
+
+  int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
+  machine->WriteRegister(StackReg, stackLoc);
+  printf("\nStack: %d\n",stackLoc);
+  machine->Run();//now, use the registers i set above and LIVE
+
+}
+
+
 /* Fork a thread to run a procedure ("func") in the *same* address space 
  * as the current thread.
  */
-void Fork_Syscall(void (*func)())
+void Fork_Syscall(int func)//or should it be void (*func)()
 {
-	//TODO
+  printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
+  //NOTE: Will need LOCK to lock down shared resources like stack and process table!
+
+  Thread* nt = new Thread("forkedThread");
+  int threadID = threadCounter++;
+  nt->setID(threadID);
+  int currentProcess = currentThread->space->getID();
+  if(!ProcessTable[currentProcess])
+    {
+      Process* proc = new Process(currentThread->space, 1);
+      ProcessTable[currentProcess] = proc;
+    }
+  ProcessTable[currentProcess]->numThreads++;
+  ProcessTable[currentProcess]->threadStackStart[threadID] = currentThread->space->getBaseDataSize() + (UserStackSize * ProcessTable[currentProcess]->numThreads) - 16;
+
+  nt->space = currentThread->space;
+  nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
+
+  return;  
 }
 
 /* Yield the CPU to another runnable thread, whether in this address space 
@@ -129,11 +188,6 @@ void Yield_Syscall()
 	//TODO
 	DEBUG('a', "Yield\n");
 	currentThread->Yield();
-}
-/* This user program is done (status = 0 means exited normally). */
-void Exit_Syscall(int status)
-{
-	//TODO
 }
 
 /*
@@ -501,18 +555,92 @@ void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int 
     delete[] buf2;
 }
 
+/*Print cstring from vaddr with option for int  arguments 1 and 2*/
+void PrintInt_Syscall(unsigned int vaddr, int len, int arg1, int arg2) {
+    
+    char *buf;		// Kernel buffer for output
+    
+    if ( !(buf = new char[len]) ) {
+	printf("%s","Error allocating kernel buffer for write!\n");
+	return;
+    } else {
+        if ( copyin(vaddr,len,buf) == -1 ) {
+	    printf("%s","Bad pointer passed to to write: data not written\n");
+	    delete[] buf;
+	    return;
+	}
+    }  
+    printf(buf, arg1, arg2);
 
-/* A unique identifier for an executing user program (address space) */
-typedef int SpaceId;	
- 
-/* Run the executable, stored in the Nachos file "name", and return the 
- * address space identifier
- */
-SpaceId Exec_Syscall(char *name)
-{
-	//TODO
-	return -1;
+    delete[] buf;
 }
+
+void Exec_Thread(){
+	currentThread->space->InitRegisters();             // set the initial register values
+    currentThread->space->RestoreState();              // load page table register
+    machine->Run();                     // jump to the user progam
+}
+/* Exec syscall runs executable and returns int/SpaceId of addrSpace */
+int Exec_Syscall(unsigned int vaddr, int len) 
+{
+	//Open file (
+	 char *buf = new char[len+1];	// Kernel buffer to put the name in
+    OpenFile *executable;			// The new open file
+    int id;				// The openfile id
+    if (!buf) {
+		printf("%s","Can't allocate kernel buffer in Open\n");
+		return -1;
+    }
+    if( copyin(vaddr,len,buf) == -1 ) {
+		printf("%s","Bad pointer passed to Open\n");
+		delete[] buf;
+		return -1;
+    }
+    buf[len]='\0';
+    executable = fileSystem->Open(buf);
+    if ( executable ) {
+		if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
+			return -1;
+		}
+	} else {
+        printf("Unable to open file %s\n", buf);
+        return -1;
+    }
+    delete[] buf;
+
+	// above tweaked from Open_Syscall. Now have OpenFile* executable
+	AddrSpace* space = new AddrSpace(executable);
+	Thread* thread = new Thread("exec thread");
+	thread->space = space;
+	int spaceId = space->getID();
+	//Update process table
+	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
+	ProcessTable[processCounter++] = process;
+	thread->Fork((VoidFunctionPtr)Exec_Thread,0);
+	
+	return spaceId;//machine->WriteRegister(2, space->getID()); done at end of exec	
+}
+
+void Exit_Syscall(int status){
+	/*
+	• reclaim resources: memory, locks, conditions
+	• Must have currentThread->Finish();
+	• Functions that call fork must call Exit
+	1. A thread calls Exit - not the last executing thread
+		a. Reclaim pages of stack (they're contiguous and in sets of 8)
+	2. Last execution thread in last process
+		a. Interrupt->Halt()
+	3. Last execution thread in not last process
+		a. Reclaim all unreclaimed memory:
+			i. Vpn	Ppn	Valid bit
+			ii. If (valid bit) { memoryBitmap->Clear(ppn); }
+			iii. Valid bit = false
+		b. Locks/cvs (Match addrspace* w/ processtable)
+
+	*/
+	currentThread->Finish();
+}
+
 
 
 void Create_Syscall(unsigned int vaddr, int len) {
@@ -749,6 +877,27 @@ void ExceptionHandler(ExceptionType which) {
 			      machine->ReadRegister(6),
 			      machine->ReadRegister(7));
 		break;
+	    case SC_PrintInt:
+		DEBUG('a', "PrintInt syscall.\n");
+		PrintInt_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6),
+			      machine->ReadRegister(7));
+		break;
+		
+	case SC_Exec:
+		DEBUG('a', "Exec syscall.\n");
+		rv = Exec_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
+		break;
+	case SC_Fork:
+	  DEBUG('a', "Fork syscall. \n");
+	  Fork_Syscall(machine->ReadRegister(4));
+	  break;
+	case SC_Exit:
+	  DEBUG('a', "Exit Syscall. \n");
+	  Exit_Syscall(machine->ReadRegister(4));
+	  break;
 		
 	}
 

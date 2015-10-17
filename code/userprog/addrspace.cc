@@ -132,7 +132,10 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
-    numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+    
+    baseDataSize = size;//something to use publicly to find my stack
+
+    numPages = divRoundUp(size, PageSize) + 50 * divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;
@@ -141,25 +144,33 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
-
+    
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
+      int ppn = freePageBitMap->Find();
+      //printf("PPN: %d\n", ppn);
+      if(ppn < 0){
+        printf("BitMap Find returned <0. OUT OF MEMORY/n");
+	interrupt->Halt();
+      }
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
+	pageTable[i].physicalPage = ppn;
 	pageTable[i].valid = TRUE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
 	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
+	executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    bzero(machine->mainMemory, size);
+/*    CROWLEY SAYS COMMENT OUT. load in page by page...
+bzero(machine->mainMemory, size);
 
 // then, copy in the code and data segments into memory
     if (noffH.code.size > 0) {
@@ -174,7 +185,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
-
+*/
 }
 
 //----------------------------------------------------------------------
@@ -217,7 +228,7 @@ AddrSpace::InitRegisters()
    // Set the stack register to the end of the address space, where we
    // allocated the stack; but subtract off a bit, to make sure we don't
    // accidentally reference off the end!
-    machine->WriteRegister(StackReg, numPages * PageSize - 16);
+    machine->WriteRegister(StackReg,  baseDataSize + UserStackSize - 16);//changed to not use numPages by JACK
     DEBUG('a', "Initializing stack register to %x\n", numPages * PageSize - 16);
 }
 

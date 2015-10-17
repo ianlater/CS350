@@ -15,6 +15,8 @@
 #include "interrupt.h"
 #include "stats.h"
 #include "timer.h"
+#include "../userprog/addrspace.h"
+//#include "../userprog/table.h"
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -29,6 +31,7 @@ extern Interrupt *interrupt;			// interrupt status
 extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
+extern BitMap* freePageBitMap;      //made by JACK for finding empty page
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers

@@ -102,6 +102,9 @@ class Thread {
     char* getName() { return (name); }
     void Print() { printf("%s, ", name); }
 
+    void setID(int i){threadID = i;}
+    int getID(){return threadID;}
+
   private:
     // some of the private data for this class is listed above
     
@@ -111,9 +114,12 @@ class Thread {
     ThreadStatus status;		// ready, running or blocked
     char* name;
 
+   
     void StackAllocate(VoidFunctionPtr func, int arg);
     					// Allocate a stack for thread.
 					// Used internally by Fork()
+
+    int threadID; //added by JACK to keep track of threads
 
 #ifdef USER_PROGRAM
 // A thread running a user program actually has *two* sets of CPU registers -- 
