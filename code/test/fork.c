@@ -39,8 +39,8 @@ main()
 	/*Fork a doit and createlock*/
 	Fork(fooBar);
 
-	/*loop 50 times */
-	for (i = 0; i < 50; i++)
+	/*loop 40 times */
+	for (i = 0; i < 40; i++)
 	{
 		Fork(testFunc);
 	}
