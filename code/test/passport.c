@@ -1,7 +1,6 @@
 /* passport.c
 
 */
-/*#include "system.h"*/
 #include "syscall.h"
 int a[3];
 int b, c;
@@ -68,6 +67,9 @@ struct Clerk
 
 Clerk* clerks[NUM_CLERKS];/*global array of clerk ptrs*/
 
+char* buffer2 = new char[50];
+char* buffer3 = new char[50];
+
 void Clerk(struct Clerk clerk, char* name, id) 	
 {
 	clerk.id = id;
@@ -82,14 +84,13 @@ void Clerk(struct Clerk clerk, char* name, id)
 
 	/*CVs & MVs*/
 	clerkBreakCV[id] = CreateCondition("ClerkBreakCV" +id);
-	char* buffer2 = new char[50];
+	
 	sPrint(buffer2, "ClerkLineCv%i", id);
 	clerkLineCV[id] = CreateCondition(buffer2);
 	clerkLineCount[id] =0;/*Assumption, start empty*/
 	clerkBribeLineCount[id] = 0;
 	clerkBribeLineCV[id] = CreateCondition(buffer2);
 
-	char* buffer3 = new char[50];
 	sPrint(buffer3, "ClerkCV%i", id);
 	clerkCV[id] = CreateCondition(buffer3);
 	clerkState[id] = 0;/*Assumption, start free*/
@@ -213,10 +214,6 @@ Print("%s beginning to run\n", 24, name, "");
 
 struct Customer
 {
-  bool isNextClerkType(int type);
-  void giveData(int clerkType);
-  void checkSenator();
-
   char* name;
   int money;
   int myLine;/*-1 represents not in a line*/
@@ -331,6 +328,7 @@ void checkSenator()
 	}
 }
 
+int picApproval;
 void Customer_Run(struct Customer* customer)
 {
   while(true)
@@ -357,14 +355,12 @@ void Customer_Run(struct Customer* customer)
 		if(customer->isBribing)
 		  {
 		    Wait(clerkBribeLineCV[customer->myLine], clerkLineLock);
-		    Acquire(clerkLineLock);   
 		    clerkBribeLineCount[customer->myLine]--;
 		    PrintInt("bribe line%i count: %i",22, customer->myLine, clerkBribeLineCount[customer->myLine]);
 		  }
 		else
 		  {
 		    Wait(clerkLineCV[customer->myLine], clerkLineLock);
-		    Acquire(clerkLineLock);   
 		    clerkLineCount[customer->myLine]--;
 		    PrintInt("regular line%i count: %i", 25, customer->myLine, clerkLineCount[customer->myLine]);
 		  }
@@ -372,10 +368,10 @@ void Customer_Run(struct Customer* customer)
 		  customer->rememberLine = true;/*you're in line being kicked out by senatr. senator can't kick self out*/
   			/*make sure to signal senator who may be in line */
 			if(customer->isBribing) {
-			  clerkBribeLineCV[customer->myLine]->Signal(clerkLineLock);
+			  Signal(clerkBribeLineCV[customer->myLine], clerkLineLock);
 			}
 			else {
-			  clerkLineCV[customer->myLine]->Signal(clerkLineLock);
+			  Signal(clerkLineCV[customer->myLine], clerkLineLock);
 			}
 			  Release(clerkLineLock);
 		  }
@@ -425,7 +421,7 @@ void Customer_Run(struct Customer* customer)
 
 	if (clerks[customer->myLine]->type == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RANDOM VAL*/
-	  int picApproval = rand() % 10;/*generate random num between 0 and 10*/
+	  picApproval = rand() % 10;/*generate random num between 0 and 10*/
 	  if(picApproval >8)
 	    {
 	      Print("%s: does like their picture from ", 26, customer->name, "");
@@ -451,13 +447,15 @@ void Customer_Run(struct Customer* customer)
   Print("%s: IS LEAVING THE PASSPORT OFFICE\n", 36, customer->name, "");
 }
 int testLine = 69;
+int lineSize = 1001;
+int desireToBribe;
 void pickLine(struct Customer* customer)
 {
   /* isBribing = false;*/
   if (!customer->rememberLine)/*if you don't have to remember a line, pick a new one*/
   {
 	  customer->myLine = -1;
-	  int lineSize = 1001;
+	  lineSize = 1001;
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
 		  /*check if the type of this line is something I need! TODO*/
@@ -469,7 +467,7 @@ void pickLine(struct Customer* customer)
 		    }
 		}
 	    }
-	  int desireToBribe = rand() % 10;
+	  desireToBribe = rand() % 10;
 	  /*if i want to bribe, let's lock at bribe lines*/
 	  if(customer->money > 600 && desireToBribe > 8)
 	    {
@@ -514,8 +512,8 @@ void Senator_EnterOffice(struct Customer* senator)
   Release(clerkLineLock);
   for (i=0; i<NUM_CLERKS;i++) {
 	/*wait for bribe line to empty*/
+	Acquire(clerkLineLock);
 	while(clerkBribeLineCount[i] > 0) {
-	  Acquire(clerkLineLock);
 	  clerkBribeLineCV[i]->Signal(clerkLineLock);
 	  clerkBribeLineCV[i]->Wait(clerkLineLock);
 	}
@@ -528,8 +526,8 @@ void Senator_EnterOffice(struct Customer* senator)
   /*everyone is out of lines now wait for clerks to finish*/
   for (i=0; i<NUM_CLERKS;i++) {
     if (clerkLock[i] != NULL) {
+		Acquire(clerkLock[i]);
 		while (clerkState[i] == 1) {
-			clerkLock[i]->Acquire();
 			Signal(clerkCV[i], clerkLock[i]);
 			Wait(clerkCV[i], clerkLock[i]);
 		}
