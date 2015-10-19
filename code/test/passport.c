@@ -34,6 +34,7 @@ int clerkLock[NUM_CLERKS];
 int clerkLineLock;
 int outsideLock;
 int senatorLock;
+int createLock; /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
 
 /*Condition Variables*/
 int clerkLineCV[NUM_CLERKS];
@@ -48,6 +49,9 @@ int clerkBribeLineCount[NUM_CLERKS] = {0};
 int clerkState[NUM_CLERKS] = {0};/*keep track of state of clerks with ints 0=free,1=busy,2-on breaK /*sidenote:does anyone know how to do enums? would be more expressive?*/
 int totalEarnings[NUM_CLERK_TYPES] = {0};/*keep track of money submitted by each type of clerk*/
 int customersInBuilding = 0;
+int clerksInBuilding = 0;
+int managersInBuilding = 0;
+int senatorsInBuilding = 0;
 bool senatorInBuilding = false;
 int clerkCurrentCustomer[NUM_CLERKS];/*relate clerk id to customer id*/
 int clerkCurrentCustomerSSN[NUM_CLERKS];/*relate clerk id to customer ssn*/
@@ -64,21 +68,29 @@ struct Clerk
 
 struct Clerk clerks[NUM_CLERKS];/*global array of clerks*/
 
-void CreateClerk(char* name,int id) 	
+int CreateClerk(char* name) 	
 {
 	char buffer[20];
-	
-	clerks[id].id = id;
-	clerks[id].name = name;
-
+	clerks[clerksInBuilding].id = clerksInBuilding;
+	clerks[clerksInBuilding].name = name;
+	if (clerksInBuilding % 4 == 0){
+		clerks[clerksInBuilding].type = APPLICATION_CLERK_TYPE;
+	} else if( clerksInBuilding% 4 == 1) {
+		clerks[clerksInBuilding].type = PICTURE_CLERK_TYPE;
+	} else if (clerksInBuilding % 4 == 2){
+		clerks[clerksInBuilding].type = PASSPORT_CLERK_TYPE;
+	} else {
+		clerks[clerksInBuilding].type = CASHIER_CLERK_TYPE;
+	}
 	/*CVs & MVs*/
-	clerkBreakCV[id] = CreateCondition("ClerkBreakCv", 12);
+	clerkBreakCV[clerksInBuilding] = CreateCondition("ClerkBreakCv", 12);
 	
-	clerkLineCV[id] = CreateCondition("ClerkLineCv", 11);
+	clerkLineCV[clerksInBuilding] = CreateCondition("ClerkLineCv", 11);
 	
-	clerkBribeLineCV[id] = CreateCondition("ClerkBribeLineCv",16);
+	clerkBribeLineCV[clerksInBuilding] = CreateCondition("ClerkBribeLineCv",16);
 
-	clerkCV[id] = CreateCondition("ClerkCV", 7);
+	clerkCV[clerksInBuilding] = CreateCondition("ClerkCV", 7);
+	return clerksInBuilding++;
 }
 
 void DestroyClerk(struct Clerk* clerk)
@@ -125,9 +137,10 @@ void doJob(int id){
 			break;
 	}
 }
-void ClerkRun(struct Clerk* clerk)
+void Clerk_Run(struct Clerk* clerk)
 {
   Print("%s beginning to run\n", 24, clerk->name, "");
+  Release(createLock);
   while(true)
   {
     /*acquire clerkLineLock when i want to update line values */
@@ -214,7 +227,7 @@ struct Customer
 struct Customer customers[NUM_CUSTOMERS];
 
 /* creates new customer w/ given name. should declare new customer ahead of time and place where needed. this just fills in info*/
-void CreateCustomer(char* name) 
+int CreateCustomer(char* name) 
 {	
     customers[customersInBuilding].id = customersInBuilding;
 	customers[customersInBuilding].ssn = customersInBuilding + 1000;
@@ -225,10 +238,10 @@ void CreateCustomer(char* name)
 	customers[customersInBuilding].myLine = -1;
 	customers[customersInBuilding].rememberLine = false;
 	customers[customersInBuilding].isSenator = false;
-	customersInBuilding++;
+	return customersInBuilding++; 
 }
 
-CreateCustomer_WithCredentials(char* name, int* credentials) 
+int CreateCustomer_WithCredentials(char* name, int* credentials) 
 {
 	for(i=0;i<NUM_CLERK_TYPES;i++) {
 	  customers[customersInBuilding].credentials[i] = credentials[i];
@@ -242,7 +255,7 @@ CreateCustomer_WithCredentials(char* name, int* credentials)
 	customers[customersInBuilding].myLine = -1;
 	customers[customersInBuilding].rememberLine = false;
 	customers[customersInBuilding].isSenator = false;
-	customersInBuilding++;
+	return customersInBuilding++;
 }
 
 bool isNextClerkType(struct Customer* customer, int clerk_type)
@@ -321,6 +334,7 @@ void checkSenator(/*struct Customer *customer*/)
 int picApproval;
 void Customer_Run(struct Customer* customer)
 {
+  Release(createLock);
   while(true)
   {
 
@@ -482,18 +496,18 @@ void pickLine(struct Customer* customer)
 
 struct Customer senators[NUM_SENATORS];
 
-void CreateSenator(char* name, int id) 
+int CreateSenator(char* name) 
 {	
-    senators[id].id = id;
-	senators[id].ssn = id + 1000;
-	/*strcpy(senators[id].name, name);
-	strcat(senators[id].name, senators[id].id);*/
-	senators[id].name = name;
-	senators[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	senators[id].myLine = -1;
-	senators[id].rememberLine = false;
-	senators[id].isSenator = true;
-	customersInBuilding++;
+    senators[senatorsInBuilding].id = senatorsInBuilding;
+	senators[senatorsInBuilding].ssn = senatorsInBuilding + 1000;
+	/*strcpy(senators[senatorsInBuilding].name, name);
+	strcat(senators[senatorsInBuilding].name, senators[senatorsInBuilding].id);*/
+	senators[senatorsInBuilding].name = name;
+	senators[senatorsInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	senators[senatorsInBuilding].myLine = -1;
+	senators[senatorsInBuilding].rememberLine = false;
+	senators[senatorsInBuilding].isSenator = true;
+	return senatorsInBuilding++;
 }
 
 void Senator_EnterOffice(struct Customer* senator)
@@ -548,6 +562,7 @@ void Senator_ExitOffice(struct Customer* senator)
 
 void Senator_Run(struct Customer* senator)
 {
+	Release(createLock);
 	/*enter facility*/
 	Senator_EnterOffice(senator);
 	/*proceed as a normal customer*/
@@ -575,8 +590,8 @@ void OutputEarnings()
 	PrintInt("Cashiers: %i \n",30,totalEarnings[CASHIER_CLERK_TYPE],0);
 	PrintInt("TOTAL: %i \n------------------------\n\n",40,total,0);
 }
-
-void Manager_Run(struct Manager* manager)
+struct Manager manager;
+void Manager_Run()
 {
   while(true) {
 	for (i = 0; i < 1000; i++)
@@ -587,7 +602,7 @@ void Manager_Run(struct Manager* manager)
 		{
 			/*wake up clerk*/
 			Acquire(clerkLock[i]);	
-			Print("%s waking up %s\n", 16, manager->name, clerks[i].name);
+			Print("%s waking up %s\n", 16, manager.name, clerks[i].name);
 			clerkState[i] = 0;/*set to available	*/
 			Signal(clerkBreakCV[i], clerkLock[i]);	
 			Release(clerkLock[i]);	
@@ -600,24 +615,39 @@ void Manager_Run(struct Manager* manager)
   }
 }
 
-struct Manager manager;
+
+void CustRun(){
+	Acquire(createLock);
+	Customer_Run(&customers[CreateCustomer("Customer")]);
+}
+void ClerkRun(){
+	Acquire(createLock);
+	Clerk_Run(&clerks[CreateClerk("Clerk")]);
+}
+void SenatorRun(){
+	Acquire(createLock);
+	Customer_Run(&senators[CreateSenator("Senator")]);
+}
+
 int main(){
+	/* init all locks, cvs, and agents*/
 	clerkLineLock  = CreateLock("ClerkLineLock", 13);
 	outsideLock = CreateLock("OutsideLock",11);
 	senatorLock = CreateLock("SenatorLock", 11);
 	senatorCV = CreateCondition("SenatorCV", 9);
+	createLock = CreateLock("CreateLock", 10);
 	for (i=0; i<NUM_CLERKS;i++){
-		CreateClerk("Clerk", i);
+		Fork(ClerkRun);
 	}
 	for (i=0; i<NUM_CUSTOMERS;i++){
-		CreateCustomer("Customer");
+		Fork(CustRun);
 	}
 	for (i=0; i<NUM_SENATORS;i++){
-		CreateSenator("Senator", i);
+		Fork(SenatorRun);
 	}
 	
 	manager.name = "Mr. Manager";
-	
+	Fork(Manager_Run);
 
 	i = Rand();
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
