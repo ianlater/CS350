@@ -81,7 +81,7 @@ Process::Process(AddrSpace* a, int nt)
 //map thread id's to stack location?
 }
 Process* ProcessTable[TABLE_SIZE];
-
+int numProcesses = 0;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
 int copyin(unsigned int vaddr, int len, char *buf) {
@@ -140,21 +140,23 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
 {
-  //  printf("KERNELTHREAD\n");
+ ProcessLock->Acquire(); 
+  printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
 
-  ProcessLock->Acquire();
+ 
   int currentProcess = currentThread->space->getID();
   int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
-  ProcessLock->Release();
+ 
 
   machine->WriteRegister(StackReg, stackLoc);
-  printf("\nStack: %d\n",stackLoc);
-  machine->Run();//now, use the registers i set above and LIVE
+  printf("\nStack: %d\n", divRoundUp(stackLoc, PageSize));
+  ProcessLock->Release(); 
+ machine->Run();//now, use the registers i set above and LIVE
 
 }
 
@@ -176,14 +178,15 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   int currentProcess = currentThread->space->getID();
   if(!ProcessTable[currentProcess])
     {
+      numProcesses++;
       Process* proc = new Process(currentThread->space, 0);
       ProcessTable[currentProcess] = proc;
     }
   ProcessTable[currentProcess]->numThreads++;
-  ProcessTable[currentProcess]->threadStackStart[threadID] = currentThread->space->getBaseDataSize() + (UserStackSize * ProcessTable[currentProcess]->numThreads) - 16;
-  ProcessLock->Release();
+  ProcessTable[currentProcess]->threadStackStart[nt->getID()] = currentThread->space->getBaseDataSize() + (UserStackSize * ProcessTable[currentProcess]->numThreads) - 16;
 
   nt->space = currentThread->space;
+  ProcessLock->Release();
   nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
 
   return;  
@@ -592,7 +595,7 @@ void Exec_Thread(){
 /* Exec syscall runs executable and returns int/SpaceId of addrSpace */
 int Exec_Syscall(unsigned int vaddr, int len) 
 {
-
+  printf("IN EXEC\n");
   if(vaddr < 0 || len < 0)
     {
       printf("Exec::ERROR: out of bounds input");
@@ -630,8 +633,8 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	// above tweaked from Open_Syscall. Now have OpenFile* executable
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
-	
 	ProcessLock->Acquire();
+	thread->setID(threadCounter++);
 	
 	space->setID(processCounter);
 	thread->space = space;
@@ -640,6 +643,7 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	
 	ProcessTable[processCounter++] = process;
+	numProcesses++;
 	ProcessLock->Release();
 	
 	thread->Fork((VoidFunctionPtr)Exec_Thread,0);
@@ -667,6 +671,7 @@ void Exit_Syscall(int status){
 
   if(currentThread->getID() == 0)
     {
+      printf("Exit:: main thread ended.\n");
       currentThread->Finish();
       return;
     }
@@ -679,12 +684,13 @@ void Exit_Syscall(int status){
   //update processTable first...
   ProcessLock->Acquire();
   ProcessTable[thisProcess]->numThreads--;  
-  printf("NUMPROC: %d\n", processCounter);
+  printf("NUMPROC: %d\n", numProcesses);
+  printf("NUMTHRE: %d\n", ProcessTable[thisProcess]->numThreads);
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
-      processCounter--;
+      numProcesses--;
       //if this is last process running
-      if(processCounter == 0)
+      if(numProcesses == 0)
 	{
 	  printf("Exit:: Last Process in program, exiting\n");
 	  interrupt->Halt();
@@ -718,6 +724,7 @@ void Exit_Syscall(int status){
 	      delete ConditionTable[i];
 	    }
 	}
+
     }//end clean up for last thread in process
 
 
@@ -736,8 +743,9 @@ void Exit_Syscall(int status){
 	    {
 	      int ppn = machine->pageTable[i-j].physicalPage;
 	      freePageBitMap->Clear(ppn);
+	      printf("Exit::cleared: %d\b", ppn);
 	      // freePageBitMap->Find();
-	      machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
+	      //machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
 	      printf("J: %d\n", j);
 	    }
 	  break;
