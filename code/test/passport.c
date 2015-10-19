@@ -64,12 +64,6 @@ struct Clerk
 
 struct Clerk clerks[NUM_CLERKS];/*global array of clerks*/
 
-int rand()
-{
-	/*todo write syscall*/
-	return 1;
-}
-
 void CreateClerk(char* name,int id) 	
 {
 	char buffer[20];
@@ -227,7 +221,7 @@ void CreateCustomer(char* name)
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	customers[customersInBuilding].name = name;
-	customers[customersInBuilding].money =  100 + 500*(rand() % 4);/*init money increments of 100,600,1100,1600*/
+	customers[customersInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
 	customers[customersInBuilding].myLine = -1;
 	customers[customersInBuilding].rememberLine = false;
 	customers[customersInBuilding].isSenator = false;
@@ -244,7 +238,7 @@ CreateCustomer_WithCredentials(char* name, int* credentials)
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	customers[customersInBuilding].name = name;
-	customers[customersInBuilding].money =  100 + 500*(rand() % 4);/*init money increments of 100,600,1100,1600*/
+	customers[customersInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
 	customers[customersInBuilding].myLine = -1;
 	customers[customersInBuilding].rememberLine = false;
 	customers[customersInBuilding].isSenator = false;
@@ -253,7 +247,7 @@ CreateCustomer_WithCredentials(char* name, int* credentials)
 
 bool isNextClerkType(struct Customer* customer, int clerk_type)
 {
-    /*for adding customers who go out of order, we can add in a random number check that returns true randomly*/
+    /*for adding customers who go out of order, we can add in a Random number check that returns true Randomly*/
 
     /*check whether clerk is valid next type (check credentials or keep a status)*/
     if (!customer->credentials[clerk_type]) /*credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have*/
@@ -416,8 +410,8 @@ void Customer_Run(struct Customer* customer)
 	Print("%s: Thank you %s\n", 16, customer->name, clerks[customer->myLine].name);
 
 	if (clerks[customer->myLine].type == PICTURE_CLERK_TYPE) {
-	  /*check if I like my photo RANDOM VAL*/
-	  picApproval = rand() % 10;/*generate random num between 0 and 10*/
+	  /*check if I like my photo RandOM VAL*/
+	  picApproval = Rand() % 10;/*generate Random num between 0 and 10*/
 	  if(picApproval >8)
 	    {
 	      Print("%s: does like their picture from ", 26, customer->name, "");
@@ -463,7 +457,7 @@ void pickLine(struct Customer* customer)
 				}
 			}
 	    }
-	  desireToBribe = rand() % 10;
+	  desireToBribe = Rand() % 10;
 	  /*if i want to bribe, let's lock at bribe lines*/
 	  if(customer->money > 600 && desireToBribe > 8)
 	    {
