@@ -480,7 +480,21 @@ void pickLine(struct Customer* customer)
 }
 
 
-struct Customer Senators[NUM_SENATORS];
+struct Customer senators[NUM_SENATORS];
+
+void CreateSenator(char* name, int id) 
+{	
+    senators[id].id = id;
+	senators[id].ssn = id + 1000;
+	/*strcpy(senators[id].name, name);
+	strcat(senators[id].name, senators[id].id);*/
+	senators[id].name = name;
+	senators[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	senators[id].myLine = -1;
+	senators[id].rememberLine = false;
+	senators[id].isSenator = true;
+	customersInBuilding++;
+}
 
 void Senator_EnterOffice(struct Customer* senator)
 {
@@ -585,11 +599,25 @@ void Manager_Run(struct Manager* manager)
 	}
   }
 }
+
+struct Manager manager;
 int main(){
 	clerkLineLock  = CreateLock("ClerkLineLock", 13);
 	outsideLock = CreateLock("OutsideLock",11);
 	senatorLock = CreateLock("SenatorLock", 11);
 	senatorCV = CreateCondition("SenatorCV", 9);
+	for (i=0; i<NUM_CLERKS;i++){
+		CreateClerk("Clerk", i);
+	}
+	for (i=0; i<NUM_CUSTOMERS;i++){
+		CreateCustomer("Customer");
+	}
+	for (i=0; i<NUM_SENATORS;i++){
+		CreateSenator("Senator", i);
+	}
+	
+	manager.name = "Mr. Manager";
+	
 
 	i = Rand();
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
