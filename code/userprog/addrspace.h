@@ -37,7 +37,7 @@ class AddrSpace {
     Table fileTable;			// Table of openfiles
     int getID() {return processID;}
     void setID(int nID){processID = nID;}
-    unsigned int getNumPages(){return numPages;}
+    int getNumPages(){return numPages;}
     void setNumPages(unsigned int np){numPages = np;} 
     int getBaseDataSize(){return baseDataSize;}
 
