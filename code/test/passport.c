@@ -591,5 +591,9 @@ int main(){
 	senatorLock = CreateLock("SenatorLock", 11);
 	senatorCV = CreateCondition("SenatorCV", 9);
 
+	i = Rand();
+	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
+	i = Rand();
+	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
 	Halt();
 }

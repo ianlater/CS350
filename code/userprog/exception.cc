@@ -584,6 +584,11 @@ void PrintInt_Syscall(unsigned int vaddr, int len, int arg1, int arg2) {
     delete[] buf;
 }
 
+int Rand_Syscall()
+{
+	return rand();
+}
+
 void Exec_Thread(){
 	currentThread->space->InitRegisters();             // set the initial register values
     currentThread->space->RestoreState();              // load page table register
@@ -990,6 +995,11 @@ void ExceptionHandler(ExceptionType which) {
 	case SC_Exit:
 	  DEBUG('a', "Exit Syscall. \n");
 	  Exit_Syscall(machine->ReadRegister(4));
+	  break;
+	  
+	 case SC_Rand:
+	  DEBUG('a', "Rand Syscall. \n");
+	  rv = Rand_Syscall();
 	  break;
 		
 	}
