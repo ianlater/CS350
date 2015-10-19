@@ -176,7 +176,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   int currentProcess = currentThread->space->getID();
   if(!ProcessTable[currentProcess])
     {
-      Process* proc = new Process(currentThread->space, 1);
+      Process* proc = new Process(currentThread->space, 0);
       ProcessTable[currentProcess] = proc;
     }
   ProcessTable[currentProcess]->numThreads++;
@@ -592,40 +592,53 @@ void Exec_Thread(){
 /* Exec syscall runs executable and returns int/SpaceId of addrSpace */
 int Exec_Syscall(unsigned int vaddr, int len) 
 {
+
+  if(vaddr < 0 || len < 0)
+    {
+      printf("Exec::ERROR: out of bounds input");
+      return -1;
+    }
 	//Open file (
 	 char *buf = new char[len+1];	// Kernel buffer to put the name in
     OpenFile *executable;			// The new open file
     int id;				// The openfile id
+    
     if (!buf) {
 		printf("%s","Can't allocate kernel buffer in Open\n");
 		return -1;
     }
+   
     if( copyin(vaddr,len,buf) == -1 ) {
 		printf("%s","Bad pointer passed to Open\n");
 		delete[] buf;
 		return -1;
     }
+   
     buf[len]='\0';
     executable = fileSystem->Open(buf);
-    if ( executable ) {
-		if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
-			return -1;
-		}
-	} else {
-        printf("Unable to open file %s\n", buf);
-        return -1;
+    if ( executable == NULL ) {
+      //if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
+      //	  printf("%s\n", "Exec::Error: fielTable problem");
+      //	  return -1;
+      //	}
+      // } else {
+       printf("Exec::Unable to open file %s\n", buf);
+       return -1;
     }
     delete[] buf;
 
 	// above tweaked from Open_Syscall. Now have OpenFile* executable
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
+	
+	ProcessLock->Acquire();
+	
+	space->setID(processCounter);
 	thread->space = space;
-	int spaceId = space->getID();
+	int spaceId = processCounter;
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	
-	ProcessLock->Acquire();
 	ProcessTable[processCounter++] = process;
 	ProcessLock->Release();
 	
@@ -652,6 +665,13 @@ void Exit_Syscall(int status){
 
 	*/
 
+  if(currentThread->getID() == 0)
+    {
+      currentThread->Finish();
+      return;
+    }
+
+
   int thisThread = currentThread->getID();
   printf("CTHREAD: %d\n", thisThread);
   int thisProcess = currentThread->space->getID();;
@@ -659,16 +679,7 @@ void Exit_Syscall(int status){
   //update processTable first...
   ProcessLock->Acquire();
   ProcessTable[thisProcess]->numThreads--;  
-
-  //how do i reclaim stack pages?
-  ///probably for through page table
-
-  if(currentThread->getID() == 0)
-    {
-      currentThread->Finish();
-      return;
-    }
-
+  printf("NUMPROC: %d\n", processCounter);
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
       processCounter--;
@@ -679,6 +690,7 @@ void Exit_Syscall(int status){
 	  interrupt->Halt();
 	  return; //successful end whole program
 	}
+      printf("Exit:: last thread in not-last process closing, deallocating process %d\n", thisProcess);
       //reclaim memory by messing with machine->PageTable
       for(int i = 0; i < currentThread->space->getNumPages(); i++)
 	{
@@ -713,23 +725,25 @@ void Exit_Syscall(int status){
  int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
   printf("STACK PPN: %d\n",stackPPN);
   //find where this is in pagetable
+  //this RECLAIMS STACK
   for(int i = 0; i < currentThread->space->getNumPages(); i++)
     {
       if(machine->pageTable[i].physicalPage == stackPPN)
 	{
 	  //we have found stack
 	  //reclaim 8 pages (previous pages)
-	  for(int j = 0; j < 8; j++)
+	  for(int j = 7; j >= 0; j--)
 	    {
 	      int ppn = machine->pageTable[i-j].physicalPage;
 	      freePageBitMap->Clear(ppn);
 	      // freePageBitMap->Find();
-	      //machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
-	      //printf("J: %d\n", j);
+	      machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
+	      printf("J: %d\n", j);
 	    }
 	  break;
 	}
     }
+  printf("EXIT COMPLETE\n");
   ProcessLock->Release();
 	currentThread->Finish();
 }

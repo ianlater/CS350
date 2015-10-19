@@ -18,7 +18,7 @@ void doit()
 
 void fooBar()
 {
-  Fork(doit);
+  /*  Fork(doit);*/
   CreateLock("poop", -1);
   Exit(0);
 }
