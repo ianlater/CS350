@@ -82,6 +82,8 @@ Process::Process(AddrSpace* a, int nt)
 }
 Process* ProcessTable[TABLE_SIZE];
 
+Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -144,9 +146,12 @@ void Kernel_Thread(int func)
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
-  int currentProcess = currentThread->space->getID();
 
+  ProcessLock->Acquire();
+  int currentProcess = currentThread->space->getID();
   int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
+  ProcessLock->Release();
+
   machine->WriteRegister(StackReg, stackLoc);
   printf("\nStack: %d\n",stackLoc);
   machine->Run();//now, use the registers i set above and LIVE
@@ -163,6 +168,8 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
 
   Thread* nt = new Thread("forkedThread");
+ 
+  ProcessLock->Acquire();
   int threadID = threadCounter;
   threadCounter++;
   nt->setID(threadID);
@@ -174,6 +181,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
     }
   ProcessTable[currentProcess]->numThreads++;
   ProcessTable[currentProcess]->threadStackStart[threadID] = currentThread->space->getBaseDataSize() + (UserStackSize * ProcessTable[currentProcess]->numThreads) - 16;
+  ProcessLock->Release();
 
   nt->space = currentThread->space;
   nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
@@ -616,7 +624,11 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	int spaceId = space->getID();
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
+	
+	ProcessLock->Acquire();
 	ProcessTable[processCounter++] = process;
+	ProcessLock->Release();
+	
 	thread->Fork((VoidFunctionPtr)Exec_Thread,0);
 	
 	return spaceId;//machine->WriteRegister(2, space->getID()); done at end of exec	
@@ -645,7 +657,9 @@ void Exit_Syscall(int status){
   int thisProcess = currentThread->space->getID();;
   //if this is the last thread in the process..
   //update processTable first...
+  ProcessLock->Acquire();
   ProcessTable[thisProcess]->numThreads--;  
+
   //how do i reclaim stack pages?
   ///probably for through page table
 
@@ -655,9 +669,6 @@ void Exit_Syscall(int status){
       return;
     }
 
-
-  //reclaim stack
- 
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
       processCounter--;
@@ -714,12 +725,12 @@ void Exit_Syscall(int status){
 	      freePageBitMap->Clear(ppn);
 	      // freePageBitMap->Find();
 	      //machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
-	     printf("J: %d\n", j);
+	      //printf("J: %d\n", j);
 	    }
 	  break;
 	}
     }
-
+  ProcessLock->Release();
 	currentThread->Finish();
 }
 
