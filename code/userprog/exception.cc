@@ -745,6 +745,8 @@ void Exit_Syscall(int status){
   //ProcessLock->Acquire();
    if(currentThread->getID() == -1) //if main thread, just exit
     {
+      if(ProcessTable[currentThread->space->getID()])//TODO
+	ProcessTable[currentThread->space->getID()]->numThreads--;
       currentThread->Finish();
       ProcessLock->Release();
       return;
