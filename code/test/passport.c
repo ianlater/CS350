@@ -617,16 +617,20 @@ void Manager_Run()
 
 
 void CustRun(){
+	Print("Entering CustRun\n", 16, "","");
 	Acquire(createLock);
 	Customer_Run(&customers[CreateCustomer("Customer")]);
+	Exit(0);
 }
 void ClerkRun(){
 	Acquire(createLock);
 	Clerk_Run(&clerks[CreateClerk("Clerk")]);
+	Exit(0);
 }
 void SenatorRun(){
 	Acquire(createLock);
 	Customer_Run(&senators[CreateSenator("Senator")]);
+	Exit(0);
 }
 
 int main(){
@@ -653,5 +657,4 @@ int main(){
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
 	i = Rand();
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
-	Halt();
 }
