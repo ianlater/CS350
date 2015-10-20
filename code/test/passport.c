@@ -20,7 +20,7 @@ typedef enum
 
 /*global vars, mostly Monitors*/
 #define NUM_CLERK_TYPES 4
-#define NUM_CLERKS 25
+#define NUM_CLERKS 16
 #define NUM_CUSTOMERS 20
 #define NUM_SENATORS 0
 
