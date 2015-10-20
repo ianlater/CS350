@@ -196,7 +196,7 @@ int AddrSpace::CreateStack(int thread)
   int stackLoc;
   //set up 8 pages for this new thread's stack
   int ppn;
-  for(int i = 0; i++; i<8)
+  for(int i = 0; i<8; i++)
     {
       ppn = freePageBitMap->Find();
       if(ppn < 0)
@@ -213,7 +213,7 @@ int AddrSpace::CreateStack(int thread)
 
       thread++;
     }
-  stackLoc = PageSize * ppn -16;
+  stackLoc = (PageSize * thread) -16;
 
   return stackLoc;
 }

@@ -151,7 +151,10 @@ void Kernel_Thread(int func)
   //TODO optimize the follwoing line. lots of arrows...
   int currentProcess = currentThread->space->getID();
   int thisThread = currentThread->getID();
+  printf("CREATESTACK");
   int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
+
+  printf("STACK LOCATION: %d Stack page: %d\n", stackLoc, divRoundUp(stackLoc, PageSize)); 
   /* 
  // int currentProcess = currentThread->space->getID();
  // int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
@@ -195,6 +198,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
 
   int nPages =  currentThread->space->getNumPages();
  ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
+ printf("npages: %d\n", nPages);
  currentThread->space->setNumPages(nPages+8);
  nt->space = currentThread->space;
  ProcessLock->Release();
