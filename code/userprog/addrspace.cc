@@ -218,6 +218,21 @@ int AddrSpace::CreateStack(int thread)
   return stackLoc;
 }
 
+//-------
+//made by Jack, deallocates stack from pageTable
+//-------
+void AddrSpace::DestroyStack(int thread)
+{
+  for(int i = 0; i < 8; i++)
+    {
+      freePageBitMap->Clear(thread);
+      if(pageTable[thread].valid)
+	{
+	  pageTable[thread].valid = FALSE;
+	}
+      thread++;
+    }
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace

@@ -141,7 +141,7 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 void Kernel_Thread(int func)
 {
  ProcessLock->Acquire(); 
-  printf("KERNELTHREAD\n");
+ //printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
@@ -157,8 +157,8 @@ void Kernel_Thread(int func)
 
   machine->WriteRegister(StackReg, stackLoc);  
   currentThread->space->RestoreState();
- ProcessLock->Release(); 
  machine->Run();//now, use the registers i set above and LIVE
+ ProcessLock->Release(); 
 
 }
 
@@ -248,7 +248,7 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 	return -1;
     }
     buf[len]='\0';
-    printf("\nNAME:%s \n", buf);
+    //printf("\nNAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
@@ -621,7 +621,7 @@ void Exec_Thread(){
 /* Exec syscall runs executable and returns int/SpaceId of addrSpace */
 int Exec_Syscall(unsigned int vaddr, int len) 
 {
-  printf("IN EXEC\n");
+  //printf("IN EXEC\n");
   if(vaddr < 0 || len < 0)
     {
       printf("Exec::ERROR: out of bounds input");
@@ -704,7 +704,7 @@ void Exit_Syscall(int status){
 
 
   int thisThread = currentThread->getID();
-  printf("CTHREAD: %d\n", thisThread);
+  //printf("CTHREAD: %d\n", thisThread);
   int thisProcess = currentThread->space->getID();;
   //if this is the last thread in the process..
   //update processTable first...
@@ -755,7 +755,9 @@ void Exit_Syscall(int status){
 
 
   //numthreads is not zero! reclaim stack
-  /*
+  printf("about to DESTROY STACK of thread: %s\n", currentThread->getName());
+  currentThread->space->DestroyStack(ProcessTable[currentThread->space->getID()]->threadStackStart[currentThread->getID()]); 
+ /*
  int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
   printf("STACK PPN: %d\n",stackPPN);
   //find where this is in pagetable
