@@ -148,8 +148,8 @@ void Kernel_Thread(int func)
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
   int currentProcess = currentThread->space->getID();
-  int this thread = currentThread->getID();
-  int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[currentThread]);
+  int thisThread = currentThread->getID();
+  int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
   /* 
   int currentProcess = currentThread->space->getID();
   int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
@@ -175,17 +175,20 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   int currentProcess = currentThread->space->getID();
  
   ProcessLock->Acquire();
-  ProcessTable[currentProcess]->numThreads++;
-  int threadID = ProcessTable[currentProcess]->numThreads;
-  nt->setID(threadID);
-  
+
+
   if(!ProcessTable[currentProcess])
     {
       numProcesses++;
       Process* proc = new Process(currentThread->space, 0);
       ProcessTable[currentProcess] = proc;
     }
+ 
 
+ ProcessTable[currentProcess]->numThreads++;
+  int threadID = ProcessTable[currentProcess]->numThreads;
+  nt->setID(threadID);
+  
 
   int nPages =  currentThread->space->getNumPages();
  ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
@@ -752,6 +755,7 @@ void Exit_Syscall(int status){
 
 
   //numthreads is not zero! reclaim stack
+  /*
  int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
   printf("STACK PPN: %d\n",stackPPN);
   //find where this is in pagetable
@@ -774,6 +778,7 @@ void Exit_Syscall(int status){
 	  break;
 	}
     }
+  */
   printf("EXIT COMPLETE\n");
   ProcessLock->Release();
 	currentThread->Finish();

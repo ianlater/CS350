@@ -191,13 +191,14 @@ bzero(machine->mainMemory, size);
 //------
 //made by jack to update pagetable with new thread stack
 //------
-AddrSpace::CreateStack(int thread)
+int AddrSpace::CreateStack(int thread)
 {
   int stackLoc;
   //set up 8 pages for this new thread's stack
+  int ppn;
   for(int i = 0; i++; i<8)
     {
-      int ppn = freePageBitMap->Find();
+      ppn = freePageBitMap->Find();
       if(ppn < 0)
 	{
 	  printf("CreateStack::Bitmapfind returned out of memory\n");
@@ -212,7 +213,7 @@ AddrSpace::CreateStack(int thread)
 
       thread++;
     }
-  stackLoc = PageSize * thread -16;
+  stackLoc = PageSize * ppn -16;
 
   return stackLoc;
 }
