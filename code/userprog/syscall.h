@@ -40,6 +40,7 @@
 #define SC_DestroyCondition	19
 #define SC_Print		20
 #define SC_PrintInt		21
+#define SC_Rand			22
 
 #define MAXFILENAME 256
 
@@ -168,6 +169,9 @@ void Print(char* buffer, int size, char* arg1, char* arg2);
 
 /* Print syscall to help user programs print ints in statements*/
 void PrintInt(char* buffer, int size, int arg1, int arg2);
+
+/* rand syscall returns rand*/
+int Rand();
 
 #endif /* IN_ASM */
 
