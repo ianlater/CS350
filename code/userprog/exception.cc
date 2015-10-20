@@ -73,7 +73,12 @@ struct Process{
   int threadStackStart[50];
   Process(AddrSpace* a, int nt);
   ~Process();
+  Process(int nt);
 };
+Process::Process(int nt)
+{
+  numThreads = nt;
+}
 Process::Process(AddrSpace* a, int nt)
 {
   addrSpace = a;
@@ -82,6 +87,7 @@ Process::Process(AddrSpace* a, int nt)
 }
 Process* ProcessTable[TABLE_SIZE];
 int numProcesses = 0;
+bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
 int copyin(unsigned int vaddr, int len, char *buf) {
@@ -709,27 +715,40 @@ void Exit_Syscall(int status){
 		b. Locks/cvs (Match addrspace* w/ processtable)
 
 	*/
-
-  if(currentThread->getID() == 0)
+  ProcessLock->Acquire();
+  /* if(currentThread->space->getID() == 0)
     {
-      printf("Exit:: main thread ended.\n");
-      currentThread->Finish();
-      return;
+      //mainThreadFinished = TRUE;
+      if(ProcessTable[0])//the main thread forked, just flip bool
+	{
+	  ProcessTable[0]->numThreads--;
+	  if(ProcessTable[0]->numThreads==0)
+	    {
+	      mainThreadFinished = TRUE;
+	    }
+	}
+      else
+	mainThreadFinished = TRUE;
+     //ProcessTable[0]->numThreads--;
+      //currentThread->Finish();
+      //mainThreadFinished = TRUE;
+      //currentThread->Finish();
+      //return;
     }
-
+  */
 
   int thisThread = currentThread->getID();
   //printf("CTHREAD: %d\n", thisThread);
   int thisProcess = currentThread->space->getID();;
   //if this is the last thread in the process..
   //update processTable first...
-  ProcessLock->Acquire();
-  if(currentThread->getID() == 0) //if main thread, just exit
+  //ProcessLock->Acquire();
+   if(currentThread->getID() == 0) //if main thread, just exit
     {
       currentThread->Finish();
       ProcessLock->Release();
       return;
-    }
+      }
   ProcessTable[thisProcess]->numThreads--;  
 
   //how do i reclaim stack pages?
@@ -743,7 +762,8 @@ void Exit_Syscall(int status){
       //if this is last process running
       if(numProcesses == 0)
 	{
-	  printf("Exit:: Last Process in program, exiting\n");
+
+	  printf("Exit:: Last Process in program, exiting: %s\n", currentThread->getName());
 	  interrupt->Halt();
 	  return; //successful end whole program
 	}

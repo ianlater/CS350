@@ -148,7 +148,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
+    pageTable = new TranslationEntry[numPages + (50 * 8)];
     for (i = 0; i < numPages; i++) {
       int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
