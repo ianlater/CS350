@@ -663,16 +663,18 @@ void Exit_Syscall(int status){
   //if this is the last thread in the process..
   //update processTable first...
   ProcessLock->Acquire();
+  if(currentThread->getID() == 0) //if main thread, just exit
+    {
+      currentThread->Finish();
+      ProcessLock->Release();
+      return;
+    }
   ProcessTable[thisProcess]->numThreads--;  
 
   //how do i reclaim stack pages?
   ///probably for through page table
 
-  if(currentThread->getID() == 0)
-    {
-      currentThread->Finish();
-      return;
-    }
+  
 
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
