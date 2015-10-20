@@ -140,7 +140,9 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
 {
+  printf("ABOUT TO ACQUIRE LOCK: %s\n", currentThread->getName());
  ProcessLock->Acquire(); 
+ printf("ACQUIRED LOCK: %s\n", currentThread->getName());
  //printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
@@ -151,14 +153,15 @@ void Kernel_Thread(int func)
   int thisThread = currentThread->getID();
   int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
   /* 
-  int currentProcess = currentThread->space->getID();
-  int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
+ // int currentProcess = currentThread->space->getID();
+ // int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
   */
 
   machine->WriteRegister(StackReg, stackLoc);  
   currentThread->space->RestoreState();
- machine->Run();//now, use the registers i set above and LIVE
  ProcessLock->Release(); 
+
+ machine->Run();//now, use the registers i set above and LIVE
 
 }
 
