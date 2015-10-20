@@ -743,7 +743,7 @@ void Exit_Syscall(int status){
   //if this is the last thread in the process..
   //update processTable first...
   //ProcessLock->Acquire();
-   if(currentThread->getID() == 0) //if main thread, just exit
+   if(currentThread->getID() == -1) //if main thread, just exit
     {
       currentThread->Finish();
       ProcessLock->Release();
