@@ -150,14 +150,14 @@ void Clerk_Run(struct Clerk* clerk)
       {
 		/*Print("%s: is Busy taking a BRIBE\n", name);*/
 		Signal(clerkLineLock, clerkBribeLineCV[clerk->id]);
-		Print("%s has signalled a Customer to come to their counter\n",50, clerk->name, "");
+		PrintInt("Clerk%i has signalled a Customer to come to their counter\n",59, clerk->id, 0);
 		clerkState[clerk->id] = 1; /*busy*/
 		Acquire(clerkLock[clerk->id]);
 		Release(clerkLineLock);
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);
-		Print("%s has received $500 from customer", 50,clerk->name, "");
+		PrintInt("Clerk%i has received $500 from customer", 39,clerk->id, 0);
 		PrintInt("%d (BRIBE)\n", 10, clerkCurrentCustomer[clerk->id], 0);
-		Print("%s has received SSN ", 24, clerk->name,"");
+		PrintInt("Clerk%i has received SSN ", 25, clerk->id,0);
 		PrintInt("%d from Customer",14, clerkCurrentCustomerSSN[clerk->id],0);
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
@@ -170,16 +170,16 @@ void Clerk_Run(struct Clerk* clerk)
       }
     else  if(clerkLineCount[clerk->id] > 0)
       {
-		Print("%s: is Busy\n", 20, clerk->name, "");
+		PrintInt("Clerk%i: is Busy\n", 18, clerk->id, 0);
 		Signal(clerkLineLock, clerkLineCV[clerk->id]);
-		Print("%s has signalled a Customer to come to their counter\n",50, clerk->name,"");
+		PrintInt("Clerk%i has signalled a Customer to come to their counter\n",59, clerk->id,0);
 		clerkState[clerk->id] = 1;/*im helping a customer*/
 		/*acquire clerk lock and release line lock*/
 		Acquire(clerkLock[clerk->id]);
 		Release(clerkLineLock);
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]); /*WAS IN b4*/
 		/*once we're here, the customer is waiting for me to do my job*/
-		Print("%s has received SSN ", 16, clerk->name, "");
+		PrintInt("Clerk%i has received SSN ", 25, clerk->id, 0);
 		PrintInt("%d from Customer", 12,clerkCurrentCustomerSSN[clerk->id],0);
 		PrintInt("%d\n", 4, clerkCurrentCustomer[clerk->id],0);
 
@@ -202,11 +202,11 @@ void Clerk_Run(struct Clerk* clerk)
 			Signal(clerkLineLock, clerkLineCV[clerk->id]);
 		}
 		
-		Print("%s is going on break\n", 22, clerk->name, "");
+		PrintInt("Clerk%i is going on break\n", 27, clerk->id, 0);
 		Release(clerkLineLock);
 		/*wait on clerkBreakCV from manager*/
 		Wait(clerkLock[clerk->id], clerkBreakCV[clerk->id]);
-		Print("%s is coming off break\n",24, clerk->name, "");
+		PrintInt("Clerk%i is coming off break\n",29, clerk->id, 0);
       }
   }
 }
