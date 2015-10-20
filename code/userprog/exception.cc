@@ -1028,12 +1028,15 @@ void ExceptionHandler(ExceptionType which) {
 	  DEBUG('a', "Exit Syscall. \n");
 	  Exit_Syscall(machine->ReadRegister(4));
 	  break;
-	  
 	 case SC_Rand:
 	  DEBUG('a', "Rand Syscall. \n");
 	  rv = Rand_Syscall();
 	  break;
 		
+	 case SC_Yield:
+	  DEBUG('a', "Yield Syscall. \n");
+	  Yield_Syscall();
+	  break;
 	}
 
 	// Put in the return value and increment the PC
