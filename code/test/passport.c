@@ -145,16 +145,20 @@ void Clerk_Run(struct Clerk* clerk)
       {
 		/*PrintInt("Clerk%i: is Busy taking a BRIBE\n", name);*/
 		Signal(clerkLineLock, clerkBribeLineCV[clerk->id]);
+		
 		PrintInt("Clerk%i has signalled a Customer to come to their counter\n",59, clerk->id, 0);
 		clerkState[clerk->id] = 1; /*busy*/
+		
 		Acquire(clerkLock[clerk->id]);
 		Release(clerkLineLock);
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for cust materials*/
+		
 		PrintInt("Clerk%i has received $500 from customer%i (BRIBE)\n", 51, clerk->id, clerkCurrentCustomer[clerk->id]);
 		PrintInt("Clerk%i has received SSN %i from Customer", 45, clerk->id, clerkCurrentCustomerSSN[clerk->id]);
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
 		doJob(clerk->id);
+		
 		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);/*tell customer jobs done*/
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for customer to leave*/
 		Release(clerkLock[clerk->id]);/*customer gone, next customer*/
@@ -162,18 +166,23 @@ void Clerk_Run(struct Clerk* clerk)
     else  if(clerkLineCount[clerk->id] > 0)
       {
 		PrintInt("Clerk%i: is Busy\n", 18, clerk->id, 0);
+		
 		Signal(clerkLineLock, clerkLineCV[clerk->id]);
+		
 		PrintInt("Clerk%i has signalled a Customer to come to their counter\n",59, clerk->id,0);
 		clerkState[clerk->id] = 1;/*im helping a customer*/
+		
 		/*acquire clerk lock and release line lock*/
 		Acquire(clerkLock[clerk->id]);
 		Release(clerkLineLock);
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]); /*WAS IN b4*/
+		
 		/*once we're here, the customer is waiting for me to do my job*/
 		PrintInt("Clerk%i has received SSN %i from Customer", 45, clerk->id, clerkCurrentCustomerSSN[clerk->id]);
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
 		doJob(clerk->id);
+		
 		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);/*tell customer jobs done*/
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for customer to leave*/
 		Release(clerkLock[clerk->id]); /*we're done here, back to top of while for next cust*/
@@ -192,9 +201,11 @@ void Clerk_Run(struct Clerk* clerk)
 		}
 		
 		PrintInt("Clerk%i is going on break\n", 27, clerk->id, 0);
+		
 		Release(clerkLineLock);
 		/*wait on clerkBreakCV from manager*/
 		Wait(clerkLock[clerk->id], clerkBreakCV[clerk->id]);
+		
 		PrintInt("Clerk%i is coming off break\n",29, clerk->id, 0);
       }
   }
@@ -325,34 +336,29 @@ void Customer_Run(struct Customer* customer)
   Release(createLock);
   while(true)
   {
-
 	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
+	
 	pickLine(customer);
 	/*now, myLine is the index of the shortest line*/
 	/*if the clerk is busy or on break, get into line*/
 	if (clerkState[customer->myLine] != 0) {
-	  if(customer->isBribing)
-	    {
-	      PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, customer->id, clerks[customer->myLine].id);
-	      clerkBribeLineCount[customer->myLine]++;
-	    }
-	  else
-	    {
-	      PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, clerks[customer->myLine].id);
-	      clerkLineCount[customer->myLine]++;
-	    }
-		PrintInt("Customer%i: waiting in line for Clerk%i\n", 41, customer->id, clerks[customer->myLine].id);
 		if(customer->isBribing)
 		  {
+			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, customer->id, clerks[customer->myLine].id);
+			clerkBribeLineCount[customer->myLine]++;
+			
 		    Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
 		    clerkBribeLineCount[customer->myLine]--;
 		    PrintInt("bribe line%i count: %i",22, customer->myLine, clerkBribeLineCount[customer->myLine]);
 		  }
 		else
 		  {
-		    Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-		    clerkLineCount[customer->myLine]--;
-		    PrintInt("regular line%i count: %i", 24, customer->myLine, clerkLineCount[customer->myLine]);
+			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, clerks[customer->myLine].id);
+			clerkLineCount[customer->myLine]++;
+			
+			Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+			clerkLineCount[customer->myLine]--;
+			PrintInt("regular line%i count: %i", 24, customer->myLine, clerkLineCount[customer->myLine]);
 		  }
 		if (senatorInBuilding) {
 		  customer->rememberLine = true;/*you're in line being kicked out by senatr. senator can't kick self out*/
@@ -363,8 +369,8 @@ void Customer_Run(struct Customer* customer)
 			else {
 			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
 			}
-			  Release(clerkLineLock);
-		  }
+			Release(clerkLineLock);
+		}
 
 		/*senator may have sent everyone out of lineCV so this nesting is for getting back in line	*/
 		checkSenator(); /*after this point senator is gone- get back in line if you were kicked out*/
@@ -599,20 +605,23 @@ void Manager_Run()
   }
 }
 
-
+/*to minimize repeated definition of names, since for the most part we use only ids, just make one name for all (though keeping naming functionality for future use just in case)*/
+char* custName = "Customer";
+char* clerkName="Clerk";
+char* senatorName="Senator";
 void CustRun(){
 	Acquire(createLock);
-	Customer_Run(&customers[CreateCustomer("Customer")]);
+	Customer_Run(&customers[CreateCustomer(custName)]);
 	Exit(0);
 }
 void ClerkRun(){
 	Acquire(createLock);
-	Clerk_Run(&clerks[CreateClerk("Clerk")]);
+	Clerk_Run(&clerks[CreateClerk(clerkName)]);
 	Exit(0);
 }
 void SenatorRun(){
 	Acquire(createLock);
-	Customer_Run(&senators[CreateSenator("Senator")]);
+	Customer_Run(&senators[CreateSenator(senatorName)]);
 	Exit(0);
 }
 
