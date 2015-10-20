@@ -141,22 +141,24 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 void Kernel_Thread(int func)
 {
  ProcessLock->Acquire(); 
-  printf("KERNELTHREAD\n");
+ //printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
-
- 
+  int currentProcess = currentThread->space->getID();
+  int thisThread = currentThread->getID();
+  int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
+  /* 
   int currentProcess = currentThread->space->getID();
   int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
- 
+  */
 
-  machine->WriteRegister(StackReg, stackLoc);
-  printf("\nStack: %d\n", divRoundUp(stackLoc, PageSize));
-  ProcessLock->Release(); 
+  machine->WriteRegister(StackReg, stackLoc);  
+  currentThread->space->RestoreState();
  machine->Run();//now, use the registers i set above and LIVE
+ ProcessLock->Release(); 
 
 }
 
@@ -170,12 +172,36 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
 
   Thread* nt = new Thread("forkedThread");
+  int currentProcess = currentThread->space->getID();
  
   ProcessLock->Acquire();
-  int threadID = threadCounter;
+
+
+  if(!ProcessTable[currentProcess])
+    {
+      numProcesses++;
+      Process* proc = new Process(currentThread->space, 0);
+      ProcessTable[currentProcess] = proc;
+    }
+ 
+
+ ProcessTable[currentProcess]->numThreads++;
+  int threadID = ProcessTable[currentProcess]->numThreads;
+  nt->setID(threadID);
+  
+
+  int nPages =  currentThread->space->getNumPages();
+ ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
+ currentThread->space->setNumPages(nPages+8);
+ nt->space = currentThread->space;
+ ProcessLock->Release();
+  nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
+
+////
+/*
+ int threadID = ProcessTable[thisProcess]->numThreads;///fix v1
   threadCounter++;
   nt->setID(threadID);
-  int currentProcess = currentThread->space->getID();
   if(!ProcessTable[currentProcess])
     {
       numProcesses++;
@@ -188,7 +214,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   nt->space = currentThread->space;
   ProcessLock->Release();
   nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
-
+*/
   return;  
 }
 
@@ -222,7 +248,7 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 	return -1;
     }
     buf[len]='\0';
-    printf("\nNAME:%s \n", buf);
+    //printf("\nNAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
@@ -600,7 +626,7 @@ void Exec_Thread(){
 /* Exec syscall runs executable and returns int/SpaceId of addrSpace */
 int Exec_Syscall(unsigned int vaddr, int len) 
 {
-  printf("IN EXEC\n");
+  //printf("IN EXEC\n");
   if(vaddr < 0 || len < 0)
     {
       printf("Exec::ERROR: out of bounds input");
@@ -639,7 +665,8 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
 	ProcessLock->Acquire();
-	thread->setID(threadCounter++);
+	thread->setID(0);//first thread in this process
+	
 	
 	space->setID(processCounter);
 	thread->space = space;
@@ -647,7 +674,9 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	
-	ProcessTable[processCounter++] = process;
+	ProcessTable[processCounter] = process;
+	ProcessTable[processCounter]->threadStackStart[0] = space->getNumPages();
+		     processCounter++;
 	numProcesses++;
 	ProcessLock->Release();
 	
@@ -683,7 +712,7 @@ void Exit_Syscall(int status){
 
 
   int thisThread = currentThread->getID();
-  printf("CTHREAD: %d\n", thisThread);
+  //printf("CTHREAD: %d\n", thisThread);
   int thisProcess = currentThread->space->getID();;
   //if this is the last thread in the process..
   //update processTable first...
@@ -744,6 +773,9 @@ void Exit_Syscall(int status){
 
 
   //numthreads is not zero! reclaim stack
+  printf("about to DESTROY STACK of thread: %s\n", currentThread->getName());
+  currentThread->space->DestroyStack(ProcessTable[currentThread->space->getID()]->threadStackStart[currentThread->getID()]); 
+ /*
  int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
   printf("STACK PPN: %d\n",stackPPN);
   //find where this is in pagetable
@@ -766,6 +798,7 @@ void Exit_Syscall(int status){
 	  break;
 	}
     }
+  */
   printf("EXIT COMPLETE\n");
   ProcessLock->Release();
 	currentThread->Finish();
