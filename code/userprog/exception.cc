@@ -660,7 +660,8 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
 	ProcessLock->Acquire();
-	thread->setID(threadCounter++);
+	thread->setID(0);//first thread in this process
+	
 	
 	space->setID(processCounter);
 	thread->space = space;
@@ -668,7 +669,9 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	
-	ProcessTable[processCounter++] = process;
+	ProcessTable[processCounter] = process;
+	ProcessTable[processCounter]->threadStackStart[0] = space->getNumPages();
+		     processCounter++;
 	numProcesses++;
 	ProcessLock->Release();
 	
