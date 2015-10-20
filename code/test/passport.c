@@ -20,7 +20,7 @@ typedef enum
 
 /*global vars, mostly Monitors*/
 #define NUM_CLERK_TYPES 4
-#define NUM_CLERKS 25
+#define NUM_CLERKS 16
 #define NUM_CUSTOMERS 20
 #define NUM_SENATORS 0
 
@@ -349,7 +349,7 @@ void Customer_Run(struct Customer* customer)
 			
 		    Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
 		    clerkBribeLineCount[customer->myLine]--;
-		    PrintInt("bribe line%i count: %i",22, customer->myLine, clerkBribeLineCount[customer->myLine]);
+		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, clerkBribeLineCount[customer->myLine]);
 		  }
 		else
 		  {
