@@ -40,6 +40,7 @@
 #define SC_DestroyCondition	19
 #define SC_Print		20
 #define SC_PrintInt		21
+#define SC_Rand			22
 
 #define MAXFILENAME 256
 
@@ -158,17 +159,19 @@ int CreateCondition(char* name, int len);
 /*Destroy a condition, parameter is ID of the condition*/
 void DestroyCondition(int id);
 
-/*TODO: examine the parameters and return statements of condition calls Wait, Signal, and Broadcast*/
 
-void Signal();
-void Wait();
-void Broadcast();
+void Signal(int lockIndex, int conditionIndex);
+void Wait(int lockIndex, int conditionIndex);
+void Broadcast(int lockIndex, int conditionIndex);
 
 /* Print syscall to help user programs print statements*/
 void Print(char* buffer, int size, char* arg1, char* arg2);
 
 /* Print syscall to help user programs print ints in statements*/
 void PrintInt(char* buffer, int size, int arg1, int arg2);
+
+/* rand syscall returns rand*/
+int Rand();
 
 #endif /* IN_ASM */
 

@@ -1,0 +1,61 @@
+Title: Writeup for Project 2, Fall 2015
+Date: 10/19/2015
+Group: Name-----------Email
+	   John Lucas	  johnluca@usc.edu
+	   Ian Later	  later@usc.edu
+	   Carrie Sun	  carriesu@usc.edu
+	  
+I. Requirements:
++Overview
+Design and Implement syscalls in order to separate user and kernel code. Ensure that user can do nothing to violate security
+of data (eg. access physical memory directly, cause OS to crash). After implementing syscalls, we update the Passport office
+to be a user program only using this syscalls, and ran two processes of it.
+
+II. Assumptions
+
+III. Design
+
+
+IV. Implementation
+	+Files Modified
+  userprog/exception.cc
+  userprog/addrspace.cc
+  userprog/addrspace.h
+  userprog/progtest.cc
+  userprog/syscall.h
+  tests/start.s
+  
+	+Files Added
+	tests/fork.c
+	tests/exec.c
+	test/lockcondition.c
+	tests/passport.c
+	
+	+Data Structures added, and file added to
+  Process, KernelLock, KernelCondition added to Exception.cc
+  
+	+Data Structures modified, and the file added to
+	
+	
+	+Functions added and in which file
+
+	
+	+Functions modified and in which file
+	
+	
+V. Testing
+	+How to test
+
+	
+	+Test Output
+
+	
+VI. Discussion
+	+Experiment expectation (What is supposed to happen)
+	
+	+Experiment result. (What actually happened)
+		
+	+Explanation
+		
+VIII. Miscellaneous:
+	
