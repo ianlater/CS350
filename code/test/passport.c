@@ -149,17 +149,15 @@ void Clerk_Run(struct Clerk* clerk)
 		clerkState[clerk->id] = 1; /*busy*/
 		Acquire(clerkLock[clerk->id]);
 		Release(clerkLineLock);
-		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);
+		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for cust materials*/
 		PrintInt("Clerk%i has received $500 from customer%i (BRIBE)\n", 51, clerk->id, clerkCurrentCustomer[clerk->id]);
 		PrintInt("Clerk%i has received SSN %i from Customer", 45, clerk->id, clerkCurrentCustomerSSN[clerk->id]);
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
 		doJob(clerk->id);
-		/*PrintInt("Clerk%i: Dclerk->id job for cust: ", name);*/
-		/*Print("%d\n", clerkCurrentCustomer[clerk->id]);*/
-		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);
-		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);
-		/*clerkLock[clerk->id]->Release();*/
+		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);/*tell customer jobs done*/
+		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for customer to leave*/
+		Release(clerkLock[clerk->id]);/*customer gone, next customer*/
       }
     else  if(clerkLineCount[clerk->id] > 0)
       {
@@ -176,9 +174,8 @@ void Clerk_Run(struct Clerk* clerk)
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
 		doJob(clerk->id);
-		/*PrintInt("Clerk%i: Dclerk->id job for cust: ", name);*/
-		/*Print("%d\n", clerkCurrentCustomer[clerk->id]);*/
-		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);
+		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);/*tell customer jobs done*/
+		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for customer to leave*/
 		Release(clerkLock[clerk->id]); /*we're done here, back to top of while for next cust*/
       }
     else if (clerkLineCount[clerk->id] == 0 && clerkBribeLineCount[clerk->id] == 0)  /*go on break*/
@@ -398,7 +395,7 @@ void Customer_Run(struct Customer* customer)
 
 	Acquire(clerkLock[customer->myLine]);/*we are now in a new CS, need to share data with my clerk*/
 	clerkCurrentCustomerSSN[customer->myLine] = customer->ssn;
-	PrintInt("Clerk%i has given SSN %i", 24, customer->id, customer->ssn);
+	PrintInt("Customer%i has given SSN %i", 27, customer->id, customer->ssn);
 	PrintInt("to Clerk%i\n", 12, clerks[customer->myLine].id, 0);
 	clerkCurrentCustomer[customer->myLine] = customer->id;
 	giveData(customer);
@@ -409,7 +406,7 @@ void Customer_Run(struct Customer* customer)
 	
 	/*set credentials*/
 	customer->credentials[clerks[customer->myLine].type] = true;
-	PrintInt("Customer%i: Thank you Clerk%i\n", 16, customer->id, clerks[customer->myLine].id);
+	PrintInt("Customer%i: Thank you Clerk%i\n", 31, customer->id, clerks[customer->myLine].id);
 
 	if (clerks[customer->myLine].type == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RandOM VAL*/
@@ -425,8 +422,8 @@ void Customer_Run(struct Customer* customer)
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
-	Signal(clerkLock[customer->myLine], clerkCV[customer->myLine]);
-
+	Signal(clerkLock[customer->myLine], clerkCV[customer->myLine]);/*let clerk know you're leaving*/
+	Release(clerkLock[customer->myLine]);/*give up lock*/
 	customer->myLine = -1;
 	customer->rememberLine = false;
 	
