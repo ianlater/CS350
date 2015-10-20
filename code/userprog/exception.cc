@@ -613,6 +613,11 @@ void PrintInt_Syscall(unsigned int vaddr, int len, int arg1, int arg2) {
     delete[] buf;
 }
 
+int Rand_Syscall()
+{
+	return rand();
+}
+
 void Exec_Thread(){
 	currentThread->space->InitRegisters();             // set the initial register values
     currentThread->space->RestoreState();              // load page table register
@@ -712,9 +717,19 @@ void Exit_Syscall(int status){
   //if this is the last thread in the process..
   //update processTable first...
   ProcessLock->Acquire();
+  if(currentThread->getID() == 0) //if main thread, just exit
+    {
+      currentThread->Finish();
+      ProcessLock->Release();
+      return;
+    }
   ProcessTable[thisProcess]->numThreads--;  
-  printf("NUMPROC: %d\n", numProcesses);
-  printf("NUMTHRE: %d\n", ProcessTable[thisProcess]->numThreads);
+
+  //how do i reclaim stack pages?
+  ///probably for through page table
+
+  
+
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
       numProcesses--;
@@ -1046,7 +1061,15 @@ void ExceptionHandler(ExceptionType which) {
 	  DEBUG('a', "Exit Syscall. \n");
 	  Exit_Syscall(machine->ReadRegister(4));
 	  break;
+	 case SC_Rand:
+	  DEBUG('a', "Rand Syscall. \n");
+	  rv = Rand_Syscall();
+	  break;
 		
+	 case SC_Yield:
+	  DEBUG('a', "Yield Syscall. \n");
+	  Yield_Syscall();
+	  break;
 	}
 
 	// Put in the return value and increment the PC

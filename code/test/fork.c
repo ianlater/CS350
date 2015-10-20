@@ -6,30 +6,44 @@
 
 void testFunc()
 {
-  CreateLock("FORKLOCK", 8);
-  Exit(0);
+	CreateLock("FORKLOCK", 8);
+	Print("Lock created\n", 13, "", "");
+	Exit(0);
 }
 
 void doit()
 {
-  CreateCondition("FORKCON",7);
-  Exit(0);/*Forked functions MUST have exit*/
+	CreateCondition("FORKCON",7);
+	Print("Condition created\n", 18, "", "");
+	Exit(0);/*Forked functions MUST have exit*/
 }
 
 void fooBar()
 {
-  /*  Fork(doit);*/
+  Fork(doit);
+	Print("Doit forked in foobar\n", 22, "", "");
+	/*invalid lock creation*/
+	Print("Expecting invalid lock\n", 24, "", "");
   CreateLock("poop", -1);
+	Print("Lock created in foobar\n", 23, "", "");
   Exit(0);
 }
 int
 main()
 {
-  Fork(testFunc);
-  Fork(doit);
-  Fork(fooBar);
-  /*Halt();*/
-    /* not reached */
+	int i;
+  /*fork a create lock */
+	Fork(testFunc);
+ 	/*Fork a create condition */ 
+	Fork(doit);
+	/*Fork a doit and createlock*/
+	Fork(fooBar);
+
+	/*loop 40 times */
+	for (i = 0; i < 40; i++)
+	{
+		Fork(testFunc);
+	}
 }
 
 
