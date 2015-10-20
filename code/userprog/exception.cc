@@ -147,15 +147,17 @@ void Kernel_Thread(int func)
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
-
- 
+  int currentProcess = currentThread->space->getID();
+  int this thread = currentThread->getID();
+  int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[currentThread]);
+  /* 
   int currentProcess = currentThread->space->getID();
   int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
- 
+  */
 
-  machine->WriteRegister(StackReg, stackLoc);
-  printf("\nStack: %d\n", divRoundUp(stackLoc, PageSize));
-  ProcessLock->Release(); 
+  machine->WriteRegister(StackReg, stackLoc);  
+  currentThread->space->RestoreState();
+ ProcessLock->Release(); 
  machine->Run();//now, use the registers i set above and LIVE
 
 }
@@ -170,12 +172,33 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
 
   Thread* nt = new Thread("forkedThread");
+  int currentProcess = currentThread->space->getID();
  
   ProcessLock->Acquire();
-  int threadID = threadCounter;
+  ProcessTable[currentProcess]->numThreads++;
+  int threadID = ProcessTable[currentProcess]->numThreads;
+  nt->setID(threadID);
+  
+  if(!ProcessTable[currentProcess])
+    {
+      numProcesses++;
+      Process* proc = new Process(currentThread->space, 0);
+      ProcessTable[currentProcess] = proc;
+    }
+
+
+  int nPages =  currentThread->space->getNumPages();
+ ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
+ currentThread->space->setNumPages(nPages+8);
+ nt->space = currentThread->space;
+ ProcessLock->Release();
+  nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
+
+////
+/*
+ int threadID = ProcessTable[thisProcess]->numThreads;///fix v1
   threadCounter++;
   nt->setID(threadID);
-  int currentProcess = currentThread->space->getID();
   if(!ProcessTable[currentProcess])
     {
       numProcesses++;
@@ -188,7 +211,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   nt->space = currentThread->space;
   ProcessLock->Release();
   nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
-
+*/
   return;  
 }
 
