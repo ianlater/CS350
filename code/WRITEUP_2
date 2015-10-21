@@ -28,7 +28,7 @@ IV. Implementation
 	+Files Added
 	tests/fork.c
 	tests/exec.c
-	test/lockcondition.c
+	tests/lockcondition.c
 	tests/passport.c
 	
 	+Data Structures added, and file added to
@@ -48,9 +48,15 @@ IV. Implementation
 V. Testing
 	+How to test
 	The part 1 syscalls involving locks and conditions can be tested with the /tests/lockcondition binary. In this test, the possible user inputs for creating, destroying, acquring, waiting, and releasing are all tested. The logic, however, is not tested as throughly as in project 1: the emphasis is on user input.
+	Fork tests are in tests/fork. Valid and invalid functions are forked with corresponding output.
+	Exec test in test/exec, tests valid filename for execing.
+	Passport office test is in test/passport. Can run with a seed, -rs [seed value].
 	
 	+Test Output
-
+	tests/lockcondition: An assortment of error messages and success messages. Error messages will be out of bounds and invalid index messages, preceeded by "Invalid ..." print statements, and after lock/condition calls with proper input, there will be "... successfully" print messages.
+	tests/fork: three different fork calls to test different functions being called. Then, a loop of 40 times forking the same function. The Fork syscall is able to hold up these amounts of threads properly.
+	tests/exec: five exec calls. The first two halt. The next is an invalid exec call which should cause an error message. The last two calls simply exec the fork test.
+	tests/passport: runs a modified, converted version of passport office from part 1. More information on this will be described below.
 	
 VI. Discussion
 	+Experiment expectation (What is supposed to happen)
