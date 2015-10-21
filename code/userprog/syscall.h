@@ -142,27 +142,27 @@ void Yield();
 int CreateLock(char* name, int len);
 
 /*Destroy a lock, parameter is ID of the lock*/
-void DestroyLock(int id);
+int DestroyLock(int id);
 
 /*Acquire a lock
 int param is the index for the lock for that customer
 */
-void Acquire(int custNumLock);
+int Acquire(int custNumLock);
 
 /*Release a lock
 int param is the index for the lock for that customer*/
-void Release(int custNumLock);
+int Release(int custNumLock);
 
 /*create a condition*/
 int CreateCondition(char* name, int len);
 
 /*Destroy a condition, parameter is ID of the condition*/
-void DestroyCondition(int id);
+int DestroyCondition(int id);
 
 
-void Signal(int lockIndex, int conditionIndex);
-void Wait(int lockIndex, int conditionIndex);
-void Broadcast(int lockIndex, int conditionIndex);
+int Signal(int lockIndex, int conditionIndex);
+int Wait(int lockIndex, int conditionIndex);
+int Broadcast(int lockIndex, int conditionIndex);
 
 /* Print syscall to help user programs print statements*/
 void Print(char* buffer, int size, char* arg1, char* arg2);
