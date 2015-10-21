@@ -19,7 +19,6 @@ Address space page table can only accomodate up to 50 thread stacks.
 
 III. Design
 
-
 #Passport Office#
 Lacking dynamic allocation, entities are created and given id's based on order of creation. Because this requires a counter, 
 there is a createLock that is acquired by each entity before their creation and released at the beginning of their run function,
@@ -52,7 +51,7 @@ IV. Implementation
 	
 	+Data Structures added, and file added to
   Process ProcessTable, KernelLock LockTable, KernelCondition ConditionTable added to Exception.cc
-  
+  BitMap* freePageBitMap added to system.h/system.cc
 	+Data Structures modified, and the file added to
 	
 	
@@ -63,6 +62,7 @@ IV. Implementation
 	
 	+Functions modified and in which file
 	userprog/exception.cc: ExceptionHandler
+	userprog/addrspace.h: AddrSpace::AddrSpace
 	
 V. Testing
 	+How to test
