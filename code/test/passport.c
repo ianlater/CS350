@@ -31,17 +31,17 @@ array of lock(ptrs) for each clerk+their lines
 
 int clerkLock[NUM_CLERKS];
  
-int clerkLineLock;
-int outsideLock;
-int senatorLock;
-int createLock; /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
+int clerkLineLock = -1;
+int outsideLock = -1;
+int senatorLock = -1;
+int createLock = -1; /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
 
 /*Condition Variables*/
-int clerkLineCV[NUM_CLERKS];
-int clerkBribeLineCV[NUM_CLERKS];
-int clerkCV[NUM_CLERKS];/*I think we need this? -Jack*/
-int clerkBreakCV[NUM_CLERKS]; /*CV for break, for use with manager*/
-int senatorCV;
+int clerkLineCV[NUM_CLERKS]= {-1};
+int clerkBribeLineCV[NUM_CLERKS]= {-1};
+int clerkCV[NUM_CLERKS]= {-1};/*I think we need this? -Jack*/
+int clerkBreakCV[NUM_CLERKS] = {-1}; /*CV for break, for use with manager*/
+int senatorCV = -1;
 
 /*Monitor Variables*/
 int clerkLineCount[NUM_CLERKS] = {0};/*start big so we can compare later*/
@@ -70,7 +70,6 @@ struct Clerk clerks[NUM_CLERKS];/*global array of clerks*/
 
 int CreateClerk(char* name) 	
 {
-	char buffer[20];
 	clerks[clerksInBuilding].id = clerksInBuilding;
 	clerks[clerksInBuilding].name = name;
 	if (clerksInBuilding % 4 == 0){
@@ -84,12 +83,22 @@ int CreateClerk(char* name)
 	}
 	/*CVs & MVs*/
 	clerkBreakCV[clerksInBuilding] = CreateCondition("ClerkBreakCv", 12);
-	
+	if(clerkBreakCV[clerksInBuilding]<0) {
+		Halt();
+	}
 	clerkLineCV[clerksInBuilding] = CreateCondition("ClerkLineCv", 11);
-	
+	if(clerkLineCV[clerksInBuilding]<0) {
+		Halt();
+	}
 	clerkBribeLineCV[clerksInBuilding] = CreateCondition("ClerkBribeLineCv",16);
-
+	if(clerkBribeLineCV[clerksInBuilding]<0) {
+		Halt();
+	}
 	clerkCV[clerksInBuilding] = CreateCondition("ClerkCV", 7);
+	if(clerkCV[clerksInBuilding]<0) {
+		Halt();
+	}
+	
 	return clerksInBuilding++;
 }
 
@@ -205,6 +214,7 @@ void Clerk_Run(struct Clerk* clerk)
 		Release(clerkLineLock);
 		/*wait on clerkBreakCV from manager*/
 		Wait(clerkLock[clerk->id], clerkBreakCV[clerk->id]);
+		Release(clerkLock[clerk->id]);
 		
 		PrintInt("Clerk%i is coming off break\n",29, clerk->id, 0);
       }
@@ -348,6 +358,7 @@ void Customer_Run(struct Customer* customer)
 			clerkBribeLineCount[customer->myLine]++;
 			
 		    Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, customer->id, clerks[customer->myLine].id);
 		    clerkBribeLineCount[customer->myLine]--;
 		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, clerkBribeLineCount[customer->myLine]);
 		  }
@@ -356,43 +367,11 @@ void Customer_Run(struct Customer* customer)
 			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, clerks[customer->myLine].id);
 			clerkLineCount[customer->myLine]++;
 			
-			Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+			Wait(clerkLineLock, clerkLineCV[customer->myLine]);
+			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, customer->id, clerks[customer->myLine].id);
 			clerkLineCount[customer->myLine]--;
-			PrintInt("regular line%i count: %i", 24, customer->myLine, clerkLineCount[customer->myLine]);
+			PrintInt("regular line%i count: %i\n", 26, customer->myLine, clerkLineCount[customer->myLine]);
 		  }
-		if (senatorInBuilding) {
-		  customer->rememberLine = true;/*you're in line being kicked out by senatr. senator can't kick self out*/
-  			/*make sure to signal senator who may be in line */
-			if(customer->isBribing) {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			}
-			else {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			}
-			Release(clerkLineLock);
-		}
-
-		/*senator may have sent everyone out of lineCV so this nesting is for getting back in line	*/
-		checkSenator(); /*after this point senator is gone- get back in line if you were kicked out*/
-		if (customer->rememberLine) {
-			Acquire(clerkLineLock);
-			/*you may be the first one in line now so check. in the case that you were senator you wouldn't remember line */
-			if (clerkState[customer->myLine] != 0) {
-			  if(customer->isBribing)
-			    {
-			      clerkBribeLineCount[customer->myLine]++;
-			      Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			      clerkBribeLineCount[customer->myLine]--;
-			    }
-			  else
-			    {
-			      clerkLineCount[customer->myLine]++;
-				PrintInt("Customer%i: waiting in line for Clerk%i\n", 41, customer->id, clerks[customer->myLine].id);
-				Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-				clerkLineCount[customer->myLine]--;
-			    }
-			}
-		}
 		/*at this point we assume won't have to go outside till finished with current clerk*/
 	}
 
@@ -430,6 +409,7 @@ void Customer_Run(struct Customer* customer)
 	}
 	Signal(clerkLock[customer->myLine], clerkCV[customer->myLine]);/*let clerk know you're leaving*/
 	Release(clerkLock[customer->myLine]);/*give up lock*/
+	
 	customer->myLine = -1;
 	customer->rememberLine = false;
 	
