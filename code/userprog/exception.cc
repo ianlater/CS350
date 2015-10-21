@@ -285,7 +285,12 @@ int Acquire_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!(kl->lock))
+if(!(kl))
+    {
+      printf("%s\n", "Acquire::ERROR: Lock is null");
+      return -1;
+    } 
+ if(!(kl->lock))
     {
       printf("%s\n", "Acquire::ERROR: Lock is null");
       return -1;
@@ -310,7 +315,12 @@ int Release_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!(kl->lock))
+if(!(kl))
+    {
+      printf("%s\n", "Release::ERROR: Lock is null");
+      return -1;
+    }  
+if(!(kl->lock))
     {
       printf("%s\n", "Release::ERROR: Lock is null");
       return -1;
@@ -343,6 +353,11 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
+	if(!(kl))
+	{
+		printf("%s\n", "Release::ERROR: Lock is null");
+		return -1;
+	}
 	if(!(kl->lock))
 	{
 		printf("%s\n", "Release::ERROR: Lock is null");
@@ -415,6 +430,11 @@ int DestroyCondition_Syscall(int conditionIndex)
 		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
+	if(!(kc))
+	  {
+	    printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
+		return -1;
+	  }
 	if (!(kc->cv)) {
 		printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
 		return -1;
@@ -445,7 +465,12 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!(kl->lock))
+if(!(kl))
+    {
+      printf("%s\n", "Wait::ERROR: Lock is null");
+      return -1;
+    }  
+if(!(kl->lock))
     {
       printf("%s\n", "Wait::ERROR: Lock is null");
       return -1;
@@ -457,7 +482,12 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!(kc->cv))
+ if(!(kc))
+    {
+      printf("%s\n","Wait::ERROR: Condition is null");
+      return -1;
+    }  
+if(!(kc->cv))
     {
       printf("%s\n","Wait::ERROR: Condition is null");
       return -1;
@@ -484,7 +514,12 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!(kl->lock))
+  if(!(kl))
+    {
+      printf("%s\n", "Signal::ERROR: Lock is null");
+      return -1;
+    }
+ if(!(kl->lock))
     {
       printf("%s\n", "Signal::ERROR: Lock is null");
       return -1;
@@ -496,7 +531,12 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!(kc->cv))
+ if(!(kc))
+    {
+      printf("%s\n","Signal::ERROR: Condition is null");
+      return -1;
+    }  
+if(!(kc->cv))
     {
       printf("%s\n","Signal::ERROR: Condition is null");
       return -1;
@@ -528,7 +568,12 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!(kl->lock))
+  if(!(kl))
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock is null");
+      return -1;
+    }
+if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
       return -1;
@@ -540,7 +585,12 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!(kc->cv))
+  if(!(kc))
+    {
+      printf("%s\n","Broadcast::ERROR: Condition is null");
+      return -1;
+    }
+ if(!(kc->cv))
     {
       printf("%s\n","Broadcast::ERROR: Condition is null");
       return -1;
