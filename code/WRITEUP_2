@@ -32,20 +32,22 @@ IV. Implementation
 	tests/passport.c
 	
 	+Data Structures added, and file added to
-  Process, KernelLock, KernelCondition added to Exception.cc
+  Process ProcessTable, KernelLock LockTable, KernelCondition ConditionTable added to Exception.cc
   
 	+Data Structures modified, and the file added to
 	
 	
 	+Functions added and in which file
-
+	userprog/addrspace.h: getId(), setID(int), getNumPages(), setNumPages(int), getBaseDataSize(), CreateStack(int)
+	userprog/exception.cc: KernelThread(int), Fork_Syscall(int),Yield_Syscall(), CreateLock_Syscall(int, int), Acquire_Syscall(int), Release_Syscall(int), DestroyLock_Syscall(int), CreateCondition_Syscall(int, int), DestroyCondition_Syscall(int), Wait_Syscall(int, int), Signal_Syscall(int, int), Broadcast_Syscall(int, int), Print_Syscall(int, int, int, int), PrintInt_Syscall(int, int, int, int), Rand_Syscall(), Exec_Thread(), Exec_Syscall(int, int),Exit_Syscall(int)
+	userprog/syscall.h: CreateLock(char*, int), DestroyLock(int), Acquire(int), Release(int), CreateCondition(int), DestroyCondition(int), Signal(int, int), Wait(int, int), Broadcast(int, int), Print(char*, int, char*, char*), PrintInt(char*, int, char*, char*),Rand
 	
 	+Functions modified and in which file
-	
+	userprog/exception.cc: ExceptionHandler
 	
 V. Testing
 	+How to test
-
+	The part 1 syscalls involving locks and conditions can be tested with the /tests/lockcondition binary. In this test, the possible user inputs for creating, destroying, acquring, waiting, and releasing are all tested. The logic, however, is not tested as throughly as in project 1: the emphasis is on user input.
 	
 	+Test Output
 
