@@ -256,12 +256,12 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateLock\n");
+	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateLock\n");
+	printf("%s","CreateLock::Bad pointer passed to CreateLock\n");
 	delete buf;
 	return -1;
     }
@@ -285,7 +285,7 @@ int Acquire_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Acquire::ERROR: Lock is null");
       return -1;
@@ -310,7 +310,7 @@ int Release_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Release::ERROR: Lock is null");
       return -1;
@@ -343,7 +343,7 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
-	if(!kl)
+	if(!(kl->lock))
 	{
 		printf("%s\n", "Release::ERROR: Lock is null");
 		return -1;
@@ -378,12 +378,12 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateCondition\n");
+	printf("%s", "CreateCV::Can't allocate kernel buffer in CreateCondition\n");
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateCondition\n");
+	printf("%s","CreateCV::Bad pointer passed to CreateCondition\n");
 	delete buf;
 	return -1;
     }
@@ -416,7 +416,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
-	if (!kc) {
+	if (!(kc->cv)) {
 		printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
 		return -1;
 	}
@@ -447,7 +447,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Wait::ERROR: Lock is null");
       return -1;
@@ -459,7 +459,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Wait::ERROR: Condition is null");
       return -1;
@@ -482,11 +482,11 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 {
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
-      printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
+      printf("%s%d\n", "Signal::ERROR: Lock Index out of bounds:", lockIndex);
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Signal::ERROR: Lock is null");
       return -1;
@@ -498,7 +498,7 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Signal::ERROR: Condition is null");
       return -1;
@@ -530,7 +530,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
       return -1;
@@ -542,7 +542,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Broadcast::ERROR: Condition is null");
       return -1;
