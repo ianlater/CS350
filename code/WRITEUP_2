@@ -12,6 +12,9 @@ of data (eg. access physical memory directly, cause OS to crash). After implemen
 to be a user program only using this syscalls, and ran two processes of it.
 
 II. Assumptions
+In passport office, all customers are created before any finish.
+Address space page table can only accomodate up to 50 thread stacks.
+
 
 III. Design
 
@@ -60,6 +63,7 @@ V. Testing
 	
 VI. Discussion
 	+Experiment expectation (What is supposed to happen)
+	
 	
 	+Experiment result. (What actually happened)
 		
