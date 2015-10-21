@@ -12,12 +12,27 @@ of data (eg. access physical memory directly, cause OS to crash). After implemen
 to be a user program only using this syscalls, and ran two processes of it.
 
 II. Assumptions
-In passport office, all customers are created before any finish.
+In passport office, all customers are created before any finish. Clerks are created before customers so customers don't get
+in a void line. 
 Address space page table can only accomodate up to 50 thread stacks.
 
 
 III. Design
 
+#Passport Office#
+Lacking dynamic allocation, entities are created and given id's based on order of creation. Because this requires a counter, 
+there is a createLock that is acquired by each entity before their creation and released at the beginning of their run function,
+to avoid two agents trying to set themselves to the same ID. Also, this assumes that no agent, namely customer, finishes before,
+creation of all customers is complete.
+
+The run functions are wrapped in functions that take in no parameters to be easily forked. Run is called on the reference of
+the agent array at the returned index of the create function. 
+
+All agents are stored in an array of their types (encapsulated by structs) and are accessed by which line they're in. Since
+using structs, there are no getters or setters and data is relatively more unsecure. 
+
+Locks and conditions are stored as in project 1, but here are simply ints that hold reference to the lock and condition table
+in exception.cc. 
 
 IV. Implementation
 	+Files Modified
@@ -36,7 +51,7 @@ IV. Implementation
 	
 	+Data Structures added, and file added to
   Process ProcessTable, KernelLock LockTable, KernelCondition ConditionTable added to Exception.cc
-  
+  BitMap* freePageBitMap added to system.h/system.cc
 	+Data Structures modified, and the file added to
 	
 	
@@ -47,6 +62,7 @@ IV. Implementation
 	
 	+Functions modified and in which file
 	userprog/exception.cc: ExceptionHandler
+	userprog/addrspace.h: AddrSpace::AddrSpace
 	
 V. Testing
 	+How to test
@@ -65,7 +81,18 @@ VI. Discussion
 	+Experiment expectation (What is supposed to happen)
 	
 	
+	#Passport Office#
+	* The beginning of the simulation is mostly creation of locks and CVs followed by customers getting in lines and clerks waking up
+	* Customers and clerks operate in an order discussed in writeup 1. Here lack of senators and penalties though. 
+	* The manager periodically outputs earning statements and wakes clerks who've fallen asleep as in P1. 
+	* As customers exit, they perform exit syscalls. The simulation should halt with manager ending simulation (printed out).
+	* Last manager output should have in cashiers total the number of clerks x $100
+	
 	+Experiment result. (What actually happened)
+	* Passport Office:
+		* For tested seeds, the result was as expected 
+	* Multi Passport Office:
+		* 
 		
 	+Explanation
 		

@@ -30,17 +30,16 @@ array of lock(ptrs) for each clerk+their lines
 */
 
 int clerkLock[NUM_CLERKS];
- 
 int clerkLineLock = -1;
 int outsideLock = -1;
 int senatorLock = -1;
 int createLock = -1; /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
 
 /*Condition Variables*/
-int clerkLineCV[NUM_CLERKS]= {-1};
-int clerkBribeLineCV[NUM_CLERKS]= {-1};
-int clerkCV[NUM_CLERKS]= {-1};/*I think we need this? -Jack*/
-int clerkBreakCV[NUM_CLERKS] = {-1}; /*CV for break, for use with manager*/
+int clerkLineCV[NUM_CLERKS ];
+int clerkBribeLineCV[NUM_CLERKS];
+int clerkCV[NUM_CLERKS];/*I think we need this? -Jack*/
+int clerkBreakCV[NUM_CLERKS] ; /*CV for break, for use with manager*/
 int senatorCV = -1;
 
 /*Monitor Variables*/
@@ -83,6 +82,12 @@ int CreateClerk(char* name)
 	} else {
 		clerks[clerksInBuilding].type = CASHIER_CLERK_TYPE;
 	}
+	clerkLock[clerksInBuilding] = CreateLock("ClerkLock", 9);
+	PrintInt("ClerkLock: %i, clerksInBuilding: %i\n", 37, clerkLock[clerksInBuilding], clerksInBuilding);
+	if(clerkLock[clerksInBuilding]<0) {
+		Halt();
+	}
+	
 	/*CVs & MVs*/
 	clerkBreakCV[clerksInBuilding] = CreateCondition("ClerkBreakCv", 12);
 	if(clerkBreakCV[clerksInBuilding]<0) {
@@ -668,7 +673,14 @@ int main(){
 	senatorCV = CreateCondition("SenatorCV", 9);
 	createLock = CreateLock("CreateLock", 10);
 	
-	
+	for (i=0; i< NUM_CLERKS; i++){
+		clerkLock[i] = -1;
+		/*Condition Variables*/
+		clerkLineCV[i] = -1;
+		clerkBribeLineCV[i] = -1;
+		clerkCV[i] = -1;/*I think we need this? -Jack*/
+		clerkBreakCV[i] = -1; 
+	}
 	
 	for (i=0; i<NUM_CLERKS;i++){
 		Fork(ClerkRun);
@@ -688,4 +700,5 @@ int main(){
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
 	i = Rand();
 	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
+	Exit(0);
 }
