@@ -38,6 +38,8 @@ These data structs also had a bool to check if they should be deleted, as deleti
 When testing these tricky syscalls, writing userprogram tests to test every little interaction proved a huge help. Creating small fork, exec, and lock sharing test illustrated errors in our bulletprrofing that have since been fixed.
 Additionally, using the Print syscall we wrote helped us visualize data as we went along. 
 
+Stacks were carefully managed and debugged to make sure they were always at the right location, always 8 pages apart, and allocated and deallocated correctly. Then rigorously tested from there.
+
 #Passport Office#
 Lacking dynamic allocation, entities are created and given id's based on order of creation. Because this requires a counter, 
 there is a createLock that is acquired by each entity before their creation and released at the beginning of their run function,
