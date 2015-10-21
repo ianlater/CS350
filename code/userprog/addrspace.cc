@@ -134,8 +134,8 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
     
     baseDataSize = size;//something to use publicly to find my stack
-
-    numPages = divRoundUp(size, PageSize) + 50 * divRoundUp(UserStackSize,PageSize);
+    //TESTING JACK REMOVED * 50 in front of divroundup below
+    numPages = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;
@@ -148,7 +148,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
+    pageTable = new TranslationEntry[numPages + (50 * 8)];
     for (i = 0; i < numPages; i++) {
       int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
@@ -186,6 +186,52 @@ bzero(machine->mainMemory, size);
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
 */
+}
+
+//------
+//made by jack to update pagetable with new thread stack
+//------
+int AddrSpace::CreateStack(int thread)
+{
+  int stackLoc;
+  //set up 8 pages for this new thread's stack
+  int ppn;
+  for(int i = 0; i<8; i++)
+    {
+      ppn = freePageBitMap->Find();
+      if(ppn < 0)
+	{
+	  printf("CreateStack::Bitmapfind returned out of memory\n");
+	  interrupt->Halt();
+	}
+      pageTable[thread].virtualPage = thread;
+      pageTable[thread].physicalPage = ppn;
+      pageTable[thread].valid = TRUE;
+      pageTable[thread].use = FALSE;
+      pageTable[thread].dirty = FALSE;
+      pageTable[thread].readOnly = FALSE;
+
+      thread++;
+    }
+  stackLoc = (PageSize * thread) -16;
+
+  return stackLoc;
+}
+
+//-------
+//made by Jack, deallocates stack from pageTable
+//-------
+void AddrSpace::DestroyStack(int thread)
+{
+  for(int i = 0; i < 8; i++)
+    {
+      freePageBitMap->Clear(thread);
+      if(pageTable[thread].valid)
+	{
+	  pageTable[thread].valid = FALSE;
+	}
+      thread++;
+    }
 }
 
 //----------------------------------------------------------------------

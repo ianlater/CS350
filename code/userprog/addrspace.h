@@ -41,6 +41,13 @@ class AddrSpace {
     void setNumPages(unsigned int np){numPages = np;} 
     int getBaseDataSize(){return baseDataSize;}
 
+    /*take in last vpn of new thread, spit out stack mem end*/
+    int CreateStack(int threadNum);
+
+    /*take in last vpn of new thread, clear out stack*/
+    void DestroyStack(int threadNum);
+
+
  private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
