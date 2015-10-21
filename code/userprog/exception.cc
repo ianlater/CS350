@@ -253,16 +253,18 @@ void Yield_Syscall()
 int CreateLock_Syscall(unsigned int vaddr, int len)
 {
 	char *buf = new char[len+1];	// Kernel buffer to put the name in
-
+	ProcessLock->Acquire();
     if (!buf) 
       {
 	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
+	ProcessLock->Release();
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
 	printf("%s","CreateLock::Bad pointer passed to CreateLock\n");
 	delete buf;
+ProcessLock->Release();
 	return -1;
     }
     buf[len]='\0';
@@ -271,9 +273,11 @@ printf("\nCreateLocK::NAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
-	LockTable[lockCounter] = kLock;
+	int thisLock = lockCounter;
+	LockTable[thisLock] = kLock;
+	lockCounter++;
 	ProcessLock->Release();
-	return lockCounter++;
+	return thisLock;
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
@@ -388,17 +392,21 @@ int DestroyLock_Syscall(int lockIndex)
 // Creates a new Condition object in kernel space.
 int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in value
 {
+  ProcessLock->Acquire();
     char *buf = new char[len+1];	// Kernel buffer to put the name in
 
     if (!buf) 
       {
 	printf("%s", "CreateCV::Can't allocate kernel buffer in CreateCondition\n");
+	ProcessLock->Release();
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
 	printf("%s","CreateCV::Bad pointer passed to CreateCondition\n");
 	delete buf;
+	ProcessLock->Release();
+
 	return -1;
     }
 
@@ -408,17 +416,24 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
 
+  int thisCV = conditionCounter;
+  conditionCounter++;
+
   if(cv)
     {
-      ConditionTable[conditionCounter++] = newKC;
+      ConditionTable[thisCV] = newKC;
     }
   else
     {
       printf("%s\n", "CreatCondition::ERROR: ERROR, on creating cv?");
+	ProcessLock->Release();
+
       return -1;
     }
   //printf("creating CV: %i\n", conditionCounter-1);
-  return conditionCounter-1;//mehh
+	ProcessLock->Release();
+
+  return thisCV;//mehh
 
 }
 // 
