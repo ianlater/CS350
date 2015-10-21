@@ -90,7 +90,7 @@ VI. Discussion
 	
 	+Experiment result. (What actually happened)
 	* Passport Office:
-		* For tested seeds, the result was as expected 
+		* For unseeded test, the results were as expected. Seeded results pulled up errors in lock acquires and condition waits.
 	* Multi Passport Office:
 		* 
 		
