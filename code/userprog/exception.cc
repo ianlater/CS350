@@ -253,7 +253,7 @@ void Yield_Syscall()
 int CreateLock_Syscall(unsigned int vaddr, int len)
 {
 	char *buf = new char[len+1];	// Kernel buffer to put the name in
-
+	ProcessLock->Acquire();
     if (!buf) 
       {
 	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
