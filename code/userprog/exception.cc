@@ -85,8 +85,12 @@ Process::Process(AddrSpace* a, int nt)
   numThreads = nt;
 //map thread id's to stack location?
 }
+
+
 Process* ProcessTable[TABLE_SIZE];
-int numProcesses = 0;
+Process* mainProcess = new Process(1);
+//ProcessTable[0] = new Process(1);//the main thread
+int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
@@ -146,9 +150,9 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
 {
-  printf("ABOUT TO ACQUIRE LOCK: %s\n", currentThread->getName());
+  // printf("ABOUT TO ACQUIRE LOCK: %s\n", currentThread->getName());
  ProcessLock->Acquire(); 
- printf("ACQUIRED LOCK: %s\n", currentThread->getName());
+ //printf("ACQUIRED LOCK: %s\n", currentThread->getName());
  //printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
@@ -157,7 +161,7 @@ void Kernel_Thread(int func)
   //TODO optimize the follwoing line. lots of arrows...
   int currentProcess = currentThread->space->getID();
   int thisThread = currentThread->getID();
-  printf("CREATESTACK");
+  //printf("CREATESTACK");
   int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
 
   printf("STACK LOCATION: %d Stack page: %d\n", stackLoc, divRoundUp(stackLoc, PageSize)); 
@@ -180,7 +184,7 @@ void Kernel_Thread(int func)
  */
 void Fork_Syscall(int func)//or should it be void (*func)()
 {
-  printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
+  //printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
 
   Thread* nt = new Thread("forkedThread");
@@ -188,10 +192,12 @@ void Fork_Syscall(int func)//or should it be void (*func)()
  
   ProcessLock->Acquire();
 
-
+  //next lines removed for main thread update
   if(!ProcessTable[currentProcess])
     {
+      printf("FORKSYS: artificially making process %d", currentProcess);
       numProcesses++;
+      //processCounter++;
       Process* proc = new Process(currentThread->space, 0);
       ProcessTable[currentProcess] = proc;
     }
@@ -204,7 +210,6 @@ void Fork_Syscall(int func)//or should it be void (*func)()
 
   int nPages =  currentThread->space->getNumPages();
  ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
- printf("npages: %d\n", nPages);
  currentThread->space->setNumPages(nPages+8);
  nt->space = currentThread->space;
  ProcessLock->Release();
@@ -251,21 +256,23 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateLock\n");
+	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateLock\n");
+	printf("%s","CreateLock::Bad pointer passed to CreateLock\n");
 	delete buf;
 	return -1;
     }
     buf[len]='\0';
-    //printf("\nNAME:%s \n", buf);
+    ProcessLock->Acquire();    
+printf("\nCreateLocK::NAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
 	LockTable[lockCounter] = kLock;
+	ProcessLock->Release();
 	return lockCounter++;
 }
 
@@ -278,7 +285,7 @@ int Acquire_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Acquire::ERROR: Lock is null");
       return -1;
@@ -303,7 +310,7 @@ int Release_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Release::ERROR: Lock is null");
       return -1;
@@ -336,7 +343,7 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
-	if(!kl)
+	if(!(kl->lock))
 	{
 		printf("%s\n", "Release::ERROR: Lock is null");
 		return -1;
@@ -350,7 +357,6 @@ int DestroyLock_Syscall(int lockIndex)
 	if (kl->lock->isLockWaitQueueEmpty()) {
 	  DEBUG('a', "Destroying Lock %i\n", lockIndex);
 	  delete kl->lock;
-	  delete kl;
 	}
 	else {
 	  DEBUG('a', "Marking lock %i for deletion\n", lockIndex);
@@ -371,18 +377,18 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateCondition\n");
+	printf("%s", "CreateCV::Can't allocate kernel buffer in CreateCondition\n");
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateCondition\n");
+	printf("%s","CreateCV::Bad pointer passed to CreateCondition\n");
 	delete buf;
 	return -1;
     }
 
     buf[len]='\0';
-    printf("\nNAME:%s\n", buf);
+    printf("\nCreateCV::NAME:%s\n", buf);
   Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
@@ -409,7 +415,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
-	if (!kc) {
+	if (!(kc->cv)) {
 		printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
 		return -1;
 	}
@@ -422,7 +428,6 @@ int DestroyCondition_Syscall(int conditionIndex)
 	if (kc->cv->isWaitQueueEmpty()) {
 		DEBUG('a', "Deleting Condition %i\n", conditionIndex);
 		delete kc->cv;
-		delete kc;
 	} 
 	else {
 		DEBUG('a', "Marking cv for deletion\n");
@@ -440,7 +445,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Wait::ERROR: Lock is null");
       return -1;
@@ -452,7 +457,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Wait::ERROR: Condition is null");
       return -1;
@@ -475,11 +480,11 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 {
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
-      printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
+      printf("%s%d\n", "Signal::ERROR: Lock Index out of bounds:", lockIndex);
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Signal::ERROR: Lock is null");
       return -1;
@@ -491,7 +496,7 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Signal::ERROR: Condition is null");
       return -1;
@@ -523,7 +528,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
       return -1;
@@ -535,7 +540,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc->cv))
     {
       printf("%s\n","Broadcast::ERROR: Condition is null");
       return -1;
@@ -715,49 +720,39 @@ void Exit_Syscall(int status){
 		b. Locks/cvs (Match addrspace* w/ processtable)
 
 	*/
+  // currentThread->Finish();
   ProcessLock->Acquire();
-  /* if(currentThread->space->getID() == 0)
+ 
+  int thisThread = currentThread->getID();
+  int thisProcess = currentThread->space->getID();
+  if(currentThread->getID() == -1) //if main thread, just exit
     {
-      //mainThreadFinished = TRUE;
-      if(ProcessTable[0])//the main thread forked, just flip bool
+      printf("MAIN THREAD IS DEAD WOOHOO******\n");
+      mainThreadFinished = true;
+      numProcesses--;
+      
+      if(numProcesses == 0)
 	{
-	  ProcessTable[0]->numThreads--;
-	  if(ProcessTable[0]->numThreads==0)
-	    {
-	      mainThreadFinished = TRUE;
-	    }
+	  ProcessLock->Release();//not necessary, but meh
+	  printf("Exit::Main thread is last thread in program. Halting\n");
+	  interrupt->Halt();
+	  return;
 	}
-      else
-	mainThreadFinished = TRUE;
-     //ProcessTable[0]->numThreads--;
-      //currentThread->Finish();
-      //mainThreadFinished = TRUE;
-      //currentThread->Finish();
+      ProcessLock->Release();
+      currentThread->Finish();
+      return;
+      //      if(ProcessTable[currentThread->space->getID()])//TODO
+      //	ProcessTable[currentThread->space->getID()]->numThreads--;
+      // currentThread->Finish();
+      // ProcessLock->Release();
       //return;
     }
-  */
 
-  int thisThread = currentThread->getID();
-  //printf("CTHREAD: %d\n", thisThread);
-  int thisProcess = currentThread->space->getID();;
-  //if this is the last thread in the process..
-  //update processTable first...
-  //ProcessLock->Acquire();
-   if(currentThread->getID() == 0) //if main thread, just exit
-    {
-      currentThread->Finish();
-      ProcessLock->Release();
-      return;
-      }
   ProcessTable[thisProcess]->numThreads--;  
-
-  //how do i reclaim stack pages?
-  ///probably for through page table
-
-  
 
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
+      printf("Exit::kill a process\n");
       numProcesses--;
       //if this is last process running
       if(numProcesses == 0)
@@ -768,23 +763,13 @@ void Exit_Syscall(int status){
 	  return; //successful end whole program
 	}
       printf("Exit:: last thread in not-last process closing, deallocating process %d\n", thisProcess);
-      //reclaim memory by messing with machine->PageTable
-      for(int i = 0; i < currentThread->space->getNumPages(); i++)
-	{
-	  int ppn = machine->pageTable[i].physicalPage;
-	  if(machine->pageTable[i].valid)
-	    {
-	      freePageBitMap->Clear(ppn);
-	      machine->pageTable[i].valid = false;
-	    }
-	}
       //take care of locks and cv's 
       for(int i = 0; i < lockCounter; i++)
 	{
 	  if(LockTable[i]->addrSpace == currentThread->space)
 	    {
 	      delete LockTable[i]->lock;
-	      delete LockTable[i];
+	      // delete LockTable[i];
 	    }
 	}
       for(int i = 0; i < conditionCounter; i++)
@@ -792,40 +777,18 @@ void Exit_Syscall(int status){
 	  if(ConditionTable[i]->addrSpace == currentThread->space)
 	    {
 	      delete ConditionTable[i]->cv;
-	      delete ConditionTable[i];
+	      //delete ConditionTable[i];
 	    }
 	}
 
     }//end clean up for last thread in process
 
 
-  //numthreads is not zero! reclaim stack
-  printf("about to DESTROY STACK of thread: %s\n", currentThread->getName());
-  currentThread->space->DestroyStack(ProcessTable[currentThread->space->getID()]->threadStackStart[currentThread->getID()]); 
- /*
- int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
-  printf("STACK PPN: %d\n",stackPPN);
-  //find where this is in pagetable
-  //this RECLAIMS STACK
-  for(int i = 0; i < currentThread->space->getNumPages(); i++)
-    {
-      if(machine->pageTable[i].physicalPage == stackPPN)
-	{
-	  //we have found stack
-	  //reclaim 8 pages (previous pages)
-	  for(int j = 7; j >= 0; j--)
-	    {
-	      int ppn = machine->pageTable[i-j].physicalPage;
-	      freePageBitMap->Clear(ppn);
-	      printf("Exit::cleared: %d\b", ppn);
-	      // freePageBitMap->Find();
-	      //machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
-	      printf("J: %d\n", j);
-	    }
-	  break;
-	}
-    }
-  */
+  // reclaim stack
+  int stackLoc =   ProcessTable[currentThread->space->getID()]->threadStackStart[currentThread->getID()];
+  printf("about to DESTROY STACK of thread: %s starting at: %d\n", currentThread->getName(), stackLoc);
+  currentThread->space->DestroyStack(stackLoc); 
+
   printf("EXIT COMPLETE\n");
   ProcessLock->Release();
 	currentThread->Finish();

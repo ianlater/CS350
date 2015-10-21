@@ -58,4 +58,5 @@ class AddrSpace {
     int baseDataSize;
 };
 
+
 #endif // ADDRSPACE_H
