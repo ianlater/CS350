@@ -792,7 +792,7 @@ void Exit_Syscall(int status){
   int thisProcess = currentThread->space->getID();
   if(currentThread->getID() == -1) //if main thread, just exit
     {
-      printf("MAIN THREAD IS DEAD WOOHOO******\n");
+      //printf("MAIN THREAD IS DEAD WOOHOO******\n");
       mainThreadFinished = true;
       numProcesses--;
       
