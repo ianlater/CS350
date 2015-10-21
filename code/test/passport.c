@@ -308,24 +308,27 @@ void giveData(struct Customer *customer)
 	switch (clerks[customer->myLine].type) {
 	  case APPLICATION_CLERK_TYPE:
 		PrintInt("Customer%i: may I have application please?\n", 44,  customer->id, 0);
-		if(customer->isBribing)
+		if(customer->isBribing) {
 		  customer->money-=500;
 		  totalEarnings[APPLICATION_CLERK_TYPE] += 500;
+		}
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		/*ask for a picture to be taken*/
 		PrintInt("Customer%i: I would like a picture\n", 36, customer->id, 0);
-		if(customer->isBribing)
+		if(customer->isBribing){
 		  customer->money-=500;
 		  totalEarnings[PICTURE_CLERK_TYPE] += 500;
+		}
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
 		PrintInt("Customer%i: ready for my passport\n", 35, customer->id, 0);
-		if(customer->isBribing)
+		if(customer->isBribing){
 		  customer->money-=500;
 		  totalEarnings[PASSPORT_CLERK_TYPE] += 500;
+		}
 		break;
 
 	  case CASHIER_CLERK_TYPE:
