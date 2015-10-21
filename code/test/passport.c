@@ -51,12 +51,14 @@ int totalEarnings[NUM_CLERK_TYPES] = {0};/*keep track of money submitted by each
 int customersInBuilding = 0;
 int clerksInBuilding = 0;
 int managersInBuilding = 0;
-int senatorsInBuilding = 0;
+int senatorsAlive = 0;
 bool senatorInBuilding = false;
 int clerkCurrentCustomer[NUM_CLERKS];/*relate clerk id to customer id*/
 int clerkCurrentCustomerSSN[NUM_CLERKS];/*relate clerk id to customer ssn*/
 int currentSenatorId = -1;
 int i;/*iterator for loops*/
+bool simulationStarted = false;/*so simulation doesn't end before customers enter*/
+bool simulationEnded = false;
 
 
 struct Clerk
@@ -198,6 +200,9 @@ void Clerk_Run(struct Clerk* clerk)
       }
     else if (clerkLineCount[clerk->id] == 0 && clerkBribeLineCount[clerk->id] == 0)  /*go on break*/
       {
+		if(simulationEnded) {
+			break;
+		}
 		/*acquire my lock*/
 		Acquire(clerkLock[clerk->id]);
 		/*set my status*/
@@ -343,6 +348,7 @@ void checkSenator(/*struct Customer *customer*/)
 int picApproval;
 void Customer_Run(struct Customer* customer)
 {
+  simulationStarted = true;
   Release(createLock);
   while(true)
   {
@@ -452,6 +458,7 @@ void Customer_Run(struct Customer* customer)
 	  break;
   }
   PrintInt("Customer%i: IS LEAVING THE PASSPORT OFFICE\n", 44, customer->id, 0);
+  customersInBuilding--;/*assumption: customers are all created at start before any can leave office*/
 }
 int testLine = 69;
 int lineSize = 1001;
@@ -501,16 +508,16 @@ struct Customer senators[NUM_SENATORS];
 
 int CreateSenator(char* name) 
 {	
-    senators[senatorsInBuilding].id = senatorsInBuilding;
-	senators[senatorsInBuilding].ssn = senatorsInBuilding + 1000;
-	/*strcpy(senators[senatorsInBuilding].name, name);
-	strcat(senators[senatorsInBuilding].name, senators[senatorsInBuilding].id);*/
-	senators[senatorsInBuilding].name = name;
-	senators[senatorsInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	senators[senatorsInBuilding].myLine = -1;
-	senators[senatorsInBuilding].rememberLine = false;
-	senators[senatorsInBuilding].isSenator = true;
-	return senatorsInBuilding++;
+    senators[senatorsAlive].id = senatorsAlive;
+	senators[senatorsAlive].ssn = senatorsAlive + 1000;
+	/*strcpy(senators[senatorsAlive].name, name);
+	strcat(senators[senatorsAlive].name, senators[senatorsAlive].id);*/
+	senators[senatorsAlive].name = name;
+	senators[senatorsAlive].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	senators[senatorsAlive].myLine = -1;
+	senators[senatorsAlive].rememberLine = false;
+	senators[senatorsAlive].isSenator = true;
+	return senatorsAlive++;
 }
 
 void Senator_EnterOffice(struct Customer* senator)
@@ -605,7 +612,9 @@ void Manager_Run()
 		if (clerkState[i] == 2 && (clerkLineCount[i] >= 1 || clerkBribeLineCount[i] >= 1 || senatorInBuilding) )
 		{
 			/*wake up clerk*/
-			Acquire(clerkLock[i]);	
+			if(Acquire(clerkLock[i]) < 0) {
+					Halt();
+			}	
 			PrintInt("Manager waking up Clerk%i\n", 27, clerks[i].id, 0);
 			clerkState[i] = 0;/*set to available	*/
 			Signal(clerkLock[i], clerkBreakCV[i]);	
@@ -613,10 +622,22 @@ void Manager_Run()
 		}
 	}
 	OutputEarnings();
-	if (customersInBuilding == 0) {
+	if (simulationStarted && customersInBuilding == 0 && senatorsAlive == 0) {
+		simulationEnded = true;
+		for (i = 0; i < NUM_CLERKS; i++)
+		{
+				/*wake up clerk*/
+				Acquire(clerkLock[i]);	
+				PrintInt("Manager waking up Clerk%i\n", 27, clerks[i].id, 0);
+				clerkState[i] = 0;/*set to available	*/
+				Signal(clerkLock[i], clerkBreakCV[i]);	
+				Release(clerkLock[i]);	
+		}
+		Print("Manager ending simulation\n", 27, "", "");
 		break;
 	}
   }
+  Exit(0);
 }
 
 /*to minimize repeated definition of names, since for the most part we use only ids, just make one name for all (though keeping naming functionality for future use just in case)*/
