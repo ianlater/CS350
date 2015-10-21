@@ -357,7 +357,6 @@ int DestroyLock_Syscall(int lockIndex)
 	if (kl->lock->isLockWaitQueueEmpty()) {
 	  DEBUG('a', "Destroying Lock %i\n", lockIndex);
 	  delete kl->lock;
-	  delete kl;
 	}
 	else {
 	  DEBUG('a', "Marking lock %i for deletion\n", lockIndex);
@@ -429,7 +428,6 @@ int DestroyCondition_Syscall(int conditionIndex)
 	if (kc->cv->isWaitQueueEmpty()) {
 		DEBUG('a', "Deleting Condition %i\n", conditionIndex);
 		delete kc->cv;
-		delete kc;
 	} 
 	else {
 		DEBUG('a', "Marking cv for deletion\n");
