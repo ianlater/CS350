@@ -113,8 +113,9 @@ VI. Discussion
 	+Experiment result. (What actually happened)
 	* Passport Office:
 		* For unseeded test, the results were as expected. Seeded results pulled up errors in lock acquires and condition waits.
+		* For seeded tests, there is frequently a mismatch of condition and lock in the Wait call for when the clerks go on break--this causes an infinite loop. We spent a while trying to debug this but couldn't figure out the source of the problem. We suspect it has to do with the KernelLock/Condition tables.
 	* Multi Passport Office:
-		* 
+		* Doesn't work, has shared memory errors--also couldn't deduce the cause behind these problems. Exec has worked in our tests, but not in running passport office. We suspect it might have to do with sizes.
 		
 	+Explanation
 		
