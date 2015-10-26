@@ -138,7 +138,7 @@ void Lock::Acquire() {
 	else //lock is busy
 	{
 		//put current thread on lock's wait queue
-		_waitQueue->Append(currentThread);
+		_waitQueue->Append((void*) currentThread);
 		//put current thread to sleep
 		currentThread->Sleep();	
 	}
@@ -165,14 +165,14 @@ void Lock::Release() {
 		return;	
 	}
 
-	void * nextThread = _waitQueue->Remove();	
+	Thread* nextThread = (Thread*)_waitQueue->Remove();	
 	//if lock wait queue is not empty, nextThread exists
 	if (nextThread != NULL)	
 	{
 		//cast the void pointer to a thread pointer
-		Thread* nextThreadPtr = (Thread*)nextThread;
+		//Thread* nextThreadPtr = (Thread*)nextThread;
 		//make this thread the lock owner
-		_myThread = nextThreadPtr;
+		_myThread = nextThread;
 		scheduler->ReadyToRun(_myThread);	
 	}	
 	else //wait queue empty
@@ -191,13 +191,14 @@ bool Lock::isHeldByCurrentThread(){
 }
 Condition::Condition(char* debugName) { 
   name = debugName;
+  _waitingQueue = new List;
 }
 
-Condition::~Condition() { }
+Condition::~Condition() { delete _waitingQueue; }
 
 bool Condition::isWaitQueueEmpty()
 {
-  return _waitingQueue.empty();
+  return _waitingQueue->IsEmpty();
 }
 
 
@@ -230,7 +231,8 @@ void Condition::Wait(Lock* conditionLock)
 	}
 
 	//ok to wait: conditionlock is the same as waitingLock, add to wait q, cede condition lock and sleep thread
-	_waitingQueue.push(currentThread);
+	//_waitingQueue.push(currentThread);
+	_waitingQueue->Append((void *) currentThread);
 	conditionLock->Release();
 	currentThread->Sleep();
 	conditionLock->Acquire();
@@ -257,13 +259,12 @@ void Condition::Signal(Lock* conditionLock) {
       return;
     }
   //Wakeup 1 waiting thread
-  Thread* thread = _waitingQueue.front();
-  _waitingQueue.pop();
+  Thread* thread = (Thread*)_waitingQueue->Remove();
   if(thread)
     {
       scheduler->ReadyToRun(thread); //thread goes in ready Q
     }
-  if(_waitingQueue.empty())
+  if(_waitingQueue->IsEmpty())
     {
       _waitingLock = NULL;//this work?
     }
@@ -279,7 +280,7 @@ void Condition::Broadcast(Lock* conditionLock)
 	  printf("Condition::Broadcast: input lock ptr mismatches _waitingLock\n");
 	  return;
 	}
-	while (!_waitingQueue.empty()) 
+	while (!_waitingQueue->IsEmpty()) 
 	{
 	  Signal(_waitingLock);
 	  // _waitingQueue.pop();
