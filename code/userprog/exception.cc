@@ -1077,6 +1077,7 @@ int HandlePageFault(int neededVPN)
 	//FIFO
 	machine->tlb[currentTLB].virtualPage = neededVPN;
 	machine->tlb[currentTLB].physicalPage = ppn;
+	machine->tlb[currentTLB].valid = TRUE;
 
 	currentTLB = (currentTLB+1)%4; 
 	/*
