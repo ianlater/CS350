@@ -94,9 +94,7 @@ int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
-TLB = new TranslationEntry[4];
-currentTLB = 0;
-
+int currentTLB = 0;
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1060,26 +1058,26 @@ int handleIPTMiss(int neededVPN)
 
 int HandlePageFault(int neededVPN)
 {
-	
+	if(machine->tlb == NULL) {
+		machine->tlb = new TranslationEntry[TLBSize];
+	}	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
 	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, BadVAddrReg);
 	
 	 for ( int i=0; i < TABLE_SIZE; i++ ) {
 		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
-		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
-		 if(pageTable[i].virtualPage == neededVPN)
-            //Found the physical page we need
-            ppn = pageTable[i].physicalPage;
-            break;
-        }
-    }
+		 //printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
+		if(machine->pageTable[i].virtualPage == neededVPN) {
+		    //Found the physical page we need
+		    ppn = machine->pageTable[i].physicalPage;
+		    break;
+		}
+	 }
 	//FIFO
-	TLB[3]=TLB[2];
-	TLB[2]=TLB[1];
-	TLB[1]=TLB[0];
-	TLB[0].virtualPage = neededVPN;
-	TLB[0].physicalPage = ppn;
+	machine->tlb[currentTLB].virtualPage = neededVPN;
+	machine->tlb[currentTLB].physicalPage = ppn;
+
 	currentTLB = (currentTLB+1)%4; 
 	/*
 	//step 3
