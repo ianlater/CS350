@@ -73,16 +73,29 @@ struct Process{
   int threadStackStart[50];
   Process(AddrSpace* a, int nt);
   ~Process();
+  Process(int nt);
 };
+Process::Process(int nt)
+{
+  numThreads = nt;
+}
 Process::Process(AddrSpace* a, int nt)
 {
   addrSpace = a;
   numThreads = nt;
 //map thread id's to stack location?
 }
+
+
 Process* ProcessTable[TABLE_SIZE];
-int numProcesses = 0;
+Process* mainProcess = new Process(1);
+//ProcessTable[0] = new Process(1);//the main thread
+int numProcesses = 1;
+bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
+
+TLB = new TranslationEntry[4];
+currentTLB = 0;
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -140,22 +153,30 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
 {
+  // printf("ABOUT TO ACQUIRE LOCK: %s\n", currentThread->getName());
  ProcessLock->Acquire(); 
-  printf("KERNELTHREAD\n");
+ //printf("ACQUIRED LOCK: %s\n", currentThread->getName());
+ //printf("KERNELTHREAD\n");
   //set up my registers
   currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
   //TODO optimize the follwoing line. lots of arrows...
-
- 
   int currentProcess = currentThread->space->getID();
-  int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
- 
+  int thisThread = currentThread->getID();
+  //printf("CREATESTACK");
+  int stackLoc = currentThread->space->CreateStack(ProcessTable[currentProcess]->threadStackStart[thisThread]);
 
-  machine->WriteRegister(StackReg, stackLoc);
-  printf("\nStack: %d\n", divRoundUp(stackLoc, PageSize));
-  ProcessLock->Release(); 
+  printf("STACK LOCATION: %d Stack page: %d\n", stackLoc, divRoundUp(stackLoc, PageSize)); 
+  /* 
+ // int currentProcess = currentThread->space->getID();
+ // int stackLoc = ProcessTable[currentProcess]->threadStackStart[currentThread->getID()];
+  */
+
+  machine->WriteRegister(StackReg, stackLoc);  
+  currentThread->space->RestoreState();
+ ProcessLock->Release(); 
+
  machine->Run();//now, use the registers i set above and LIVE
 
 }
@@ -166,16 +187,42 @@ void Kernel_Thread(int func)
  */
 void Fork_Syscall(int func)//or should it be void (*func)()
 {
-  printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
+  //printf("Calling Fork Syscall: %d\n",func);// freePageBitMap->Find());
   //NOTE: Will need LOCK to lock down shared resources like stack and process table!
 
   Thread* nt = new Thread("forkedThread");
+  int currentProcess = currentThread->space->getID();
  
   ProcessLock->Acquire();
-  int threadID = threadCounter;
+
+  //next lines removed for main thread update
+  if(!ProcessTable[currentProcess])
+    {
+      printf("FORKSYS: artificially making process %d", currentProcess);
+      numProcesses++;
+      //processCounter++;
+      Process* proc = new Process(currentThread->space, 0);
+      ProcessTable[currentProcess] = proc;
+    }
+ 
+
+ ProcessTable[currentProcess]->numThreads++;
+  int threadID = ProcessTable[currentProcess]->numThreads;
+  nt->setID(threadID);
+  
+
+  int nPages =  currentThread->space->getNumPages();
+ ProcessTable[currentProcess]->threadStackStart[threadID] = nPages;
+ currentThread->space->setNumPages(nPages+8);
+ nt->space = currentThread->space;
+ ProcessLock->Release();
+  nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
+
+////
+/*
+ int threadID = ProcessTable[thisProcess]->numThreads;///fix v1
   threadCounter++;
   nt->setID(threadID);
-  int currentProcess = currentThread->space->getID();
   if(!ProcessTable[currentProcess])
     {
       numProcesses++;
@@ -188,7 +235,7 @@ void Fork_Syscall(int func)//or should it be void (*func)()
   nt->space = currentThread->space;
   ProcessLock->Release();
   nt->Fork((VoidFunctionPtr)Kernel_Thread, func);//ready new thread to go to KT function
-
+*/
   return;  
 }
 
@@ -209,25 +256,31 @@ void Yield_Syscall()
 int CreateLock_Syscall(unsigned int vaddr, int len)
 {
 	char *buf = new char[len+1];	// Kernel buffer to put the name in
-
+	ProcessLock->Acquire();
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateLock\n");
+	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
+	ProcessLock->Release();
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateLock\n");
+	printf("%s","CreateLock::Bad pointer passed to CreateLock\n");
 	delete buf;
+ProcessLock->Release();
 	return -1;
     }
     buf[len]='\0';
-    printf("\nNAME:%s \n", buf);
+    ProcessLock->Acquire();    
+printf("\nCreateLocK::NAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
-	LockTable[lockCounter] = kLock;
-	return lockCounter++;
+	int thisLock = lockCounter;
+	LockTable[thisLock] = kLock;
+	lockCounter++;
+	ProcessLock->Release();
+	return thisLock;
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
@@ -239,7 +292,12 @@ int Acquire_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+if(!(kl))
+    {
+      printf("%s\n", "Acquire::ERROR: Lock is null");
+      return -1;
+    } 
+ if(!(kl->lock))
     {
       printf("%s\n", "Acquire::ERROR: Lock is null");
       return -1;
@@ -264,7 +322,12 @@ int Release_Syscall(int lockIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+if(!(kl))
+    {
+      printf("%s\n", "Release::ERROR: Lock is null");
+      return -1;
+    }  
+if(!(kl->lock))
     {
       printf("%s\n", "Release::ERROR: Lock is null");
       return -1;
@@ -297,7 +360,12 @@ int DestroyLock_Syscall(int lockIndex)
 		return -1;
 	}
 	KernelLock* kl = LockTable[lockIndex];
-	if(!kl)
+	if(!(kl))
+	{
+		printf("%s\n", "Release::ERROR: Lock is null");
+		return -1;
+	}
+	if(!(kl->lock))
 	{
 		printf("%s\n", "Release::ERROR: Lock is null");
 		return -1;
@@ -311,7 +379,6 @@ int DestroyLock_Syscall(int lockIndex)
 	if (kl->lock->isLockWaitQueueEmpty()) {
 	  DEBUG('a', "Destroying Lock %i\n", lockIndex);
 	  delete kl->lock;
-	  delete kl;
 	}
 	else {
 	  DEBUG('a', "Marking lock %i for deletion\n", lockIndex);
@@ -328,37 +395,48 @@ int DestroyLock_Syscall(int lockIndex)
 // Creates a new Condition object in kernel space.
 int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in value
 {
+  ProcessLock->Acquire();
     char *buf = new char[len+1];	// Kernel buffer to put the name in
 
     if (!buf) 
       {
-	printf("%s", "Can't allocate kernel buffer in CreateCondition\n");
+	printf("%s", "CreateCV::Can't allocate kernel buffer in CreateCondition\n");
+	ProcessLock->Release();
 	return -1;
       }
 
     if( copyin(vaddr,len,buf) == -1 ) {
-	printf("%s","Bad pointer passed to CreateCondition\n");
+	printf("%s","CreateCV::Bad pointer passed to CreateCondition\n");
 	delete buf;
+	ProcessLock->Release();
+
 	return -1;
     }
 
     buf[len]='\0';
-    printf("\nNAME:%s\n", buf);
+    printf("\nCreateCV::NAME:%s\n", buf);
   Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
 
+  int thisCV = conditionCounter;
+  conditionCounter++;
+
   if(cv)
     {
-      ConditionTable[conditionCounter++] = newKC;
+      ConditionTable[thisCV] = newKC;
     }
   else
     {
       printf("%s\n", "CreatCondition::ERROR: ERROR, on creating cv?");
+	ProcessLock->Release();
+
       return -1;
     }
   //printf("creating CV: %i\n", conditionCounter-1);
-  return conditionCounter-1;//mehh
+	ProcessLock->Release();
+
+  return thisCV;//mehh
 
 }
 // 
@@ -370,7 +448,12 @@ int DestroyCondition_Syscall(int conditionIndex)
 		return -1;
 	}
 	KernelCondition* kc = ConditionTable[conditionIndex];
-	if (!kc) {
+	if(!(kc))
+	  {
+	    printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
+		return -1;
+	  }
+	if (!(kc->cv)) {
 		printf("%s\n", "DestroyCondition::Error: Kernel Condiiton is null");
 		return -1;
 	}
@@ -383,7 +466,6 @@ int DestroyCondition_Syscall(int conditionIndex)
 	if (kc->cv->isWaitQueueEmpty()) {
 		DEBUG('a', "Deleting Condition %i\n", conditionIndex);
 		delete kc->cv;
-		delete kc;
 	} 
 	else {
 		DEBUG('a', "Marking cv for deletion\n");
@@ -401,7 +483,12 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+if(!(kl))
+    {
+      printf("%s\n", "Wait::ERROR: Lock is null");
+      return -1;
+    }  
+if(!(kl->lock))
     {
       printf("%s\n", "Wait::ERROR: Lock is null");
       return -1;
@@ -413,7 +500,12 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+ if(!(kc))
+    {
+      printf("%s\n","Wait::ERROR: Condition is null");
+      return -1;
+    }  
+if(!(kc->cv))
     {
       printf("%s\n","Wait::ERROR: Condition is null");
       return -1;
@@ -436,11 +528,16 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 {
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
-      printf("%s\n", "Signal::ERROR: Lock Index out of bounds");
+      printf("%s%d\n", "Signal::ERROR: Lock Index out of bounds:", lockIndex);
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl))
+    {
+      printf("%s\n", "Signal::ERROR: Lock is null");
+      return -1;
+    }
+ if(!(kl->lock))
     {
       printf("%s\n", "Signal::ERROR: Lock is null");
       return -1;
@@ -452,7 +549,12 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+ if(!(kc))
+    {
+      printf("%s\n","Signal::ERROR: Condition is null");
+      return -1;
+    }  
+if(!(kc->cv))
     {
       printf("%s\n","Signal::ERROR: Condition is null");
       return -1;
@@ -484,7 +586,12 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelLock* kl = LockTable[lockIndex];
-  if(!kl)
+  if(!(kl))
+    {
+      printf("%s\n", "Broadcast::ERROR: Lock is null");
+      return -1;
+    }
+if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
       return -1;
@@ -496,7 +603,12 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
-  if(!kc)
+  if(!(kc))
+    {
+      printf("%s\n","Broadcast::ERROR: Condition is null");
+      return -1;
+    }
+ if(!(kc->cv))
     {
       printf("%s\n","Broadcast::ERROR: Condition is null");
       return -1;
@@ -600,7 +712,7 @@ void Exec_Thread(){
 /* Exec syscall runs executable and returns int/SpaceId of addrSpace */
 int Exec_Syscall(unsigned int vaddr, int len) 
 {
-  printf("IN EXEC\n");
+  //printf("IN EXEC\n");
   if(vaddr < 0 || len < 0)
     {
       printf("Exec::ERROR: out of bounds input");
@@ -639,7 +751,8 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
 	ProcessLock->Acquire();
-	thread->setID(threadCounter++);
+	thread->setID(0);//first thread in this process
+	
 	
 	space->setID(processCounter);
 	thread->space = space;
@@ -647,7 +760,9 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	//Update process table
 	Process* process = new Process(space, 1); //process->addrSpace = space;	process->numThreads = 1;
 	
-	ProcessTable[processCounter++] = process;
+	ProcessTable[processCounter] = process;
+	ProcessTable[processCounter]->threadStackStart[0] = space->getNumPages();
+		     processCounter++;
 	numProcesses++;
 	ProcessLock->Release();
 	
@@ -673,62 +788,56 @@ void Exit_Syscall(int status){
 		b. Locks/cvs (Match addrspace* w/ processtable)
 
 	*/
-
-  if(currentThread->getID() == 0)
-    {
-      printf("Exit:: main thread ended.\n");
-      currentThread->Finish();
-      return;
-    }
-
-
-  int thisThread = currentThread->getID();
-  printf("CTHREAD: %d\n", thisThread);
-  int thisProcess = currentThread->space->getID();;
-  //if this is the last thread in the process..
-  //update processTable first...
+  // currentThread->Finish();
   ProcessLock->Acquire();
-  if(currentThread->getID() == 0) //if main thread, just exit
+ 
+  int thisThread = currentThread->getID();
+  int thisProcess = currentThread->space->getID();
+  if(currentThread->getID() == -1) //if main thread, just exit
     {
-      currentThread->Finish();
+      //printf("MAIN THREAD IS DEAD WOOHOO******\n");
+      mainThreadFinished = true;
+      numProcesses--;
+      
+      if(numProcesses == 0)
+	{
+	  ProcessLock->Release();//not necessary, but meh
+	  printf("Exit::Main thread is last thread in program. Halting\n");
+	  interrupt->Halt();
+	  return;
+	}
       ProcessLock->Release();
+      currentThread->Finish();
       return;
+      //      if(ProcessTable[currentThread->space->getID()])//TODO
+      //	ProcessTable[currentThread->space->getID()]->numThreads--;
+      // currentThread->Finish();
+      // ProcessLock->Release();
+      //return;
     }
+
   ProcessTable[thisProcess]->numThreads--;  
-
-  //how do i reclaim stack pages?
-  ///probably for through page table
-
-  
 
   if(ProcessTable[thisProcess]->numThreads == 0)
     {
+      printf("Exit::kill a process\n");
       numProcesses--;
       //if this is last process running
       if(numProcesses == 0)
 	{
-	  printf("Exit:: Last Process in program, exiting\n");
+
+	  printf("Exit:: Last Process in program, exiting: %s\n", currentThread->getName());
 	  interrupt->Halt();
 	  return; //successful end whole program
 	}
       printf("Exit:: last thread in not-last process closing, deallocating process %d\n", thisProcess);
-      //reclaim memory by messing with machine->PageTable
-      for(int i = 0; i < currentThread->space->getNumPages(); i++)
-	{
-	  int ppn = machine->pageTable[i].physicalPage;
-	  if(machine->pageTable[i].valid)
-	    {
-	      freePageBitMap->Clear(ppn);
-	      machine->pageTable[i].valid = false;
-	    }
-	}
       //take care of locks and cv's 
       for(int i = 0; i < lockCounter; i++)
 	{
 	  if(LockTable[i]->addrSpace == currentThread->space)
 	    {
 	      delete LockTable[i]->lock;
-	      delete LockTable[i];
+	      // delete LockTable[i];
 	    }
 	}
       for(int i = 0; i < conditionCounter; i++)
@@ -736,36 +845,18 @@ void Exit_Syscall(int status){
 	  if(ConditionTable[i]->addrSpace == currentThread->space)
 	    {
 	      delete ConditionTable[i]->cv;
-	      delete ConditionTable[i];
+	      //delete ConditionTable[i];
 	    }
 	}
 
     }//end clean up for last thread in process
 
 
-  //numthreads is not zero! reclaim stack
- int stackPPN = divRoundUp(ProcessTable[thisProcess]->threadStackStart[thisThread], PageSize);
-  printf("STACK PPN: %d\n",stackPPN);
-  //find where this is in pagetable
-  //this RECLAIMS STACK
-  for(int i = 0; i < currentThread->space->getNumPages(); i++)
-    {
-      if(machine->pageTable[i].physicalPage == stackPPN)
-	{
-	  //we have found stack
-	  //reclaim 8 pages (previous pages)
-	  for(int j = 7; j >= 0; j--)
-	    {
-	      int ppn = machine->pageTable[i-j].physicalPage;
-	      freePageBitMap->Clear(ppn);
-	      printf("Exit::cleared: %d\b", ppn);
-	      // freePageBitMap->Find();
-	      //machine->pageTable[i-j].valid = false;//TODO JACK problem is HERE
-	      printf("J: %d\n", j);
-	    }
-	  break;
-	}
-    }
+  // reclaim stack
+  int stackLoc =   ProcessTable[currentThread->space->getID()]->threadStackStart[currentThread->getID()];
+  printf("about to DESTROY STACK of thread: %s starting at: %d\n", currentThread->getName(), stackLoc);
+  currentThread->space->DestroyStack(stackLoc); 
+
   printf("EXIT COMPLETE\n");
   ProcessLock->Release();
 	currentThread->Finish();
@@ -923,126 +1014,246 @@ void Close_Syscall(int fd) {
     }
 }
 
+//step 4
+int handleMemoryFull(int neededVPN)
+{
+	printf("Memory full \n");
+	int ppn = -1;
+	/*
+	Select page to evict
+	If the page is dirty, it must be copied into the swap file and the page table updated
+	Do swap file stuff (use the OpenFile::WriteAt function)
+	Note that you will need some way to keep track of where in the swap file a particular page has been placed. 
+	Use a BitMap object for this. make it big, as you can assume the swap file never fills up. 
+	Update the proper page table for the evicted page. When testing Exec you can evict a page from a different process.
+	*/
+	return ppn;
+}
+//step 3
+int handleIPTMiss(int neededVPN)
+{
+	printf("IPT miss\n");
+	int ppn = -1;
+	/*
+	int ppn = bitMap->Find();  //Find a physical page of memory
+
+	//step 4
+	if ( ppn == -1 ) {
+            ppn = handleMemoryFull();
+        }
+		
+        //read values from page table as to location of needed virtual page
+        //copy page from disk to memory, if needed
+	*/
+	/*
+	To handle the IPT miss, you must allocate a page of memory (BITMAP Find()). You then go to the page table entry for the needed virtual page to find out where the page is located on disk (if it is there). However, the page table doesn't have this information. Just like with the IPT, you have to create a new class, that inherits from TranslationEntry, to hold the new fields that you need.
+	There are two types of data that you need to add to your page table entry:
+		byte offset: This is the location of a virtual page in the executable (in step 4, when you have a swap file, this field will also work for holding the byte offset of a page in your swap file). The value for this field in in the third argument of your executable->ReadAt statement in the AddrSpace constructor.
+		disk location: Code pages and initialized data pages are in the executable file. However, uninitialized data pages and stack pages are not. In step 4, you will also have a disk location that can be the swap file. Your data field(s) must handle all three values: swap, executable, or neither.
+	
+	These two fields are to be populated in your AddrSpace constructor instead of doing the ReadAt. The will be used when you get an IPT miss so that you will know whether to read a page from the executable, or not.
+	
+	Update the page table with the physical page number and set the valid bit to true. The valid bit is important, as you will be using it to decide which memory pages to evict on an Exit syscall.
+	*/
+	return ppn;
+}
+
+int HandlePageFault(int neededVPN)
+{
+	
+	printf("Page Fault Exception:\n");
+	int ppn = -1;
+	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, BadVAddrReg);
+	
+	 for ( int i=0; i < TABLE_SIZE; i++ ) {
+		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
+		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
+		 if(pageTable[i].virtualPage == neededVPN)
+            //Found the physical page we need
+            ppn = pageTable[i].physicalPage;
+            break;
+        }
+    }
+	//FIFO
+	TLB[3]=TLB[2];
+	TLB[2]=TLB[1];
+	TLB[1]=TLB[0];
+	TLB[0].virtualPage = neededVPN;
+	TLB[0].physicalPage = ppn;
+	currentTLB = (currentTLB+1)%4; 
+	/*
+	//step 3
+	if ( ppn = -1 ) {
+        ppn = handleIPTMiss( neededVPN );
+    }
+	*/
+
+    //Code for updating the TLB - may be in a different function
+	
+	/*
+	Step 1: Populate TLB from PT
+	Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
+	Find that entry in the current thread's page table. Remember the page table is indexed by virtual page number. Just divide the virtual address from step 1 by PageSize
+	Copy the virtual and physical page numbers from the page table to the slot in the TLB. The TLB is an array of size 4. Just use successive index positions with modulus arithmetic so that the index values are 0, 1, 2, 3, 0, 1, 2, 3, 0, and so on.
+	After step 1, tests from p2 should run
+	*/
+	/*
+	Step 2: Implement IPT
+	Create IPTEntry class which inherits from TranslationEntry and adds owner plus whatever other fields you want (in system.h/.c)
+	After creating IPT array of size NumPhysPages, update it when moving data in and out of virtual memory
+	This doesn't actually happen in this function, but is added alongside page table updates in rest of code like when theres Bitmap find(), in fork, maybe exec, and AddrSpace constructor
+	In this function, replace TLB update to update from IPT instead of regular PT
+	Again can test with p2 tests
+	*/
+	/*
+	Step 3: Stop preloading into memory
+	In addrspace constructor everything was loaded to main memory. Now we should do it only on page fault exception
+	Progtest.cc closes executables after adding new process-- shuold stop that. Move declaration of executbale variable to addrspace class ? 
+	translation entry no longer sufficient. PT needs to know if page is on disk or in memory (mod PT)
+	Any place that you do a BitMap Find() - AddrSpace executable and maybe Fork syscall, comment out the Find(). Also, don't set the physicalPage value, since you aren't doing the Find(). 
+	You will do the Find() and the setting of the physicalPage argument on a PageFaultException and an IPT miss.
+	*/
+	/*
+	Step 4: Demanded Page Virtual Memory
+	Reduce NumPhysPages back to 32 in machine.h
+	In IPT miss, bitmap find may result in -1 
+	*/
+	
+	return ppn;
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
 
     if ( which == SyscallException ) {
-	switch (type) {
-	    default:
-		DEBUG('a', "Unknown syscall - shutting down.\n");
-	    case SC_Halt:
-		DEBUG('a', "Shutdown, initiated by user program.\n");
-		interrupt->Halt();
-		break;
-	    case SC_Create:
-		DEBUG('a', "Create syscall.\n");
-		Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
-	    case SC_Open:
-		DEBUG('a', "Open syscall.\n");
-		rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
-	    case SC_Write:
-		DEBUG('a', "Write syscall.\n");
-		Write_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6));
-		break;
-	    case SC_Read:
-		DEBUG('a', "Read syscall.\n");
-		rv = Read_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6));
-		break;
-	    case SC_Close:
-		DEBUG('a', "Close syscall.\n");
-		Close_Syscall(machine->ReadRegister(4));
-		break;
-		
-	    case SC_CreateCondition:
-	        DEBUG('a', "Create Condition syscall. \n");
-	        rv = CreateCondition_Syscall(machine->ReadRegister(4),
-					     machine->ReadRegister(5));
-		break;
-	    case SC_CreateLock:
-		DEBUG('a', "Create lock syscall. \n");
-		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-		break;
-	    case SC_DestroyLock:
-		DEBUG('a', "Destroy lock syscall. \n");
-		rv = DestroyLock_Syscall(machine->ReadRegister(4));
-		break;
-	    case SC_DestroyCondition:
-		DEBUG('a', "Destroy condition syscall. \n");
-		rv = DestroyCondition_Syscall(machine->ReadRegister(4));
-		break;
-	    case SC_Acquire:
-	        DEBUG('a', "Acquire Lock syscall. \n");
-	        rv = Acquire_Syscall(machine->ReadRegister(4));
-		break;
-	    case SC_Release:
-	      DEBUG('a', "Release Lock Syscall. \n");
-	      rv = Release_Syscall(machine->ReadRegister(4));
-	      break;
-	case SC_Wait:
-	  DEBUG('a', "Wait Condition Syscall. \n");
-	  rv = Wait_Syscall(machine->ReadRegister(4),
-			    machine->ReadRegister(5));
-	  break;
-	case SC_Signal:
-	  DEBUG('a', "Signal Condition Syscall. \n");
-	  rv = Signal_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5));
-	  break;
-	case SC_Broadcast:
-	  DEBUG('a', "Broadcast Condition Syscall. \n");
-	  rv = Broadcast_Syscall(machine->ReadRegister(4),
-				 machine->ReadRegister(5));
-	  break;
-	    case SC_Print:
-		DEBUG('a', "Print syscall.\n");
-		Print_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6),
-			      machine->ReadRegister(7));
-		break;
-	    case SC_PrintInt:
-		DEBUG('a', "PrintInt syscall.\n");
-		PrintInt_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5),
-			      machine->ReadRegister(6),
-			      machine->ReadRegister(7));
-		break;
-		
-	case SC_Exec:
-		DEBUG('a', "Exec syscall.\n");
-		rv = Exec_Syscall(machine->ReadRegister(4),
-			      machine->ReadRegister(5));
-		break;
-	case SC_Fork:
-	  DEBUG('a', "Fork syscall. \n");
-	  Fork_Syscall(machine->ReadRegister(4));
-	  break;
-	case SC_Exit:
-	  DEBUG('a', "Exit Syscall. \n");
-	  Exit_Syscall(machine->ReadRegister(4));
-	  break;
-	  
-	 case SC_Rand:
-	  DEBUG('a', "Rand Syscall. \n");
-	  rv = Rand_Syscall();
-	  break;
-		
-	}
+		switch (type) {
+			default:
+			DEBUG('a', "Unknown syscall - shutting down.\n");
+			case SC_Halt:
+			DEBUG('a', "Shutdown, initiated by user program.\n");
+			interrupt->Halt();
+			break;
+			case SC_Create:
+			DEBUG('a', "Create syscall.\n");
+			Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_Open:
+			DEBUG('a', "Open syscall.\n");
+			rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_Write:
+			DEBUG('a', "Write syscall.\n");
+			Write_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6));
+			break;
+			case SC_Read:
+			DEBUG('a', "Read syscall.\n");
+			rv = Read_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6));
+			break;
+			case SC_Close:
+			DEBUG('a', "Close syscall.\n");
+			Close_Syscall(machine->ReadRegister(4));
+			break;
+			
+			case SC_CreateCondition:
+				DEBUG('a', "Create Condition syscall. \n");
+				rv = CreateCondition_Syscall(machine->ReadRegister(4),
+							 machine->ReadRegister(5));
+			break;
+			case SC_CreateLock:
+			DEBUG('a', "Create lock syscall. \n");
+			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+			break;
+			case SC_DestroyLock:
+			DEBUG('a', "Destroy lock syscall. \n");
+			rv = DestroyLock_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_DestroyCondition:
+			DEBUG('a', "Destroy condition syscall. \n");
+			rv = DestroyCondition_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Acquire:
+				DEBUG('a', "Acquire Lock syscall. \n");
+				rv = Acquire_Syscall(machine->ReadRegister(4));
+			break;
+			case SC_Release:
+			  DEBUG('a', "Release Lock Syscall. \n");
+			  rv = Release_Syscall(machine->ReadRegister(4));
+			  break;
+		case SC_Wait:
+		  DEBUG('a', "Wait Condition Syscall. \n");
+		  rv = Wait_Syscall(machine->ReadRegister(4),
+					machine->ReadRegister(5));
+		  break;
+		case SC_Signal:
+		  DEBUG('a', "Signal Condition Syscall. \n");
+		  rv = Signal_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5));
+		  break;
+		case SC_Broadcast:
+		  DEBUG('a', "Broadcast Condition Syscall. \n");
+		  rv = Broadcast_Syscall(machine->ReadRegister(4),
+					 machine->ReadRegister(5));
+		  break;
+			case SC_Print:
+			DEBUG('a', "Print syscall.\n");
+			Print_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6),
+					  machine->ReadRegister(7));
+			break;
+			case SC_PrintInt:
+			DEBUG('a', "PrintInt syscall.\n");
+			PrintInt_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5),
+					  machine->ReadRegister(6),
+					  machine->ReadRegister(7));
+			break;
+			
+		case SC_Exec:
+			DEBUG('a', "Exec syscall.\n");
+			rv = Exec_Syscall(machine->ReadRegister(4),
+					  machine->ReadRegister(5));
+			break;
+		case SC_Fork:
+		  DEBUG('a', "Fork syscall. \n");
+		  Fork_Syscall(machine->ReadRegister(4));
+		  break;
+		case SC_Exit:
+		  DEBUG('a', "Exit Syscall. \n");
+		  Exit_Syscall(machine->ReadRegister(4));
+		  break;
+		 case SC_Rand:
+		  DEBUG('a', "Rand Syscall. \n");
+		  rv = Rand_Syscall();
+		  break;
+			
+		 case SC_Yield:
+		  DEBUG('a', "Yield Syscall. \n");
+		  Yield_Syscall();
+		  break;
+		}
 
-	// Put in the return value and increment the PC
-	machine->WriteRegister(2,rv);
-	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
-	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
-	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
-	return;
-    } else {
+		// Put in the return value and increment the PC
+		machine->WriteRegister(2,rv);
+		machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
+		machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
+		machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
+		return;
+    } 
+	else if (which == PageFaultException)
+	{
+		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg/PageSize));
+		
+		machine->WriteRegister(2,rv);
+		return;
+	} 
+	else {
       cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<<endl;
       interrupt->Halt();
     }
