@@ -94,6 +94,9 @@ int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
+TLB = new TranslationEntry[4];
+currentTLB = 0;
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1060,14 +1063,25 @@ int HandlePageFault(int neededVPN)
 	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
-	/*
-	 for ( int i=0; i < ITPSize; i++ ) {
+	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, BadVAddrReg);
+	
+	 for ( int i=0; i < TABLE_SIZE; i++ ) {
+		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
+		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
+		 if(pageTable[i].virtualPage == neededVPN)
             //Found the physical page we need
-            ppn = i;
+            ppn = pageTable[i].physicalPage;
             break;
         }
     }
-	
+	//FIFO
+	TLB[3]=TLB[2];
+	TLB[2]=TLB[1];
+	TLB[1]=TLB[0];
+	TLB[0].virtualPage = neededVPN;
+	TLB[0].physicalPage = ppn;
+	currentTLB = (currentTLB+1)%4; 
+	/*
 	//step 3
 	if ( ppn = -1 ) {
         ppn = handleIPTMiss( neededVPN );
@@ -1233,7 +1247,8 @@ void ExceptionHandler(ExceptionType which) {
     } 
 	else if (which == PageFaultException)
 	{
-		rv = HandlePageFault(machine->ReadRegister(4));
+		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg/PageSize));
 		
 		machine->WriteRegister(2,rv);
 		return;
