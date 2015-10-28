@@ -1063,14 +1063,14 @@ int HandlePageFault(int neededVPN)
 	}	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
-	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, BadVAddrReg);
+	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, machine->ReadRegister(BadVAddrReg));
 	
 	 for ( int i=0; i < TABLE_SIZE; i++ ) {
 		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
-		 //printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
-		if(machine->pageTable[i].virtualPage == neededVPN) {
+		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
+		if(	currentThread->space->pageTable[i].virtualPage == neededVPN) {
 		    //Found the physical page we need
-		    ppn = machine->pageTable[i].physicalPage;
+		    ppn = currentThread->space->pageTable[i].physicalPage;
 		    break;
 		}
 	 }
@@ -1246,7 +1246,7 @@ void ExceptionHandler(ExceptionType which) {
 	else if (which == PageFaultException)
 	{
 		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
-		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg/PageSize));
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg)/PageSize);
 		
 		machine->WriteRegister(2,rv);
 		return;
