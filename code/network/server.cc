@@ -16,6 +16,7 @@
 const int TABLE_SIZE = 500;
 
 int serverLockCounter = 0;
+int serverCVCounter = 0;
 
 enum requestType {
   CL,
@@ -25,21 +26,39 @@ enum requestType {
   UNKNOWN,
 };
 
+/*ServerLock struct and methods*/
 struct ServerLock {
-  string name;
+  char* name;
   bool isAvailable;
   int ownerID;
   List* waitQueue;
 
-  ServerLock(string n);
+  ServerLock(char* n);
 };
 
 
-ServerLock::ServerLock(string n)
+ServerLock::ServerLock(char* n)
 {
   name = n;
   isAvailable = true;
   //set ownerId TODO
+}
+
+/*ServerCondition struct and methods*/
+struct ServerCondition {
+  char* name;
+  bool isAvailable;
+  int ownerID;
+  List* waitQueue;
+
+  ServerCondition(char* name);
+};
+
+ServerCondition::ServerCondition(char* n)
+{
+  name = n;
+  isAvailable = true;
+  //TODO set OwnerID
 }
 
 //helper functions
@@ -56,7 +75,7 @@ return UNKNOWN;
 
 //vars below
 ServerLock* ServerLockTable[TABLE_SIZE];
-
+ServerCondition* ServerCVTable[TABLE_SIZE];
 
 /*LOCK PROCEDURES*/
 int doCreateLock(char* name)
@@ -83,7 +102,22 @@ void doDestroyLock(char* name)
 
 
 /*CONDTION PROCEDURES*/
-
+int doCreateCV(char* name)
+{
+  printf("Server::DoCreateCV\n");
+  if(serverCVCounter > TABLE_SIZE)
+  {
+    printf("Server::ERROR Cannot create cv\n");
+    return -1;
+  }
+  ServerCondition* newCV = new ServerCondition(name);
+  int thisCV = serverCVCounter;
+  ServerCVTable[thisCV] = newCV;
+  serverCVCounter++;
+ printf("Server::DoCreateCV: %s ID:%d\n", name, thisCV);
+  
+ return thisCV;
+}
 
 
 
@@ -143,6 +177,26 @@ void Server()
 
           bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
 
+	  break;
+	}
+      case CCV:
+	{
+	  char* cvName;
+	  ss>>cvName;
+	  int cv = doCreateCV(cvName);
+
+	  //now, build and send message back to client
+	  stringstream strs;
+	  strs<<cv;
+	  string temp = strs.str();
+	  char const* msgDataConst = temp.c_str();
+	  char* msgData = new char[temp.length()];
+	  strcpy(msgData, temp.c_str());
+	  outMailHdr.length = strlen(msgData) + 1;
+
+          bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
+
+	  
 	  break;
 	}
       default:

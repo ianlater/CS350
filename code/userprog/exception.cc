@@ -147,6 +147,24 @@ int copyout(unsigned int vaddr, int len, char *buf) {
     return n;
 }
 
+void sendMsgToServer(char* msg)
+{
+  PacketHeader outPktHdr;
+    MailHeader outMailHdr;
+
+    // construct packet, mail header for original message
+    // To: destination machine, mailbox 0
+    // From: our machine, reply to: mailbox 1
+    outPktHdr.to = 0;//TODO hard testing		
+    outMailHdr.to = 0;
+    outMailHdr.from = 1;
+    outMailHdr.length = strlen(msg) + 1;
+
+    // Send the first message
+    bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
+
+}
+
 
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
@@ -274,26 +292,15 @@ ProcessLock->Release();
 
   printf("Network CL in progress\n");
 
-    PacketHeader outPktHdr, inPktHdr;
-    MailHeader outMailHdr, inMailHdr;
-    char *data = "Hello there!";
-    char *ack = "Got it!";
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
     char buffer[MaxMailSize];
 
     stringstream ss;
     ss<<"CL "<<buf;
     char* msg = (char*)ss.str().c_str();
 
-    // construct packet, mail header for original message
-    // To: destination machine, mailbox 0
-    // From: our machine, reply to: mailbox 1
-    outPktHdr.to = 0;//TODO hard testing		
-    outMailHdr.to = 0;
-    outMailHdr.from = 1;
-    outMailHdr.length = strlen(msg) + 1;
-
-    // Send the first message
-    bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
+    sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
     printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
@@ -449,7 +456,30 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
     buf[len]='\0';
     printf("\nCreateCV::NAME:%s\n", buf);
-  Condition* cv = new Condition(buf);
+#ifdef NETWORK
+
+  printf("Network CL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CCV "<<buf;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int cvIndex = atoi(buffer);//convert char* to int
+    
+    printf("CreateCV:: CV Index given %d\n", cvIndex);
+    return cvIndex;
+#else
+ Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
 
@@ -471,7 +501,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 	ProcessLock->Release();
 
   return thisCV;//mehh
-
+#endif/*NETWORK*/
 }
 // 
 int DestroyCondition_Syscall(int conditionIndex)
