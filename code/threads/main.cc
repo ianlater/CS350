@@ -151,6 +151,8 @@ main(int argc, char **argv)
         }
 	else if(!strcmp(*argv, "-server"))
 	{
+	  Delay(2);
+
 	  Server();
 	}
 #endif // NETWORK

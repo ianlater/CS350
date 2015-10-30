@@ -27,6 +27,7 @@
 #include "synch.h"
 #include <stdio.h>
 #include <iostream>
+#include <sstream>
 
 using namespace std;
 
@@ -268,8 +269,43 @@ ProcessLock->Release();
 	return -1;
     }
     buf[len]='\0';
+#ifdef NETWORK
+    //build message
+
+  printf("Network CL in progress\n");
+
+    PacketHeader outPktHdr, inPktHdr;
+    MailHeader outMailHdr, inMailHdr;
+    char *data = "Hello there!";
+    char *ack = "Got it!";
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CL "<<buf;
+    char* msg = (char*)ss.str().c_str();
+
+    // construct packet, mail header for original message
+    // To: destination machine, mailbox 0
+    // From: our machine, reply to: mailbox 1
+    outPktHdr.to = 0;//TODO hard testing		
+    outMailHdr.to = 0;
+    outMailHdr.from = 1;
+    outMailHdr.length = strlen(msg) + 1;
+
+    // Send the first message
+    bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int lockIndex = atoi(buffer);//convert char* to int
+    
+    printf("CreateLock:: Lock Index given %d\n", lockIndex);
+    return lockIndex;
+#else
     ProcessLock->Acquire();    
-printf("\nCreateLocK::NAME:%s \n", buf);
+    printf("\nCreateLocK::NAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
@@ -278,6 +314,7 @@ printf("\nCreateLocK::NAME:%s \n", buf);
 	lockCounter++;
 	ProcessLock->Release();
 	return thisLock;
+#endif /*NETWORK*/
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
