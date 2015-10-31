@@ -1064,7 +1064,8 @@ int HandlePageFault(int neededVPN)
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
 	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, machine->ReadRegister(BadVAddrReg));
-	
+
+	ProcessLock->Acquire();	
 	 for ( int i=0; i < TABLE_SIZE; i++ ) {
 		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
 		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
@@ -1080,11 +1081,12 @@ int HandlePageFault(int neededVPN)
 	machine->tlb[currentTLB].valid = TRUE;
 
 	currentTLB = (currentTLB+1)%4; 
+	ProcessLock->Release();	
 	/*
 	//step 3
 	if ( ppn = -1 ) {
-        ppn = handleIPTMiss( neededVPN );
-    }
+          ppn = handleIPTMiss( neededVPN );
+    	}
 	*/
 
     //Code for updating the TLB - may be in a different function
