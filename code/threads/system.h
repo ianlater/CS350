@@ -33,12 +33,13 @@ extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
 
-class InvertedPageTable : TranslationEntry { //IPT
+class IPTEntry : TranslationEntry { //IPT
 	public:
 	AddrSpace * owner;
 	
 };
 
+extern IPTEntry * IPT;
 
 #ifdef USER_PROGRAM
 #include "machine.h"
