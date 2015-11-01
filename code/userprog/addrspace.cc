@@ -149,7 +149,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages + (50 * 8)];
-	IPT = new TranslationEntry[numPages + (50*8)];
+	IPT = new IPTEntry[numPages + (50*8)]; //size will eventually be 32
     for (i = 0; i < numPages; i++) {
       int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
@@ -172,6 +172,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 		IPT[ppn].use = FALSE;
 		IPT[ppn].dirty = FALSE;
 		IPT[ppn].readOnly = FALSE;
+		//IPT[ppn].owner = this; //set owner to this addrspace. is this necessary not in constructor?
 		executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
@@ -218,7 +219,15 @@ int AddrSpace::CreateStack(int thread)
       pageTable[thread].use = FALSE;
       pageTable[thread].dirty = FALSE;
       pageTable[thread].readOnly = FALSE;
-
+	
+	//populate IPT because of Find()
+	IPT[ppn].virtualPage = i;	
+		IPT[ppn].physicalPage = ppn;
+		IPT[ppn].valid = TRUE;
+		IPT[ppn].use = FALSE;
+		IPT[ppn].dirty = FALSE;
+		IPT[ppn].readOnly = FALSE;
+		
       thread++;
     }
   stackLoc = (PageSize * thread) -16;
