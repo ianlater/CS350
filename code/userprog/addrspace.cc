@@ -172,7 +172,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 		IPT[ppn].use = FALSE;
 		IPT[ppn].dirty = FALSE;
 		IPT[ppn].readOnly = FALSE;
-		//IPT[ppn].owner = this; //set owner to this addrspace. is this necessary not in constructor?
+		IPT[ppn].owner = thread->space; //set owner to this addrspace. is this necessary not in constructor?
 		executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
@@ -227,7 +227,7 @@ int AddrSpace::CreateStack(int thread)
 		IPT[ppn].use = FALSE;
 		IPT[ppn].dirty = FALSE;
 		IPT[ppn].readOnly = FALSE;
-		
+		IPT[ppn].owner = thread->space;
       thread++;
     }
   stackLoc = (PageSize * thread) -16;
@@ -247,6 +247,10 @@ void AddrSpace::DestroyStack(int thread)
 	{
 	  pageTable[thread].valid = FALSE;
 	}
+	if (IPT[thread].valid)
+	{
+		IPT[thread].valid = FALSE;//is this supposed to be there?
+	}
       thread++;
     }
 }
@@ -261,6 +265,7 @@ void AddrSpace::DestroyStack(int thread)
 AddrSpace::~AddrSpace()
 {
     delete pageTable;
+    delete IPT;
 }
 
 //----------------------------------------------------------------------
