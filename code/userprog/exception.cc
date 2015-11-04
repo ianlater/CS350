@@ -1066,23 +1066,22 @@ int HandlePageFault(int neededVPN)
 	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, machine->ReadRegister(BadVAddrReg));
 
 	ProcessLock->Acquire();	
-	/* for ( int i=0; i < TABLE_SIZE; i++ ) {
-		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
-		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
-		if(	currentThread->space->pageTable[i].virtualPage == neededVPN) {
+	 for ( int i=0; i < NumPhysPages; i++ ) {
+		 //printf("i: %i, IPT[i].virtualPage: %i,  IPT[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
+		if(IPT[i].virtualPage == neededVPN) {
 		    //Found the physical page we need
-		    ppn = currentThread->space->pageTable[i].physicalPage;
+		    ppn = i;
 			break;
 		}
 	 }
-	 */
+	 /*
 	 if(	currentThread->space->pageTable[neededVPN].virtualPage == neededVPN) {
 		    //Found the physical page we need
 		    ppn = currentThread->space->pageTable[neededVPN].physicalPage;
 	} else {
 		//PT doesn't hold vpn
 		printf("ERROR PT doesn't have vpn: i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", neededVPN, currentThread->space->pageTable[neededVPN].virtualPage, currentThread->space->pageTable[neededVPN].physicalPage);
-	}
+	}*/
 	//FIFO
 	machine->tlb[currentTLB].virtualPage = neededVPN;
 	machine->tlb[currentTLB].physicalPage = ppn;
