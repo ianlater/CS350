@@ -48,9 +48,9 @@ class AddrSpace {
     void DestroyStack(int threadNum);
 
 
- private:
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
+    TranslationEntry *IPT;
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
     int processID;  //added by JACK to use as key in processTable
