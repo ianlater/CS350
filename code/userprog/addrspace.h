@@ -22,7 +22,6 @@
 #define MaxOpenFiles 256
 #define MaxChildSpaces 256
 
-class IPTEntry;
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,
@@ -51,7 +50,6 @@ class AddrSpace {
 
     TranslationEntry *pageTable;	// Assume linear page table translation
 					// for now!
-    IPTEntry *IPT;
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
     int processID;  //added by JACK to use as key in processTable
