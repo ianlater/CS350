@@ -33,7 +33,7 @@ extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
 
-class IPTEntry : TranslationEntry { //IPT
+class IPTEntry : public TranslationEntry { //IPT
 	public:
 	AddrSpace * owner;
 	

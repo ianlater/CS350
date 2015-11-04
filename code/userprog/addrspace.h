@@ -22,6 +22,7 @@
 #define MaxOpenFiles 256
 #define MaxChildSpaces 256
 
+class IPTEntry;
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,

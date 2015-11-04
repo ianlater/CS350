@@ -32,6 +32,8 @@ using namespace std;
 
 const int TABLE_SIZE = 200;//shoud there be a max size?
 
+IPTEntry* IPT;
+
 struct KernelCondition{
   KernelCondition(Condition* c, AddrSpace* a);
   Condition* cv;
