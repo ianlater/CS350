@@ -16,7 +16,7 @@
 #include "stats.h"
 #include "timer.h"
 #include "translate.h"
-#include "../userprog/addrspace.h"
+//#include "../userprog/addrspace.h"
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
