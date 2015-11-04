@@ -1056,16 +1056,19 @@ int handleIPTMiss(int neededVPN)
 	return ppn;
 }
 
-int HandlePageFault(int neededVPN)
+int HandlePageFault(int requestedVA)
 {
+	int neededVPN =  requestedVA/PageSize;
+	
 	if(machine->tlb == NULL) {
 		machine->tlb = new TranslationEntry[TLBSize];
 	}	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
-	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, machine->ReadRegister(BadVAddrReg));
-
+	printf("calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
+	//check if requestedVA is in currentThread->space somehow
 	ProcessLock->Acquire();	
+	//search for neededVPN in IPT
 	 for ( int i=0; i < NumPhysPages; i++ ) {
 		 //printf("i: %i, IPT[i].virtualPage: %i,  IPT[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
 		if(IPT[i].virtualPage == neededVPN) {
@@ -1075,6 +1078,7 @@ int HandlePageFault(int neededVPN)
 		}
 	 }
 	 /*
+	 //check if in PT
 	 if(	currentThread->space->pageTable[neededVPN].virtualPage == neededVPN) {
 		    //Found the physical page we need
 		    ppn = currentThread->space->pageTable[neededVPN].physicalPage;
@@ -1082,21 +1086,21 @@ int HandlePageFault(int neededVPN)
 		//PT doesn't hold vpn
 		printf("ERROR PT doesn't have vpn: i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", neededVPN, currentThread->space->pageTable[neededVPN].virtualPage, currentThread->space->pageTable[neededVPN].physicalPage);
 	}*/
-	//FIFO
-	machine->tlb[currentTLB].virtualPage = neededVPN;
-	machine->tlb[currentTLB].physicalPage = ppn;
-	machine->tlb[currentTLB].valid = TRUE;
-
-	currentTLB = (currentTLB+1)%4; 
-	ProcessLock->Release();	
+	
 	/*
 	//step 3
 	if ( ppn = -1 ) {
           ppn = handleIPTMiss( neededVPN );
     	}
 	*/
+	printf("About to update TLB-- ppn:%i\n", ppn);
+	//Code for updating the TLB - may be in a different function
+	machine->tlb[currentTLB].virtualPage = neededVPN;
+	machine->tlb[currentTLB].physicalPage = ppn;
+	machine->tlb[currentTLB].valid = TRUE;
 
-    //Code for updating the TLB - may be in a different function
+	currentTLB = (currentTLB+1)%4; 
+	ProcessLock->Release();	
 	
 	/*
 	Step 1: Populate TLB from PT
@@ -1256,7 +1260,7 @@ void ExceptionHandler(ExceptionType which) {
 	else if (which == PageFaultException)
 	{
 		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
-		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg)/PageSize);
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg));
 		
 		machine->WriteRegister(2,rv);
 		return;
