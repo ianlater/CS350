@@ -244,8 +244,89 @@ if(!(sl))
  return 0;
 }
 
-int doReleaseLock(int lockIndex, int clientID, int threadID)
+int doReleaseLock(int lockIndex, int clientID, int ownerID)
 {
+ if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+      char* errorString =  "Release: Lock Index out of bounds";
+       printf("%s\n", errorString);
+      Message msg = Message(clientID, errorString);
+      sendMessage(msg);
+      return -1;
+    }
+  ServerLock* sl = ServerLockTable[lockIndex];
+if(!(sl))
+    {
+      char* errorString =  "Release: Lock is null";
+      printf("%s\n", errorString);
+      Message msg = Message(clientID, errorString);
+      sendMessage(msg);
+
+      return -1;
+    } 
+  //Lock exists and input was proper so far, check if lock belongs to this addrSpace
+
+  if(sl->clientID != clientID)//CAREFUL! May need changes for P4
+    {
+      char* errorString = "Release:Lock does not belong to client";
+      printf("%s\n", errorString);
+      Message msg = Message(clientID, errorString);
+      sendMessage(msg);
+      return -1;
+    }
+
+ //end of input parsing
+  //if there is now owner, cant release
+  if(sl->currentOwner == -1)
+    {
+      char* errorString = "Release:Lock does not belong to any thread";
+      printf("%s\n", errorString);
+      Message msg = Message(clientID, errorString);
+      sendMessage(msg);
+     
+      return -1;
+    }
+  //if i am not the owner, can't release 
+  if(sl->currentOwner != ownerID)
+    {
+      char* errorString = "Release:Lock does not belong to thread";
+      printf("%s\n", errorString);
+      Message msg = Message(clientID, errorString);
+      sendMessage(msg);
+     
+      return -1;
+    }
+  char* infoMessage;  
+//if the waitQ is empty
+  if(sl->waitQueue->IsEmpty())
+    {
+      if(sl->isToBeDeleted)
+	{
+	  infoMessage = "Release::lock released and deleted";
+	  printf("%s\n", infoMessage);
+	  delete sl;	 
+	  Message msg = Message(clientID, infoMessage);
+	  sendMessage(msg);
+	}
+      else
+	{
+	  sl->isAvailable = true;
+	  infoMessage = "Release::lock released and available";
+	  printf("%s\n", infoMessage);
+	  Message msg = Message(clientID, infoMessage);
+	  sendMessage(msg);	 
+	}
+    }
+  else
+    {
+      //send msg at front of waitQ
+      printf("Release::Waking up waiting client\n");
+      Message* msg = (Message*)sl->waitQueue->Remove();
+      sendMessage(*msg); 
+    }
+  ///if isToBeDeleted, delete
+  ///else, just make available
+  //else, send off msg to wake up next person in waitQ
   return 0;
 }
 
@@ -273,7 +354,7 @@ int doDestroyCV(int cvIndex, int client)
   char* errorMsg;
   if(cvIndex < 0 || cvIndex > serverLockCounter)
     {
-     errorMsg = "DestroyCV:: Lock Index out of bounds";
+     errorMsg = "DestroyCV:: cv Index out of bounds";
      printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
      sendMessage(msg); 
@@ -282,7 +363,7 @@ int doDestroyCV(int cvIndex, int client)
   ServerCondition* sc = ServerCVTable[cvIndex];
   if(!sc)
     {
-     errorMsg = "DestroyCV::Error: CV is null";
+     errorMsg = "DestroyCV: CV is null";
      printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
      sendMessage(msg); 
@@ -290,7 +371,7 @@ int doDestroyCV(int cvIndex, int client)
     }
   if(sc->clientID != client)
     {
-     errorMsg = "DestroyCV::Error: CV does not belong to this client";
+     errorMsg = "DestroyCV: CV does not belong to this client";
      printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
      sendMessage(msg); 
@@ -380,6 +461,14 @@ void Server()
 	  ss>>lockIndex;
 	  int lockInt = atoi(lockIndex.c_str());
 	  doAcquireLock(lockInt, inPktHdr.from, inMailHdr.from);
+	  break;
+	}
+      case RL:
+	{
+	  string lockIndex;
+	  ss>>lockIndex;
+	  int lockInt = atoi(lockIndex.c_str());
+	  doReleaseLock(lockInt, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case DL:

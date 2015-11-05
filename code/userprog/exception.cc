@@ -350,9 +350,6 @@ int Acquire_Syscall(int lockIndex)
     printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
-    // int cvIndex = atoi(buffer);//convert char* to int
-    
-    // printf("Acquire\n");
     return 1;
 #else
   KernelLock* kl = LockTable[lockIndex];
@@ -381,6 +378,26 @@ if(!(kl))
 // Takes an integer number as an argument - the lock table index of the lock to release.
 int Release_Syscall(int lockIndex)
 {
+#ifdef NETWORK
+
+  printf("Network RL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"RL "<<lockIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 1;
+#else
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
       printf("%s\n", "Release::ERROR: Lock Index out of bounds");
@@ -414,6 +431,7 @@ if(!(kl->lock))
       delete kl;
     }
   return 1;
+#endif/*NETWORK*/
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
