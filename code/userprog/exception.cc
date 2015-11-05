@@ -421,7 +421,7 @@ int DestroyLock_Syscall(int lockIndex)
 {
    /**/
 #ifdef NETWORK
-  printf("Network DL in progress\n");
+    printf("Network DL in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -436,10 +436,6 @@ int DestroyLock_Syscall(int lockIndex)
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
     printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
-
-    // int cvIndex = atoi(buffer);//convert char* to int
-    
-    // printf("Destroy\n");
     return 1;
 #else
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
@@ -554,6 +550,24 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 int DestroyCondition_Syscall(int conditionIndex)
 {
 	 /**/
+#ifdef NETWORK
+    printf("Network DCV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DCV "<<conditionIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+    return 1;
+#else
 	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
 		printf("DestroyCondition::Error: Condition Index out of bounds\n");
 		return -1;
@@ -583,7 +597,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 		kc->isToBeDeleted = true;
 	}
 	return 1;
-	/**/
+#endif/*NETWORK*/
 }
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)

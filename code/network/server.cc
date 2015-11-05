@@ -37,34 +37,38 @@ struct ServerLock {
   int currentOwner;//the ID of the thread that owns it
   List* waitQueue;
 
-  ServerLock(string n, int client, int thread);
+  ServerLock(string n, int client);
 };
 
 
-ServerLock::ServerLock(string n, int client, int thread)
+ServerLock::ServerLock(string n, int client)
 {
   name = n;
   isAvailable = true;
   clientID = client;//ip
-  currentOwner = thread;
+  currentOwner = -1;//not owned until acquired
   isToBeDeleted = false;
 }
 
 /*ServerCondition struct and methods*/
 struct ServerCondition {
-  char* name;
+  string name;
   bool isAvailable;
-  int ownerID;
+  bool isToBeDeleted;
+  int clientID;//ip of sender
+  int currentOwner;//threadid/mailbox of thread that sent
   List* waitQueue;
 
-  ServerCondition(char* name);
+  ServerCondition(string name, int client);
 };
 
-ServerCondition::ServerCondition(char* n)
+ServerCondition::ServerCondition(string n, int client)
 {
   name = n;
   isAvailable = true;
-  //TODO set OwnerID
+  isToBeDeleted = false;
+  clientID = client;
+  currentOwner = -1;//start without owner (only on my lock? TODO)
 }
 
 struct Message
@@ -119,14 +123,14 @@ ServerLock* ServerLockTable[TABLE_SIZE];
 ServerCondition* ServerCVTable[TABLE_SIZE];
 
 /*LOCK PROCEDURES*/
-int doCreateLock(string name, int client, int owner)
+int doCreateLock(string name, int client)
 {
   if(serverLockCounter > TABLE_SIZE)
   {
     printf("Server::ERROR Cannot create lock\n");
     return -1;
   }
-  ServerLock* newLock = new ServerLock(name,client, owner);
+  ServerLock* newLock = new ServerLock(name,client);
   int thisLock = serverLockCounter;
   ServerLockTable[thisLock] = newLock;
   serverLockCounter++;
@@ -178,6 +182,7 @@ int doDestroyLock(int lock, int client, int owner)
     }
   
    Message msg = Message(client, "DestroyLock");
+   sendMessage(msg);
   return 0;
 }
 
@@ -246,7 +251,7 @@ int doReleaseLock(int lockIndex, int clientID, int threadID)
 
 
 /*CONDTION PROCEDURES*/
-int doCreateCV(char* name)
+int doCreateCV(string name, int client)
 {
   printf("Server::DoCreateCV\n");
   if(serverCVCounter > TABLE_SIZE)
@@ -254,13 +259,60 @@ int doCreateCV(char* name)
     printf("Server::ERROR Cannot create cv\n");
     return -1;
   }
-  ServerCondition* newCV = new ServerCondition(name);
+  ServerCondition* newCV = new ServerCondition(name, client);
   int thisCV = serverCVCounter;
   ServerCVTable[thisCV] = newCV;
   serverCVCounter++;
- printf("Server::DoCreateCV: %s ID:%d\n", name, thisCV);
+ printf("Server::DoCreateCV: ID:%d\n",  thisCV);
   
  return thisCV;
+}
+
+int doDestroyCV(int cvIndex, int client)
+{
+  char* errorMsg;
+  if(cvIndex < 0 || cvIndex > serverLockCounter)
+    {
+     errorMsg = "DestroyCV:: Lock Index out of bounds";
+     printf("%s\n", errorMsg);
+     Message msg = Message(client, errorMsg);
+     sendMessage(msg); 
+     return -1;
+    }
+  ServerCondition* sc = ServerCVTable[cvIndex];
+  if(!sc)
+    {
+     errorMsg = "DestroyCV::Error: CV is null";
+     printf("%s\n", errorMsg);
+     Message msg = Message(client, errorMsg);
+     sendMessage(msg); 
+     return -1;
+    }
+  if(sc->clientID != client)
+    {
+     errorMsg = "DestroyCV::Error: CV does not belong to this client";
+     printf("%s\n", errorMsg);
+     Message msg = Message(client, errorMsg);
+     sendMessage(msg); 
+     return -1;
+
+    }
+  //error checking done
+  //check cv's waitQ to delete
+  if(sc->waitQueue->IsEmpty())
+    {
+      printf("DestroyCV:: Deleting CV\n");
+      delete sc;    
+    }
+  else
+    {
+      printf("DestroyCV:: set toBeDeleted\n");
+      sc->isToBeDeleted = true;
+    }
+  
+   Message msg = Message(client, "DestroyCV");
+   sendMessage(msg);
+  return 0;
 }
 
 
@@ -309,7 +361,7 @@ void Server()
 	  stringstream strs;
 	  ss>>lockName;
 	 
-	  int lock = doCreateLock(lockName, inPktHdr.from, inMailHdr.from);
+	  int lock = doCreateLock(lockName, inPktHdr.from);
 	  //now, build and send message back to client
 	  strs<<lock;
 	  string temp = strs.str();
@@ -324,25 +376,25 @@ void Server()
 	}
       case AL:
 	{
-	  char* lockIndex;
+	  string lockIndex;
 	  ss>>lockIndex;
-	  int lockInt = atoi(lockIndex);
+	  int lockInt = atoi(lockIndex.c_str());
 	  doAcquireLock(lockInt, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case DL:
 	{
-	  char* lockIndex;
+	  string lockIndex;
 	  ss>>lockIndex;
-	  int lockInt = atoi(lockIndex);
+	  int lockInt = atoi(lockIndex.c_str());
 	  doDestroyLock(lockInt, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case CCV:
 	{
-	  char* cvName;
+	  string cvName;
 	  ss>>cvName;
-	  int cv = doCreateCV(cvName);//Needs more info TODO
+	  int cv = doCreateCV(cvName, inPktHdr.from);
 
 	  //now, build and send message back to client
 	  stringstream strs;
@@ -360,8 +412,11 @@ void Server()
 	}
       case DCV:
 	{
-	  //destroy CV
-	  //doDestroyCV
+	  string cvIndex;
+	  ss>>cvIndex;
+	  int cvInt = atoi(cvIndex.c_str());
+	  doDestroyCV(cvInt, inPktHdr.from);
+	  break;
 	}
       default:
 	{
