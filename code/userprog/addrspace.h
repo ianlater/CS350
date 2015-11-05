@@ -55,6 +55,8 @@ class AddrSpace {
     int processID;  //added by JACK to use as key in processTable
 
     int baseDataSize;
+
+    OpenFile* executable;//step3 stop preloading to memory
 };
 
 

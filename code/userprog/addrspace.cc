@@ -117,7 +117,8 @@ SwapHeader (NoffHeader *noffH)
 //      constructed set to false.
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
+    executable = exec;
     NoffHeader noffH;
     unsigned int i, size;
 
