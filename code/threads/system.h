@@ -40,7 +40,8 @@ class IPTEntry : public TranslationEntry { //IPT
 };
 class PTEntry : public TranslationEntry {
   public:
-	int location;//keep track of whether in disk, swap file, or neither
+	int byteOffset; //loc of VP in executable
+	int diskLocation;//keep track of whether in disk, swap file, or neither
 };
 
 extern IPTEntry* IPT;
