@@ -95,6 +95,9 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
 int currentTLB = 0;
+std::queue<int> iptQueue; //queue for FIFO eviction of pages, populate when populating IPT and flag is set to FIFO
+
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1011,7 +1014,18 @@ void Close_Syscall(int fd) {
       printf("%s","Tried to close an unopen file\n");
     }
 }
-
+int evictFind()//return index of IPT to evict
+{
+	//check the flag here
+	//if (random) else (fifo)
+	//random:
+	int random = rand()*32;
+	//return random; //uncomment for random implementation	
+	//FIFO:
+	int next = iptQueue.front();	
+	iptQueue.pop();
+	return next;
+}
 //step 4
 int handleMemoryFull(int neededVPN)
 {
@@ -1025,6 +1039,16 @@ int handleMemoryFull(int neededVPN)
 	Use a BitMap object for this. make it big, as you can assume the swap file never fills up. 
 	Update the proper page table for the evicted page. When testing Exec you can evict a page from a different process.
 	*/
+
+	//for now, just do FIFO to evict page
+	int toEvict = evictFind();
+	//if page is dirty
+	
+	if (IPT[toEvict].dirty)
+	{
+		//handle swap file stuff
+	}
+		
 	return ppn;
 }
 //step 3
