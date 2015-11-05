@@ -420,6 +420,28 @@ if(!(kl->lock))
 int DestroyLock_Syscall(int lockIndex)
 {
    /**/
+#ifdef NETWORK
+  printf("Network DL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DL "<<lockIndex;//TODO HERE JACK
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    // int cvIndex = atoi(buffer);//convert char* to int
+    
+    // printf("Destroy\n");
+    return 1;
+#else
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
 		printf("DestroyLock::Error: Lock Index out of bounds\n");
 		return -1;
@@ -427,18 +449,18 @@ int DestroyLock_Syscall(int lockIndex)
 	KernelLock* kl = LockTable[lockIndex];
 	if(!(kl))
 	{
-		printf("%s\n", "Release::ERROR: Lock is null");
+		printf("%s\n", "Destroy::ERROR: Lock is null");
 		return -1;
 	}
 	if(!(kl->lock))
 	{
-		printf("%s\n", "Release::ERROR: Lock is null");
+		printf("%s\n", "Destroy::ERROR: Lock is null");
 		return -1;
 	}
 	//does this lock belong to current address space?
 	if(kl->addrSpace != currentThread->space)
 	{
-		printf("%s\n", "Release::ERROR: Lock does not belong to this address space");
+		printf("%s\n", "Destroy::ERROR: Lock does not belong to this address space");
 		return -1;
 	}
 	if (kl->lock->isLockWaitQueueEmpty()) {
@@ -450,6 +472,7 @@ int DestroyLock_Syscall(int lockIndex)
 	  kl->isToBeDeleted = true;
 	}
 	return 1;
+#endif/*NETWORK*/
   /**/
 }
 

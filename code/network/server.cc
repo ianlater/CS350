@@ -140,27 +140,27 @@ int doDestroyLock(int lock, int client, int owner)
   char* errorMsg;
   if(lock < 0 || lock > serverLockCounter)
     {
-      errorMsg = "DestroyLock::Error: Lock Index out of bounds\n";
-      printf("%s\n", errorMsg);
+     errorMsg = "DestroyLock:: Lock Index out of bounds";
+     printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
-      sendMessage(msg); 
+     sendMessage(msg); 
      return -1;
     }
   ServerLock* sl = ServerLockTable[lock];
   if(!sl)
     {
-       errorMsg = "DestroyLock::Error: Lock is null\n";
-      printf("%s\n", errorMsg);
+     errorMsg = "DestroyLock::Error: Lock is null";
+     printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
-      sendMessage(msg); 
+     sendMessage(msg); 
      return -1;
     }
   if(sl->clientID != client)
     {
-     errorMsg = "DestroyLock::Error: Lock does not belong to this client\n";
-      printf("%s\n", errorMsg);
+     errorMsg = "DestroyLock::Error: Lock does not belong to this client";
+     printf("%s\n", errorMsg);
      Message msg = Message(client, errorMsg);
-      sendMessage(msg); 
+     sendMessage(msg); 
      return -1;
 
     }
@@ -169,13 +169,16 @@ int doDestroyLock(int lock, int client, int owner)
   if(sl->waitQueue->IsEmpty())
     {
       printf("DestroyLock:: Deleting Lock?\n");
-      delete sl;
+      delete sl;    
     }
   else
     {
       printf("DestroyLock:: set toBeDeleted\n");
       sl->isToBeDeleted = true;
     }
+  
+   Message msg = Message(client, "DestroyLock");
+  return 0;
 }
 
 int doAcquireLock(int lockIndex, int clientID, int threadID)
@@ -289,8 +292,7 @@ void Server()
     printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
-    int currentClient = inPktHdr.from;//the "IP" of the sender. will be used to send/build return message
-
+  
     stringstream ss;
 
     ss<<buffer;
@@ -307,7 +309,7 @@ void Server()
 	  stringstream strs;
 	  ss>>lockName;
 	 
-	  int lock = doCreateLock(lockName, currentClient, inMailHdr.from);
+	  int lock = doCreateLock(lockName, inPktHdr.from, inMailHdr.from);
 	  //now, build and send message back to client
 	  strs<<lock;
 	  string temp = strs.str();
@@ -325,18 +327,22 @@ void Server()
 	  char* lockIndex;
 	  ss>>lockIndex;
 	  int lockInt = atoi(lockIndex);
-	  doAcquireLock(lockInt, currentClient, inMailHdr.from);
+	  doAcquireLock(lockInt, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case DL:
 	{
+	  char* lockIndex;
+	  ss>>lockIndex;
+	  int lockInt = atoi(lockIndex);
+	  doDestroyLock(lockInt, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case CCV:
 	{
 	  char* cvName;
 	  ss>>cvName;
-	  int cv = doCreateCV(cvName);
+	  int cv = doCreateCV(cvName);//Needs more info TODO
 
 	  //now, build and send message back to client
 	  stringstream strs;
