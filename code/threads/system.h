@@ -15,8 +15,8 @@
 #include "interrupt.h"
 #include "stats.h"
 #include "timer.h"
-#include "../userprog/addrspace.h"
-//#include "../userprog/table.h"
+#include "translate.h"
+//#include "../userprog/addrspace.h"
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -32,6 +32,15 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
+
+class IPTEntry : public TranslationEntry { //IPT
+	public:
+	AddrSpace * owner;
+	
+};
+
+extern IPTEntry* IPT;
+
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers
@@ -54,14 +63,3 @@ extern PostOffice* postOffice;
 
 
 #endif // SYSTEM_H
-
-/*
-class Lock;
-class AddrSpace;
-
-struct KernelLock{
-		Lock* lock;
-		AddrSpace * addrspace;
-
-}           
-*/

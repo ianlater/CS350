@@ -20,6 +20,7 @@ Timer *timer;				// the hardware timer device,
 
 BitMap* freePageBitMap;
 					// for invoking context switches
+IPTEntry* IPT;
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -166,6 +167,7 @@ Initialize(int argc, char **argv)
 #endif
 
     freePageBitMap = new BitMap(NumPhysPages);
+    IPT = new IPTEntry[NumPhysPages];
 }
 
 //----------------------------------------------------------------------

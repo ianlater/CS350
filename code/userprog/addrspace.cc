@@ -117,7 +117,8 @@ SwapHeader (NoffHeader *noffH)
 //      constructed set to false.
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
+    executable = exec;
     NoffHeader noffH;
     unsigned int i, size;
 
@@ -149,7 +150,6 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 					numPages, size);
 // first, set up the translation 
     pageTable = new TranslationEntry[numPages + (50 * 8)];
-	IPT = new TranslationEntry[numPages + (50*8)];
     for (i = 0; i < numPages; i++) {
       int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
@@ -172,6 +172,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 		IPT[ppn].use = FALSE;
 		IPT[ppn].dirty = FALSE;
 		IPT[ppn].readOnly = FALSE;
+		IPT[ppn].owner = this; //set owner to this addrspace. is this necessary not in constructor?
 		executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
@@ -218,7 +219,15 @@ int AddrSpace::CreateStack(int thread)
       pageTable[thread].use = FALSE;
       pageTable[thread].dirty = FALSE;
       pageTable[thread].readOnly = FALSE;
-
+	
+		//populate IPT because of Find()
+		IPT[ppn].virtualPage = thread;	
+		IPT[ppn].physicalPage = ppn;
+		IPT[ppn].valid = TRUE;
+		IPT[ppn].use = FALSE;
+		IPT[ppn].dirty = FALSE;
+		IPT[ppn].readOnly = FALSE;
+		IPT[ppn].owner = this;
       thread++;
     }
   stackLoc = (PageSize * thread) -16;
@@ -237,6 +246,10 @@ void AddrSpace::DestroyStack(int thread)
       if(pageTable[thread].valid)
 	{
 	  pageTable[thread].valid = FALSE;
+	}
+	if (IPT[thread].valid)
+	{
+		IPT[thread].valid = FALSE;//is this supposed to be there?
 	}
       thread++;
     }
