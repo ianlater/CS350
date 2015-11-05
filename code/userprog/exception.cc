@@ -94,9 +94,7 @@ int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
-TLB = new TranslationEntry[4];
-currentTLB = 0;
-
+int currentTLB = 0;
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1058,37 +1056,51 @@ int handleIPTMiss(int neededVPN)
 	return ppn;
 }
 
-int HandlePageFault(int neededVPN)
+int HandlePageFault(int requestedVA)
 {
+	int neededVPN =  requestedVA/PageSize;
 	
+	if(machine->tlb == NULL) {
+		machine->tlb = new TranslationEntry[TLBSize];
+	}	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
-	printf("NeededVPN: %i, BadVaddrReg: %i\n", neededVPN, BadVAddrReg);
+	printf("calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
+	//check if requestedVA is in currentThread->space somehow
+	ProcessLock->Acquire();	
+	//search for neededVPN in IPT
+	 for ( int i=0; i < NumPhysPages; i++ ) {
+		 //printf("i: %i, IPT[i].virtualPage: %i,  IPT[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
+		if(IPT[i].virtualPage == neededVPN) {
+		    //Found the physical page we need
+		    ppn = i;
+			break;
+		}
+	 }
+	 /*
+	 //check if in PT
+	 if(	currentThread->space->pageTable[neededVPN].virtualPage == neededVPN) {
+		    //Found the physical page we need
+		    ppn = currentThread->space->pageTable[neededVPN].physicalPage;
+	} else {
+		//PT doesn't hold vpn
+		printf("ERROR PT doesn't have vpn: i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", neededVPN, currentThread->space->pageTable[neededVPN].virtualPage, currentThread->space->pageTable[neededVPN].physicalPage);
+	}*/
 	
-	 for ( int i=0; i < TABLE_SIZE; i++ ) {
-		 //Where does pageTable come from/defined? are there multiple for each addrspace or threads? how is it organized and maintained
-		 printf("i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", i, pageTable[i].virtualPage, pageTable[i].physicalPage);
-		 if(pageTable[i].virtualPage == neededVPN)
-            //Found the physical page we need
-            ppn = pageTable[i].physicalPage;
-            break;
-        }
-    }
-	//FIFO
-	TLB[3]=TLB[2];
-	TLB[2]=TLB[1];
-	TLB[1]=TLB[0];
-	TLB[0].virtualPage = neededVPN;
-	TLB[0].physicalPage = ppn;
-	currentTLB = (currentTLB+1)%4; 
 	/*
 	//step 3
 	if ( ppn = -1 ) {
-        ppn = handleIPTMiss( neededVPN );
-    }
+          ppn = handleIPTMiss( neededVPN );
+    	}
 	*/
+	printf("About to update TLB-- ppn:%i\n", ppn);
+	//Code for updating the TLB - may be in a different function
+	machine->tlb[currentTLB].virtualPage = neededVPN;
+	machine->tlb[currentTLB].physicalPage = ppn;
+	machine->tlb[currentTLB].valid = TRUE;
 
-    //Code for updating the TLB - may be in a different function
+	currentTLB = (currentTLB+1)%4; 
+	ProcessLock->Release();	
 	
 	/*
 	Step 1: Populate TLB from PT
@@ -1248,7 +1260,7 @@ void ExceptionHandler(ExceptionType which) {
 	else if (which == PageFaultException)
 	{
 		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
-		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg/PageSize));
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg));
 		
 		machine->WriteRegister(2,rv);
 		return;

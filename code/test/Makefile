@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles lockcondition fork exec exit passport multipassport locksharing
+all: halt matmult sort testfiles lockcondition fork exec passport exit multipassport locksharing
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s

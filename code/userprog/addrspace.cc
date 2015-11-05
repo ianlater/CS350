@@ -154,17 +154,25 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
       //printf("PPN: %d\n", ppn);
       if(ppn < 0){
         printf("BitMap Find returned <0. OUT OF MEMORY/n");
-	interrupt->Halt();
+		interrupt->Halt();
       }
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = ppn;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-	executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
+		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+		pageTable[i].physicalPage = ppn;
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+						// a separate page, we could set its 
+						// pages to be read-only
+		//Populate IPT: indexed by ppn
+		IPT[ppn].virtualPage = i;	
+		IPT[ppn].physicalPage = ppn;
+		IPT[ppn].valid = TRUE;
+		IPT[ppn].use = FALSE;
+		IPT[ppn].dirty = FALSE;
+		IPT[ppn].readOnly = FALSE;
+		IPT[ppn].owner = this; //set owner to this addrspace. is this necessary not in constructor?
+		executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
@@ -210,7 +218,15 @@ int AddrSpace::CreateStack(int thread)
       pageTable[thread].use = FALSE;
       pageTable[thread].dirty = FALSE;
       pageTable[thread].readOnly = FALSE;
-
+	
+		//populate IPT because of Find()
+		IPT[ppn].virtualPage = thread;	
+		IPT[ppn].physicalPage = ppn;
+		IPT[ppn].valid = TRUE;
+		IPT[ppn].use = FALSE;
+		IPT[ppn].dirty = FALSE;
+		IPT[ppn].readOnly = FALSE;
+		IPT[ppn].owner = this;
       thread++;
     }
   stackLoc = (PageSize * thread) -16;
@@ -229,6 +245,10 @@ void AddrSpace::DestroyStack(int thread)
       if(pageTable[thread].valid)
 	{
 	  pageTable[thread].valid = FALSE;
+	}
+	if (IPT[thread].valid)
+	{
+		IPT[thread].valid = FALSE;//is this supposed to be there?
 	}
       thread++;
     }
@@ -287,7 +307,11 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState() 
-{}
+{
+  for (int i=0; i<TLBSize; i++) {
+	machine->tlb[i].valid = false;
+  }
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -299,6 +323,6 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable;
+    //machine->pageTable = pageTable;
     machine->pageTableSize = numPages;
 }
