@@ -38,6 +38,10 @@ class IPTEntry : public TranslationEntry { //IPT
 	AddrSpace * owner;
 	
 };
+class PTEntry : public TranslationEntry {
+  public:
+	int location;//keep track of whether in disk, swap file, or neither
+};
 
 extern IPTEntry* IPT;
 
