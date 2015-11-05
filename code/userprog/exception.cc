@@ -297,7 +297,7 @@ ProcessLock->Release();
     char buffer[MaxMailSize];
 
     stringstream ss;
-    ss<<"CL "<<buf;
+    ss<<"CL "<<buf<< " ";
     char* msg = (char*)ss.str().c_str();
 
     sendMsgToServer(msg);
@@ -332,6 +332,29 @@ int Acquire_Syscall(int lockIndex)
       printf("%s\n", "Acquire::ERROR: Lock Index out of bounds");
       return -1;
     }
+#ifdef NETWORK
+
+  printf("Network AL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"AL "<<lockIndex;//TODO HERE JACK
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    // int cvIndex = atoi(buffer);//convert char* to int
+    
+    // printf("Acquire\n");
+    return 1;
+#else
   KernelLock* kl = LockTable[lockIndex];
 if(!(kl))
     {
@@ -351,6 +374,7 @@ if(!(kl))
     }
   //all good to go, do acquire
   kl->lock->Acquire();
+#endif /*NETWORK*/
   return 1;
 }
 
@@ -458,7 +482,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     printf("\nCreateCV::NAME:%s\n", buf);
 #ifdef NETWORK
 
-  printf("Network CL in progress\n");
+  printf("Network CCV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
