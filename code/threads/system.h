@@ -32,7 +32,7 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
-
+extern BitMap* swapBitMap;	//made by Carrie for swap bit map find
 class IPTEntry : public TranslationEntry { //IPT
 	public:
 	AddrSpace * owner;
@@ -49,6 +49,7 @@ extern Machine* machine;	// user program memory and registers
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
 #include "filesys.h"
 extern FileSystem  *fileSystem;
+extern OpenFile* swapFile;	//inserted by Carrie, does this belong here?
 #endif
 
 #ifdef FILESYS

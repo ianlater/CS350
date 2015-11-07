@@ -1017,6 +1017,8 @@ int handleMemoryFull(int neededVPN)
 {
 	printf("Memory full \n");
 	int ppn = -1;
+	//open swap file
+	
 	/*
 	Select page to evict
 	If the page is dirty, it must be copied into the swap file and the page table updated
@@ -1037,7 +1039,9 @@ int handleIPTMiss(int neededVPN)
 
 	//step 4
 	if ( ppn == -1 ) {
+		interrupt->setLevel(false);//disable interrupts
             ppn = handleMemoryFull();
+		interrupt->setLevel(true);//reenable interrupts
         }
 		
         //read values from page table as to location of needed virtual page
