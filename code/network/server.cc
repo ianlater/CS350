@@ -483,6 +483,131 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 }
 
 
+int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
+{
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Wait:Error: lock out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Wait:Error: cv out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  ServerCondition* sc = ServerCVTable[cvIndex];
+  if(!sc)
+    {
+      Message msg = Message(client, threadID, "Wait:Error: cv is null");
+     sendMessage(msg); 
+    
+      return -1;
+    } 
+  ServerLock* sl = ServerLockTable[lockIndex];
+  if(!sl)
+    {
+       Message msg = Message(client, threadID, "Wait:Error: lock is null");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(sc->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Wait:Error: wrong cv clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  if(sl->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Wait:Error: wrong lock clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  //done with input parsing//
+  if(sc->waitingLock == -1)
+    {
+      sc->waitingLock = lockIndex;
+    }
+  if(sc->waitingLock != lockIndex)
+    {
+      char* error = "Wait:error: lock mismatch";
+      printf("%s\n", error);
+      //send back message
+      return -1;
+    }
+
+//now, put wait message in waitQ but do not send
+Message* msg = new Message(client, threadID, "Wake after Wait");
+sc->waitQueue->Append(msg);
+  return 0;
+}
+
+int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
+{
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Broadcast:Error: lock out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Broadcast:Error: cv out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  ServerCondition* sc = ServerCVTable[cvIndex];
+  if(!sc)
+    {
+      Message msg = Message(client, threadID, "Broadcast:Error: cv is null");
+     sendMessage(msg); 
+    
+      return -1;
+    } 
+  ServerLock* sl = ServerLockTable[lockIndex];
+  if(!sl)
+    {
+       Message msg = Message(client, threadID, "Broadcast:Error: lock is null");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(sc->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Broadcast:Error: wrong cv clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  if(sl->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Broadcast:Error: wrong lock clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  //done with input parsing//
+  if(lockIndex != sc->waitingLock)
+    {
+     char* error = "Broadcast:Error: lock mismatch";
+     Message msg = Message(client, threadID, error);
+     sendMessage(msg); 
+     return -1;
+    }
+//now, broadcast to everyone
+while(!sc->waitQueue->IsEmpty())
+{
+  Message* msg =(Message*) sc->waitQueue->Remove();
+  sendMessage(*msg);
+  //TODO: make sure this functions as broadcast
+}
+  return 0;
+}
+
 /*MAIN SERVER RUN FUNCTION*/
 void Server()
 {
@@ -609,8 +734,15 @@ void Server()
 	}
       case WCV:
 	{
-	  //doWaitCV();
-	  break;
+	  string lockIndex;
+	  string cvIndex;
+	  ss>>lockIndex;
+	  ss>>cvIndex;
+	  int lockInt = atoi(lockIndex.c_str());
+	  int cvInt = atoi(cvIndex.c_str());
+	  doWaitCV(lockInt, cvInt, inPktHdr.from, inMailHdr.from);
+
+     	  break;
 	}
       case BCV:
 	{

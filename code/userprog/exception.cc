@@ -625,6 +625,27 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
       return -1;
     }
+#ifdef NETWORK
+
+  printf("Network Wait in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"WCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+#else
   KernelLock* kl = LockTable[lockIndex];
 if(!(kl))
     {
@@ -664,6 +685,7 @@ if(!(kc->cv))
   //We're all good!
   kc->cv->Wait(kl->lock);
   return 1;
+#endif/*NETWORK*/
 }
 
 // 
@@ -750,7 +772,35 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Broadcast::ERROR: Lock Index out of bounds");
       return -1;
     }
-  KernelLock* kl = LockTable[lockIndex];
+ //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+ #ifdef NETWORK
+
+  printf("Network Broadcast in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+
+#else 
+ KernelLock* kl = LockTable[lockIndex];
   if(!(kl))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
@@ -759,12 +809,6 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
 if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
-      return -1;
-    }
-  //now, repeat for condition
-  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
-    {
-      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
@@ -795,6 +839,7 @@ if(!(kl->lock))
       DEBUG('a', "Deleting CV after Broadcasting\n");
     }
   return 1;
+#endif /*NETWORK*/
 }
 
 /*Print cstring from vaddr with option for cstring arguments 1 and 2. all args will only be read to the length parameter*/
