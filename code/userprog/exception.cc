@@ -1032,7 +1032,6 @@ int handleIPTMiss(int neededVPN)
 {
 	printf("IPT miss\n");
 	int ppn = -1;
-	ProcessLock->Acquire();
 	ppn = freePageBitMap->Find();  //Find a physical page of memory
 /*
 	//step 4
@@ -1054,9 +1053,10 @@ int handleIPTMiss(int neededVPN)
 	IPT[ppn].owner = currentThread->space;
 	printf("ppn: %i, IPT[ppn].virtualPage: %i,  IPT[ppn].physicalPage: %i\n", ppn, IPT[ppn].virtualPage, IPT[ppn].physicalPage);
 
-	ProcessLock->Release();
+	printf("Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
 	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
 		//in executable
+		printf("ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
 		currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
 	}
 	/*
@@ -1087,10 +1087,10 @@ int HandlePageFault(int requestedVA)
 	//search for neededVPN in IPT
 	 for ( int i=0; i < NumPhysPages; i++ ) {
 		 //printf("i: %i, pt[i].virtualPage: %i,  pt[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
-		 //printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage);
-		if(IPT[i].virtualPage == neededVPN) {
+		 printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+		if(IPT[i].owner == currentThread->space && IPT[i].valid == TRUE && IPT[i].virtualPage == neededVPN) {
 		    //Found the physical page we need
-		    ppn = i;
+		    ppn = IPT[i	].physicalPage;
 			break;
 		}
 	 }
@@ -1106,7 +1106,7 @@ int HandlePageFault(int requestedVA)
 	
 	
 	//step 3
-	if ( ppn = -1 ) {
+	if ( ppn == -1 ) {
           ppn = handleIPTMiss( neededVPN );
     	}
 	

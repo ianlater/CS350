@@ -150,6 +150,8 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
 					numPages, size);
 // first, set up the translation 
     pageTable = new PTEntry[numPages + (50 * 8)];
+	int executableBound = divRoundUp(noffH.code.size + noffH.initData.size, PageSize);
+	printf("addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
     for (i = 0; i < numPages; i++) {
       /*
 	  int ppn = freePageBitMap->Find();
@@ -168,7 +170,11 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
 						// a separate page, we could set its 
 						// pages to be read-only
 		pageTable[i].byteOffset = 40 + (i*PageSize);//location of VP in executable
-		pageTable[i].diskLocation = 0; //0=executable;
+		if (i < executableBound){
+			pageTable[i].diskLocation = 0; //0=executable;
+		} else {
+			pageTable[i].diskLocation = 2; //2=neither swap nor executable
+		}
 		/*
 		//Populate IPT: don't set ppn yet
 		IPT[i].virtualPage = i;	
