@@ -95,6 +95,8 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
 int currentTLB = 0;
+std::queue<int> evictQueue; //FIFO queue for page eviction
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1011,14 +1013,23 @@ void Close_Syscall(int fd) {
       printf("%s","Tried to close an unopen file\n");
     }
 }
-
+int pageToEvict()
+{
+	//random for now
+	//change to check for queue implementation later
+	return rand()*32;
+}
 //step 4
 int handleMemoryFull(int neededVPN)
 {
 	printf("Memory full \n");
 	int ppn = -1;
-	//open swap file
-	
+	int evict = pageToEvict();
+	if (IPT[evict].dirty)
+	{
+		//WHAT IS THE MATH HERE??
+		//swapFile->WriteAt();	
+	}
 	/*
 	Select page to evict
 	If the page is dirty, it must be copied into the swap file and the page table updated
