@@ -157,7 +157,7 @@ void sendMsgToServer(char* msg)
     // From: our machine, reply to: mailbox 1
     outPktHdr.to = 0;//TODO hard testing		
     outMailHdr.to = 0;
-    outMailHdr.from = 1;
+    outMailHdr.from = 0;//TODO set this up to mailbox id
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
@@ -674,6 +674,27 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       printf("%s%d\n", "Signal::ERROR: Lock Index out of bounds:", lockIndex);
       return -1;
     }
+#ifdef NETWORK
+
+  printf("Network Signal in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+#else
   KernelLock* kl = LockTable[lockIndex];
   if(!(kl))
     {
@@ -719,6 +740,7 @@ if(!(kc->cv))
       DEBUG('a', "Deleting CV after signalling\n");
     }
   return 1;
+#endif/*NETWORK*/
 }
 
 int Broadcast_Syscall(int lockIndex, int conditionIndex)

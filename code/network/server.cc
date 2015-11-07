@@ -25,6 +25,9 @@ enum requestType {
   RL,//Release Lock
   CCV,//Create CV
   DCV,//Destroy CV
+  SCV,//Signal CV
+  WCV,//Wait CV
+  BCV,//Broadcast CV
   UNKNOWN,
 };
 
@@ -48,6 +51,7 @@ ServerLock::ServerLock(string n, int client)
   clientID = client;//ip
   currentOwner = -1;//not owned until acquired
   isToBeDeleted = false;
+  waitQueue = new List;
 }
 
 /*ServerCondition struct and methods*/
@@ -57,6 +61,7 @@ struct ServerCondition {
   bool isToBeDeleted;
   int clientID;//ip of sender
   int currentOwner;//threadid/mailbox of thread that sent
+  int waitingLock;
   List* waitQueue;
 
   ServerCondition(string name, int client);
@@ -69,19 +74,23 @@ ServerCondition::ServerCondition(string n, int client)
   isToBeDeleted = false;
   clientID = client;
   currentOwner = -1;//start without owner (only on my lock? TODO)
+  waitingLock = -1; //null on construction
+  waitQueue = new List;
 }
 
 struct Message
 {
-  int to;//this is the client id
+  int to;//this is the client machineid
+  int toMailbox;////this is the mailbox(thread) id on client machine
   char* msg;
 
-  Message(int t, char* m);
+  Message(int t,int tm, char* m);
 };
 
-Message::Message(int t, char* m)
+Message::Message(int t,int tm, char* m)
 {
   to = t;
+  toMailbox = tm;
   msg = m;
 }
 
@@ -94,7 +103,9 @@ requestType getType(string req)
   if(req == "RL") return RL;
   if(req == "DL") return DL;
   if(req == "DCV") return DCV;
-
+  if(req == "SCV") return SCV;
+  if(req == "WCV") return WCV;
+  if(req == "BCV") return BCV;
 return UNKNOWN;
 }
 
@@ -106,8 +117,8 @@ void sendMessage(Message msg)
   char* data = msg.msg;
 
   outPktHdr.to = msg.to;
-  outMailHdr.to = 0;//?
-  outMailHdr.from = 1;//?
+  outMailHdr.to = msg.toMailbox;//
+  outMailHdr.from = 0;//server mailbox? only one thread
   outMailHdr.length = strlen(data) + 1;
 
   bool success = postOffice->Send(outPktHdr, outMailHdr, data);
@@ -146,7 +157,7 @@ int doDestroyLock(int lock, int client, int owner)
     {
      errorMsg = "DestroyLock:: Lock Index out of bounds";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client,owner, errorMsg);
      sendMessage(msg); 
      return -1;
     }
@@ -155,7 +166,7 @@ int doDestroyLock(int lock, int client, int owner)
     {
      errorMsg = "DestroyLock::Error: Lock is null";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client, owner, errorMsg);
      sendMessage(msg); 
      return -1;
     }
@@ -163,7 +174,7 @@ int doDestroyLock(int lock, int client, int owner)
     {
      errorMsg = "DestroyLock::Error: Lock does not belong to this client";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client, owner, errorMsg);
      sendMessage(msg); 
      return -1;
 
@@ -181,7 +192,7 @@ int doDestroyLock(int lock, int client, int owner)
       sl->isToBeDeleted = true;
     }
   
-   Message msg = Message(client, "DestroyLock");
+   Message msg = Message(client, owner, "DestroyLock");
    sendMessage(msg);
   return 0;
 }
@@ -192,7 +203,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
     {
       char* errorString =  "Acquire::ERROR: Lock Index out of bounds";
        printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
       return -1;
     }
@@ -201,7 +212,7 @@ if(!(sl))
     {
       char* errorString =  "Acquire::ERROR: Lock is null";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
 
       return -1;
@@ -212,7 +223,7 @@ if(!(sl))
     {
       char* errorString = "Acquire::ERROR: Lock does not belong to this Client";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
       return -1;
     }
@@ -222,7 +233,7 @@ if(!(sl))
   if(sl->currentOwner == threadID)
     {
       printf("Server::AcquireLock: thread that owns lock is trying to acquire again?\n");
-      Message msg = Message(clientID, "AcquireLock");
+      Message msg = Message(clientID, threadID, "AcquireLock");
       sendMessage(msg);
     }
 
@@ -232,25 +243,25 @@ if(!(sl))
    {
      sl->currentOwner = threadID;
      sl->isAvailable = false;
-     Message msg = Message(clientID, "AcquireLock");
+     Message msg = Message(clientID, threadID, "AcquireLock");
      sendMessage(msg);
    }
  else//lock is busy, wait
    {
-     Message* msg = new Message(clientID, "AcquireLock");
+     Message* msg = new Message(clientID, threadID, "AcquireLock");
      sl->waitQueue->Append(msg);
    }
 
  return 0;
 }
 
-int doReleaseLock(int lockIndex, int clientID, int ownerID)
+int doReleaseLock(int lockIndex, int clientID, int threadID)
 {
  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
       char* errorString =  "Release: Lock Index out of bounds";
        printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID,  errorString);
       sendMessage(msg);
       return -1;
     }
@@ -259,7 +270,7 @@ if(!(sl))
     {
       char* errorString =  "Release: Lock is null";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
 
       return -1;
@@ -270,28 +281,28 @@ if(!(sl))
     {
       char* errorString = "Release:Lock does not belong to client";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
       return -1;
     }
 
  //end of input parsing
-  //if there is now owner, cant release
+  //if there is no owner, cant release
   if(sl->currentOwner == -1)
     {
       char* errorString = "Release:Lock does not belong to any thread";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
      
       return -1;
     }
   //if i am not the owner, can't release 
-  if(sl->currentOwner != ownerID)
+  if(sl->currentOwner != threadID)
     {
       char* errorString = "Release:Lock does not belong to thread";
       printf("%s\n", errorString);
-      Message msg = Message(clientID, errorString);
+      Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
      
       return -1;
@@ -305,7 +316,7 @@ if(!(sl))
 	  infoMessage = "Release::lock released and deleted";
 	  printf("%s\n", infoMessage);
 	  delete sl;	 
-	  Message msg = Message(clientID, infoMessage);
+	  Message msg = Message(clientID, threadID, infoMessage);
 	  sendMessage(msg);
 	}
       else
@@ -313,26 +324,29 @@ if(!(sl))
 	  sl->isAvailable = true;
 	  infoMessage = "Release::lock released and available";
 	  printf("%s\n", infoMessage);
-	  Message msg = Message(clientID, infoMessage);
+	  Message msg = Message(clientID, threadID, infoMessage);
 	  sendMessage(msg);	 
 	}
     }
-  else
+  else//someone is waiting. send 2 reply messages
     {
-      //send msg at front of waitQ
+      //first, wake up person who released lock successfully
+      infoMessage = "Release::lock released successfully";
+      printf("%s\n", infoMessage);
+      Message msg = Message(clientID, threadID, infoMessage);
+      sendMessage(msg);	 
+      //send msg at front of waitQ to person who now owns lock
       printf("Release::Waking up waiting client\n");
-      Message* msg = (Message*)sl->waitQueue->Remove();
-      sendMessage(*msg); 
+      Message* msg2 = (Message*)sl->waitQueue->Remove();
+      sl->currentOwner = msg2->toMailbox;
+      sendMessage(*msg2); 
     }
-  ///if isToBeDeleted, delete
-  ///else, just make available
-  //else, send off msg to wake up next person in waitQ
   return 0;
 }
 
 
 /*CONDTION PROCEDURES*/
-int doCreateCV(string name, int client)
+int doCreateCV(string name, int client, int threadID)
 {
   printf("Server::DoCreateCV\n");
   if(serverCVCounter > TABLE_SIZE)
@@ -349,14 +363,14 @@ int doCreateCV(string name, int client)
  return thisCV;
 }
 
-int doDestroyCV(int cvIndex, int client)
+int doDestroyCV(int cvIndex, int client, int threadID)
 {
   char* errorMsg;
   if(cvIndex < 0 || cvIndex > serverLockCounter)
     {
      errorMsg = "DestroyCV:: cv Index out of bounds";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client, threadID, errorMsg);
      sendMessage(msg); 
      return -1;
     }
@@ -365,7 +379,7 @@ int doDestroyCV(int cvIndex, int client)
     {
      errorMsg = "DestroyCV: CV is null";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client, threadID, errorMsg);
      sendMessage(msg); 
      return -1;
     }
@@ -373,7 +387,7 @@ int doDestroyCV(int cvIndex, int client)
     {
      errorMsg = "DestroyCV: CV does not belong to this client";
      printf("%s\n", errorMsg);
-     Message msg = Message(client, errorMsg);
+     Message msg = Message(client, threadID, errorMsg);
      sendMessage(msg); 
      return -1;
 
@@ -391,9 +405,81 @@ int doDestroyCV(int cvIndex, int client)
       sc->isToBeDeleted = true;
     }
   
-   Message msg = Message(client, "DestroyCV");
+   Message msg = Message(client, threadID, "DestroyCV");
    sendMessage(msg);
   return 0;
+}
+
+int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
+{
+  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Signal:Error: lock out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+    {
+     Message msg = Message(client, threadID, "Signal:Error: cv out of bounds");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  ServerCondition* sc = ServerCVTable[cvIndex];
+  if(!sc)
+    {
+      Message msg = Message(client, threadID, "Signal:Error: cv is null");
+     sendMessage(msg); 
+    
+      return -1;
+    } 
+  ServerLock* sl = ServerLockTable[lockIndex];
+  if(!sl)
+    {
+       Message msg = Message(client, threadID, "Signal:Error: lock is null");
+     sendMessage(msg); 
+    
+      return -1;
+    }
+  if(sc->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Signal:Error: wrong cv clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  if(sl->clientID != client)
+    {
+     Message msg = Message(client, threadID, "Signal:Error: wrong lock clientId");
+     sendMessage(msg); 
+      return -1;
+    }
+  //done with input parsing//
+  //reply to signaler, and do acquire for waiting thread if there is one
+  ////send message to sender
+  Message msg = Message(client, threadID, "Signal Return");
+  sendMessage(msg); 
+    
+  if(sc->waitQueue->IsEmpty())
+    {
+      return 0;
+    }
+  if(sc->waitingLock != lockIndex)
+    {
+      printf("Signal Error: waitLock!=lockIndex\n");
+      return -1;
+    }
+  //now, we will wake up 1 waiting thread
+  printf("Signal::Waking up waiting client\n");
+  Message* msg2 = (Message*)sc->waitQueue->Remove();
+  sl->currentOwner = msg2->toMailbox;
+  sendMessage(*msg2); 
+  if(sc->waitQueue->IsEmpty())
+    {
+      sc->waitingLock = -1;//no more waitinglock
+    }
+  return 0;
+
 }
 
 
@@ -415,7 +501,7 @@ void Server()
     // From: our machine, reply to: mailbox 1
     outPktHdr.to = 1;//TODO hard testing		
     outMailHdr.to = 0;
-    outMailHdr.from = 1;
+    outMailHdr.from = 0;//changed now
     outMailHdr.length = strlen(data) + 1;
 
     // Send the first message
@@ -449,6 +535,10 @@ void Server()
 	  char const* msgDataConst = temp.c_str();
 	  char* msgData = new char[temp.length()];
 	  strcpy(msgData, temp.c_str());
+
+	  outMailHdr.to = inMailHdr.from;
+	  printf("\nsend to %d box %d\n", outPktHdr.to, outMailHdr.to);
+
 	  outMailHdr.length = strlen(msgData) + 1;
 
           bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
@@ -483,7 +573,7 @@ void Server()
 	{
 	  string cvName;
 	  ss>>cvName;
-	  int cv = doCreateCV(cvName, inPktHdr.from);
+	  int cv = doCreateCV(cvName, inPktHdr.from, inMailHdr.from);
 
 	  //now, build and send message back to client
 	  stringstream strs;
@@ -493,10 +583,8 @@ void Server()
 	  char* msgData = new char[temp.length()];
 	  strcpy(msgData, temp.c_str());
 	  outMailHdr.length = strlen(msgData) + 1;
-
+	  outMailHdr.to = inMailHdr.from;
           bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
-
-	  
 	  break;
 	}
       case DCV:
@@ -504,7 +592,29 @@ void Server()
 	  string cvIndex;
 	  ss>>cvIndex;
 	  int cvInt = atoi(cvIndex.c_str());
-	  doDestroyCV(cvInt, inPktHdr.from);
+	  doDestroyCV(cvInt, inPktHdr.from, inMailHdr.from);
+	  break;
+	}
+      case SCV:
+	{
+	  string lockIndex;
+	  string cvIndex;
+	  ss>>lockIndex;
+	  ss>>cvIndex;
+	  int lockInt = atoi(lockIndex.c_str());
+	  int cvInt = atoi(cvIndex.c_str());
+	  doSignalCV(lockInt, cvInt, inPktHdr.from, inMailHdr.from);
+	  
+	  break;
+	}
+      case WCV:
+	{
+	  //doWaitCV();
+	  break;
+	}
+      case BCV:
+	{
+	  //doBroadcastCV();
 	  break;
 	}
       default:
