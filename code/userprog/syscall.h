@@ -41,6 +41,10 @@
 #define SC_Print		20
 #define SC_PrintInt		21
 #define SC_Rand			22
+#define SC_CreateMonitor        23
+#define SC_DestroyMonitor       24
+#define SC_SetMonitor           25
+#define SC_GetMonitor           26
 
 #define MAXFILENAME 256
 

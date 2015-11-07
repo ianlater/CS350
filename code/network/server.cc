@@ -28,6 +28,10 @@ enum requestType {
   SCV,//Signal CV
   WCV,//Wait CV
   BCV,//Broadcast CV
+  CMV,//Create Monitor Var
+  DMV,//Destroy Monitor Var
+  SMV,//Set Monitor Var
+  GMV,//Get Monitor Var
   UNKNOWN,
 };
 
@@ -106,6 +110,10 @@ requestType getType(string req)
   if(req == "SCV") return SCV;
   if(req == "WCV") return WCV;
   if(req == "BCV") return BCV;
+  if(req == "CMV") return CMV;
+  if(req == "DMV") return DMV;
+  if(req == "GMV") return GMV;
+  if(req == "SMV") return SMV;
 return UNKNOWN;
 }
 
@@ -746,7 +754,34 @@ void Server()
 	}
       case BCV:
 	{
-	  //doBroadcastCV();
+	  string lockIndex;
+	  string cvIndex;
+	  ss>>lockIndex;
+	  ss>>cvIndex;
+	  int lockInt = atoi(lockIndex.c_str());
+	  int cvInt = atoi(cvIndex.c_str());
+	  doBroadcastCV(lockInt, cvInt, inPktHdr.from, inMailHdr.from);
+
+	  break;
+	}
+      case CMV:
+	{
+
+	  break;
+	}
+      case DMV:
+	{
+
+	  break;
+	}
+      case GMV:
+	{
+
+	  break;
+	}
+      case SMV:
+	{
+
 	  break;
 	}
       default:

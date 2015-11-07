@@ -146,7 +146,7 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 
     return n;
 }
-
+#ifdef NETWORK
 void sendMsgToServer(char* msg)
 {
   PacketHeader outPktHdr;
@@ -164,7 +164,7 @@ void sendMsgToServer(char* msg)
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
 
 }
-
+#endif/*NETWORK*/
 
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)

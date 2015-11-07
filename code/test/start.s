@@ -226,6 +226,39 @@ Rand:
 	j	$31
 	.end Rand
 
+	.global CreateMonitor
+	.ent CreateMonitor
+CreateMonitor:
+	addiu $w, $0, SC_CreateMonitor
+	syscall
+	j	$31
+	.end CreateMonitor
+
+	
+	.global DestroyMonitor
+	.ent DestroyMonitor
+DestroyMonitor:
+	addiu $w, $0, SC_DestroyMonitor
+	syscall
+	j	$31
+	.end DestroyMonitor
+
+	.global SetMonitor
+	.ent SetMonitor
+SetMonitor:
+	addiu $w, $0, SC_SetMonitor
+	syscall
+	j	$31
+	.end SetMonitor
+
+	.global GetMonitor
+	.ent GetMonitor
+GetMonitor:
+	addiu $w, $0, SC_GetMonitor
+	syscall
+	j	$31
+	.end GetMonitor
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main
