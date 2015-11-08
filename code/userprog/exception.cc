@@ -1040,8 +1040,9 @@ int handleMemoryFull(int neededVPN)
 		//not sure what to do w bit map here swapBitMap->		
 
 	//update the proper page table for the evicted page
+		pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
 	}
-	return evict;
+	return pageTable[IPT[evict].physicalPage];//is this sufficient? rest is handled by handlePageMiss?
 }
 //step 3
 int handleIPTMiss(int neededVPN)
