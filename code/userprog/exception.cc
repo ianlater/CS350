@@ -97,6 +97,8 @@ Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 int currentTLB = 0;
 std::queue<int> evictQueue; //FIFO queue for page eviction
 
+int swapOffset = 0; //counter for where in swap to write to 
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1025,20 +1027,21 @@ int handleMemoryFull(int neededVPN)
 	printf("Memory full \n");
 	int ppn = -1;
 	int evict = pageToEvict();
-	if (IPT[evict].dirty)
+	if (IPT[evict].dirty==true)
 	{
-		//WHAT IS THE MATH HERE??
-		//swapFile->WriteAt();	
+		//NOTE: the page you select to evict may belong to your process.
+		//if that's the case, then the page to evict may be present in the TLB.
+		//if it is, propagate the dirty bit to the IPT and invalidate that TLB entry. be sure to update the page table for the evicted page.
+		
+		//copy a paged size chunk from Nachos main memory into the swap file
+		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage]), PageSize, PageSize*swapOffset); 
+		swapOffset++;	
+		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
+		//not sure what to do w bit map here swapBitMap->		
+
+	//update the proper page table for the evicted page
 	}
-	/*
-	Select page to evict
-	If the page is dirty, it must be copied into the swap file and the page table updated
-	Do swap file stuff (use the OpenFile::WriteAt function)
-	Note that you will need some way to keep track of where in the swap file a particular page has been placed. 
-	Use a BitMap object for this. make it big, as you can assume the swap file never fills up. 
-	Update the proper page table for the evicted page. When testing Exec you can evict a page from a different process.
-	*/
-	return ppn;
+	return evict;
 }
 //step 3
 int handleIPTMiss(int neededVPN)
