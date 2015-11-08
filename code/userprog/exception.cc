@@ -160,10 +160,11 @@ void Kernel_Thread(int func)
  //printf("ACQUIRED LOCK: %s\n", currentThread->getName());
  //printf("KERNELTHREAD\n");
   //set up my registers
-  currentThread->space->InitRegisters();//zero out
+  //currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
-  //TODO optimize the follwoing line. lots of arrows...
+    currentThread->space->RestoreState();
+//TODO optimize the follwoing line. lots of arrows...
   int currentProcess = currentThread->space->getID();
   int thisThread = currentThread->getID();
   //printf("CREATESTACK");
@@ -176,7 +177,6 @@ void Kernel_Thread(int func)
   */
 
   machine->WriteRegister(StackReg, stackLoc);  
-  currentThread->space->RestoreState();
  ProcessLock->Release(); 
 
  machine->Run();//now, use the registers i set above and LIVE
@@ -1061,7 +1061,7 @@ int handleIPTMiss(int neededVPN)
         //copy page from disk to memory, if needed
 	*/
 	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
-	
+	currentThread->space->pageTable[neededVPN].valid =TRUE;
 	IPT[ppn].virtualPage = neededVPN;	
 	IPT[ppn].physicalPage = ppn;
 	IPT[ppn].valid = TRUE;
@@ -1069,7 +1069,7 @@ int handleIPTMiss(int neededVPN)
 	IPT[ppn].dirty = FALSE;
 	IPT[ppn].readOnly = FALSE;
 	IPT[ppn].owner = currentThread->space;
-	printf("ppn: %i, IPT[ppn].virtualPage: %i,  IPT[ppn].physicalPage: %i\n", ppn, IPT[ppn].virtualPage, IPT[ppn].physicalPage);
+	printf("in ipt miss::ppn: %i, IPT[ppn].virtualPage: %i,  IPT[ppn].physicalPage: %i\n", ppn, IPT[ppn].virtualPage, IPT[ppn].physicalPage);
 
 	printf("Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
 	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
@@ -1099,15 +1099,19 @@ int HandlePageFault(int requestedVA)
 	}	
 	printf("Page Fault Exception:\n");
 	int ppn = -1;
-	printf("calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
+	printf("    calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
 	//check if requestedVA is in currentThread->space somehow
-	ProcessLock->Acquire();	
+	//ProcessLock->Acquire();	
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts instead of lock (mentioned in class better than lock in this case)
+
 	//search for neededVPN in IPT
 	 for ( int i=0; i < NumPhysPages; i++ ) {
 		 //printf("i: %i, pt[i].virtualPage: %i,  pt[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
-		 printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+		 //printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
 		if(IPT[i].owner == currentThread->space && IPT[i].valid == TRUE && IPT[i].virtualPage == neededVPN) {
 		    //Found the physical page we need
+					 printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+
 		    ppn = IPT[i	].physicalPage;
 			break;
 		}
@@ -1135,7 +1139,9 @@ int HandlePageFault(int requestedVA)
 	machine->tlb[currentTLB].valid = TRUE;
 
 	currentTLB = (currentTLB+1)%4; 
-	ProcessLock->Release();	
+	//ProcessLock->Release();	
+    (void) interrupt->SetLevel(oldLevel); 
+
 	
 	/*
 	Step 1: Populate TLB from PT
