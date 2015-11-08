@@ -18,6 +18,8 @@ const int TABLE_SIZE = 500;
 int serverLockCounter = 0;
 int serverCVCounter = 0;
 
+
+
 enum requestType {
   CL,//Create Lock
   DL,//Destroy Lock
@@ -98,6 +100,11 @@ Message::Message(int t,int tm, char* m)
   msg = m;
 }
 
+//vars below
+ServerLock* ServerLockTable[TABLE_SIZE];
+ServerCondition* ServerCVTable[TABLE_SIZE];
+
+
 //helper functions
 requestType getType(string req)
 {
@@ -136,10 +143,41 @@ void sendMessage(Message msg)
     }
 }
 
+bool LockIsValid(int lock, int client)
+{
+ if(lock < 0 || lock > serverLockCounter)
+    {
+     return false;
+    }
+  ServerLock* sl = ServerLockTable[lock];
+  if(!sl)
+    {
+     return false;
+    }
+  if(sl->clientID != client)
+    {
+     return false;
+    }
+  return true;
+}
 
-//vars below
-ServerLock* ServerLockTable[TABLE_SIZE];
-ServerCondition* ServerCVTable[TABLE_SIZE];
+bool CVIsValid(int cv, int client)
+{
+ if(cv < 0 || cv > serverCVCounter)
+    {
+     return false;
+    }
+  ServerCondition* sc = ServerCVTable[cv];
+  if(!sc)
+    {
+     return false;
+    }
+  if(sc->clientID != client)
+    {
+     return false;
+    }
+  return true;
+}
 
 /*LOCK PROCEDURES*/
 int doCreateLock(string name, int client)
@@ -161,34 +199,17 @@ int doCreateLock(string name, int client)
 int doDestroyLock(int lock, int client, int owner)
 {
   char* errorMsg;
-  if(lock < 0 || lock > serverLockCounter)
+  if(!LockIsValid(lock, client))
     {
-     errorMsg = "DestroyLock:: Lock Index out of bounds";
-     printf("%s\n", errorMsg);
-     Message msg = Message(client,owner, errorMsg);
-     sendMessage(msg); 
-     return -1;
-    }
-  ServerLock* sl = ServerLockTable[lock];
-  if(!sl)
-    {
-     errorMsg = "DestroyLock::Error: Lock is null";
-     printf("%s\n", errorMsg);
-     Message msg = Message(client, owner, errorMsg);
-     sendMessage(msg); 
-     return -1;
-    }
-  if(sl->clientID != client)
-    {
-     errorMsg = "DestroyLock::Error: Lock does not belong to this client";
-     printf("%s\n", errorMsg);
-     Message msg = Message(client, owner, errorMsg);
-     sendMessage(msg); 
-     return -1;
-
+      errorMsg = "DestroyLock::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, owner, errorMsg);
+      sendMessage(msg); 
+      return -1;
     }
   //error checking done
-  //check lock's waitQ to delete
+  ServerLock* sl = ServerLockTable[lock];  
+//check lock's waitQ to delete
   if(sl->waitQueue->IsEmpty())
     {
       printf("DestroyLock:: Deleting Lock?\n");
@@ -207,36 +228,18 @@ int doDestroyLock(int lock, int client, int owner)
 
 int doAcquireLock(int lockIndex, int clientID, int threadID)
 {
-  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+  char* errorMsg;
+  if(!LockIsValid(lockIndex, clientID))
     {
-      char* errorString =  "Acquire::ERROR: Lock Index out of bounds";
-       printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID, errorString);
-      sendMessage(msg);
+      errorMsg = "AcquireLock::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(clientID, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  ServerLock* sl = ServerLockTable[lockIndex];
-if(!(sl))
-    {
-      char* errorString =  "Acquire::ERROR: Lock is null";
-      printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID, errorString);
-      sendMessage(msg);
-
-      return -1;
-    } 
-  //Lock exists and input was proper so far, check if lock belongs to this addrSpace
-
-  if(sl->clientID != clientID)//CAREFUL! May need changes for P4
-    {
-      char* errorString = "Acquire::ERROR: Lock does not belong to this Client";
-      printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID, errorString);
-      sendMessage(msg);
-      return -1;
-    }
-
+ 
  //end of input parsing
+  ServerLock* sl = ServerLockTable[lockIndex];
  //check if already held by current thread
   if(sl->currentOwner == threadID)
     {
@@ -265,36 +268,18 @@ if(!(sl))
 
 int doReleaseLock(int lockIndex, int clientID, int threadID)
 {
- if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+  char* errorMsg;
+  if(!LockIsValid(lockIndex, clientID))
     {
-      char* errorString =  "Release: Lock Index out of bounds";
-       printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID,  errorString);
-      sendMessage(msg);
+      errorMsg = "ReleaseLock::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(clientID, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  ServerLock* sl = ServerLockTable[lockIndex];
-if(!(sl))
-    {
-      char* errorString =  "Release: Lock is null";
-      printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID, errorString);
-      sendMessage(msg);
-
-      return -1;
-    } 
-  //Lock exists and input was proper so far, check if lock belongs to this addrSpace
-
-  if(sl->clientID != clientID)//CAREFUL! May need changes for P4
-    {
-      char* errorString = "Release:Lock does not belong to client";
-      printf("%s\n", errorString);
-      Message msg = Message(clientID, threadID, errorString);
-      sendMessage(msg);
-      return -1;
-    }
-
+  
  //end of input parsing
+  ServerLock* sl = ServerLockTable[lockIndex];
   //if there is no owner, cant release
   if(sl->currentOwner == -1)
     {
@@ -420,48 +405,27 @@ int doDestroyCV(int cvIndex, int client, int threadID)
 
 int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 {
-  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+  char* errorMsg;
+  if(!LockIsValid(lockIndex, client))
     {
-     Message msg = Message(client, threadID, "Signal:Error: lock out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Signal::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+  if(!CVIsValid(cvIndex, client))
     {
-     Message msg = Message(client, threadID, "Signal:Error: cv out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Signal::Error. invalid cv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  ServerCondition* sc = ServerCVTable[cvIndex];
-  if(!sc)
-    {
-      Message msg = Message(client, threadID, "Signal:Error: cv is null");
-     sendMessage(msg); 
-    
-      return -1;
-    } 
+  
+ //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
-  if(!sl)
-    {
-       Message msg = Message(client, threadID, "Signal:Error: lock is null");
-     sendMessage(msg); 
-    
-      return -1;
-    }
-  if(sc->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Signal:Error: wrong cv clientId");
-     sendMessage(msg); 
-      return -1;
-    }
-  if(sl->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Signal:Error: wrong lock clientId");
-     sendMessage(msg); 
-      return -1;
-    }
+  ServerCondition* sc = ServerCVTable[cvIndex];
   //done with input parsing//
   //reply to signaler, and do acquire for waiting thread if there is one
   ////send message to sender
@@ -493,49 +457,28 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 
 int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
 {
-  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+  char* errorMsg;
+  if(!LockIsValid(lockIndex, client))
     {
-     Message msg = Message(client, threadID, "Wait:Error: lock out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Wait::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+  if(!CVIsValid(cvIndex, client))
     {
-     Message msg = Message(client, threadID, "Wait:Error: cv out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Wait::Error. invalid cv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  ServerCondition* sc = ServerCVTable[cvIndex];
-  if(!sc)
-    {
-      Message msg = Message(client, threadID, "Wait:Error: cv is null");
-     sendMessage(msg); 
-    
-      return -1;
-    } 
+  
+ //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
-  if(!sl)
-    {
-       Message msg = Message(client, threadID, "Wait:Error: lock is null");
-     sendMessage(msg); 
-    
-      return -1;
-    }
-  if(sc->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Wait:Error: wrong cv clientId");
-     sendMessage(msg); 
-      return -1;
-    }
-  if(sl->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Wait:Error: wrong lock clientId");
-     sendMessage(msg); 
-      return -1;
-    }
-  //done with input parsing//
+  ServerCondition* sc = ServerCVTable[cvIndex];
+
   if(sc->waitingLock == -1)
     {
       sc->waitingLock = lockIndex;
@@ -556,49 +499,28 @@ sc->waitQueue->Append(msg);
 
 int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
 {
-  if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
+  char* errorMsg;
+  if(!LockIsValid(lockIndex, client))
     {
-     Message msg = Message(client, threadID, "Broadcast:Error: lock out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Wait::Error. invalid Lock";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  if(cvIndex < 0 || cvIndex >= TABLE_SIZE)
+  if(!CVIsValid(cvIndex, client))
     {
-     Message msg = Message(client, threadID, "Broadcast:Error: cv out of bounds");
-     sendMessage(msg); 
-    
+      errorMsg = "Wait::Error. invalid cv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg); 
       return -1;
     }
-  ServerCondition* sc = ServerCVTable[cvIndex];
-  if(!sc)
-    {
-      Message msg = Message(client, threadID, "Broadcast:Error: cv is null");
-     sendMessage(msg); 
-    
-      return -1;
-    } 
+  
+ //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
-  if(!sl)
-    {
-       Message msg = Message(client, threadID, "Broadcast:Error: lock is null");
-     sendMessage(msg); 
-    
-      return -1;
-    }
-  if(sc->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Broadcast:Error: wrong cv clientId");
-     sendMessage(msg); 
-      return -1;
-    }
-  if(sl->clientID != client)
-    {
-     Message msg = Message(client, threadID, "Broadcast:Error: wrong lock clientId");
-     sendMessage(msg); 
-      return -1;
-    }
-  //done with input parsing//
+  ServerCondition* sc = ServerCVTable[cvIndex];
+
   if(lockIndex != sc->waitingLock)
     {
      char* error = "Broadcast:Error: lock mismatch";
