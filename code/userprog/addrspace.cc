@@ -136,7 +136,8 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
     
     baseDataSize = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);//(old numPages w/1 stack) something to use publicly to find my stack
     //TESTING JACK REMOVED * 50 in front of divroundup below
-    numPages = divRoundUp(size, PageSize) +  50*divRoundUp(UserStackSize,PageSize);
+   numPages = 32; 
+	//numPages = divRoundUp(size, PageSize) +  50*divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;

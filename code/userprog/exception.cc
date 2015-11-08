@@ -1035,14 +1035,14 @@ int handleMemoryFull(int neededVPN)
 		
 		//copy a paged size chunk from Nachos main memory into the swap file
 		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage]), PageSize, PageSize*swapOffset); 
-		swapOffset++;	
 		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
 		//not sure what to do w bit map here swapBitMap->		
-
+		swapBitMap->Mark(swapOffset);
+		swapOffset++;
 	//update the proper page table for the evicted page
-		pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
+		currentThread->space->pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
 	}
-	return pageTable[IPT[evict].physicalPage];//is this sufficient? rest is handled by handlePageMiss?
+	return currentThread->space->pageTable[IPT[evict].virtualPage].physicalPage;//is this sufficient? rest is handled by handlePageMiss?
 }
 //step 3
 int handleIPTMiss(int neededVPN)
