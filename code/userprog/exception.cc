@@ -1032,14 +1032,14 @@ int handleMemoryFull(int neededVPN)
 		//NOTE: the page you select to evict may belong to your process.
 		//if that's the case, then the page to evict may be present in the TLB.
 		//if it is, propagate the dirty bit to the IPT and invalidate that TLB entry. be sure to update the page table for the evicted page.
-		
+		int sppn = swapBitMap->Find();	
 		//copy a paged size chunk from Nachos main memory into the swap file
-		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage]), PageSize, PageSize*swapOffset); 
+		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage])*PageSize, PageSize, PageSize*sppn); 
 		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
 		//not sure what to do w bit map here swapBitMap->		
-		swapBitMap->Mark(swapOffset);
-		swapOffset++;
 	//update the proper page table for the evicted page
+		currentThread->space->pageTable[IPT[evict].virtualPage].byteOffset = PageSize*sppn;
+		currentThread->space->pageTable[IPT[evict].virtualPage].diskLocation = 1; //in swap file
 		currentThread->space->pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
 	}
 	return currentThread->space->pageTable[IPT[evict].virtualPage].physicalPage;//is this sufficient? rest is handled by handlePageMiss?
