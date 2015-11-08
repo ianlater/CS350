@@ -149,31 +149,43 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages + (50 * 8)];
+    pageTable = new PTEntry[numPages + (50 * 8)];
+	int executableBound = divRoundUp(noffH.code.size + noffH.initData.size, PageSize);
+	printf("addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
     for (i = 0; i < numPages; i++) {
-      int ppn = freePageBitMap->Find();
+      /*
+	  int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
       if(ppn < 0){
         printf("BitMap Find returned <0. OUT OF MEMORY/n");
 		interrupt->Halt();
       }
+	*/
 		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-		pageTable[i].physicalPage = ppn;
+		//pageTable[i].physicalPage = ppn;
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
 		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 						// a separate page, we could set its 
 						// pages to be read-only
-		//Populate IPT: indexed by ppn
-		IPT[ppn].virtualPage = i;	
-		IPT[ppn].physicalPage = ppn;
-		IPT[ppn].valid = TRUE;
-		IPT[ppn].use = FALSE;
-		IPT[ppn].dirty = FALSE;
-		IPT[ppn].readOnly = FALSE;
-		IPT[ppn].owner = this; //set owner to this addrspace. is this necessary not in constructor?
-		executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
+		pageTable[i].byteOffset = 40 + (i*PageSize);//location of VP in executable
+		if (i < executableBound){
+			pageTable[i].diskLocation = 0; //0=executable;
+		} else {
+			pageTable[i].diskLocation = 2; //2=neither swap nor executable
+		}
+		/*
+		//Populate IPT: don't set ppn yet
+		IPT[i].virtualPage = i;	
+		//IPT[i].physicalPage = ppn;
+		IPT[i].valid = FALSE;
+		IPT[i].use = FALSE;
+		IPT[i].dirty = FALSE;
+		IPT[i].readOnly = FALSE;
+		IPT[i].owner = this; //set owner to this addrspace. is this necessary not in constructor?
+		*/
+		//executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
@@ -207,19 +219,21 @@ int AddrSpace::CreateStack(int thread)
   int ppn;
   for(int i = 0; i<8; i++)
     {
+		/*
       ppn = freePageBitMap->Find();
       if(ppn < 0)
 	{
 	  printf("CreateStack::Bitmapfind returned out of memory\n");
 	  interrupt->Halt();
 	}
+	*/
       pageTable[thread].virtualPage = thread;
-      pageTable[thread].physicalPage = ppn;
+      //pageTable[thread].physicalPage = ppn;
       pageTable[thread].valid = TRUE;
       pageTable[thread].use = FALSE;
       pageTable[thread].dirty = FALSE;
       pageTable[thread].readOnly = FALSE;
-	
+	/*
 		//populate IPT because of Find()
 		IPT[ppn].virtualPage = thread;	
 		IPT[ppn].physicalPage = ppn;
@@ -228,6 +242,7 @@ int AddrSpace::CreateStack(int thread)
 		IPT[ppn].dirty = FALSE;
 		IPT[ppn].readOnly = FALSE;
 		IPT[ppn].owner = this;
+	*/
       thread++;
     }
   stackLoc = (PageSize * thread) -16;
