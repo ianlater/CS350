@@ -45,6 +45,7 @@ class PTEntry : public TranslationEntry {
 };
 
 extern IPTEntry* IPT;
+extern bool randEvictPolicy;
 
 #ifdef USER_PROGRAM
 #include "machine.h"

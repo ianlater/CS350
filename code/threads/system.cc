@@ -22,7 +22,10 @@ BitMap* freePageBitMap;
 					// for invoking context switches
 BitMap* swapBitMap;
 IPTEntry* IPT;
+
 char* swapFileName;			//name of the swap file
+bool randEvictPolicy;			//true if using random, false if using FIFO. based on command line arg
+
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
