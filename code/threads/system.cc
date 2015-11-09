@@ -24,7 +24,7 @@ BitMap* swapBitMap;
 IPTEntry* IPT;
 
 char* swapFileName;			//name of the swap file
-bool randEvictPolicy;			//true if using random, false if using FIFO. based on command line arg
+bool randEvictPolicy = true;			//true if using random, false if using FIFO. based on command line arg. default is true
 
 
 #ifdef FILESYS_NEEDED
@@ -173,7 +173,7 @@ Initialize(int argc, char **argv)
 #endif
 
     freePageBitMap = new BitMap(NumPhysPages);
-	swapBitMap = new BitMap(100);//arbitrary big number, "assume swap never fills up" make bigger if necessary   
+	swapBitMap = new BitMap(1000);//arbitrary big number, "assume swap never fills up" make bigger if necessary   
  IPT = new IPTEntry[NumPhysPages];
 	//open swap file here
 	swapFileName = new char[5];

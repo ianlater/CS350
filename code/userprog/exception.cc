@@ -1020,7 +1020,7 @@ int pageToEvict()
 {
 	//random for now
 	//change to check for queue implementation later
-	if (randEvictPolicy)	return rand()*32;
+	if (randEvictPolicy)	return rand()%32;
 	else {
 		//FIFO
 		int page = evictQueue.front();
@@ -1034,7 +1034,7 @@ int handleMemoryFull(int neededVPN)
 	printf("Memory full \n");
 	int ppn = -1;
 	int evict = pageToEvict();
-	if (IPT[evict].dirty==true)
+	if (IPT[evict].dirty)
 	{
 		//NOTE: the page you select to evict may belong to your process.
 		//if that's the case, then the page to evict may be present in the TLB.
