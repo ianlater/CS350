@@ -915,7 +915,7 @@ int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
 }
 
 
-int SetMonitor_Syscall(int mvIndex, int value)
+int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
 {
   printf("Network SetMV in progress\n");
 
@@ -924,7 +924,7 @@ int SetMonitor_Syscall(int mvIndex, int value)
     char buffer[MaxMailSize];
 
     stringstream ss;
-    ss<<"SMV "<<" "<<mvIndex<<" "<<value<<" ";
+    ss<<"SMV "<<" "<<mvIndex<<" "<<arrIndex<<" "<<value<<" ";
     char* msg = (char*)ss.str().c_str();
 
     sendMsgToServer(msg);
@@ -1446,7 +1446,8 @@ void ExceptionHandler(ExceptionType which) {
 	case SC_SetMonitor:
 	  DEBUG('a', "SetMonitor Syscall.\n");
 	  SetMonitor_Syscall(machine->ReadRegister(4),
-			     machine->ReadRegister(5));
+			     machine->ReadRegister(5),
+			     machine->ReadRegister(6));
 	  break;
 	case SC_GetMonitor:
 	  DEBUG('a', "GetMonitor syscall\n");

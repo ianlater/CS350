@@ -178,7 +178,7 @@ bool LockIsValid(int lock, int client)
     }
   if(sl->clientID != client)
     {
-     return false;
+      return true;//we share
     }
   return true;
 }
@@ -196,7 +196,7 @@ bool CVIsValid(int cv, int client)
     }
   if(sc->clientID != client)
     {
-     return false;
+      return true;//we share
     }
   return true;
 }
@@ -214,7 +214,7 @@ bool MVIsValid(int mv, int client)
    }
   if(smv->clientID != client)
    {
-    return false;
+     return true;//we share
    }
   return true;
 
@@ -485,11 +485,16 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
     
   if(sc->waitQueue->IsEmpty())
     {
-      return 0;
+ Message msg = Message(client, threadID, "Signal");
+      sendMessage(msg); 
+ return 0;
     }
   if(sc->waitingLock != lockIndex)
     {
       printf("Signal Error: waitLock!=lockIndex\n");
+       Message msg = Message(client, threadID, "Signal:waitlock != lockIndex");
+      sendMessage(msg); 
+     
       return -1;
     }
   //now, we will wake up 1 waiting thread
@@ -553,7 +558,7 @@ int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
   char* errorMsg;
   if(!LockIsValid(lockIndex, client))
     {
-      errorMsg = "Wait::Error. invalid Lock";
+      errorMsg = "Broadcast::Error. invalid Lock";
       printf("%s\n", errorMsg);
       Message msg = Message(client, threadID, errorMsg);
       sendMessage(msg); 
@@ -561,7 +566,7 @@ int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
     }
   if(!CVIsValid(cvIndex, client))
     {
-      errorMsg = "Wait::Error. invalid cv";
+      errorMsg = "Broadcast::Error. invalid cv";
       printf("%s\n", errorMsg);
       Message msg = Message(client, threadID, errorMsg);
       sendMessage(msg); 
@@ -649,14 +654,14 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
       return -1;  
     }
   ServerMV* thisMV = ServerMVTable[mvID];
-  if(arrayIndex >= thisMV->usedLength)
+  /* if(arrayIndex >= thisMV->usedLength)
     {
     errorMsg = "GetMV::invalid location";
       printf("%s: %d\n", errorMsg, arrayIndex);
       Message msg = Message(client, threadID, errorMsg);
       sendMessage(msg);
       return -1;        
-    }
+      }*/
   //now we're good, return this int
   int mVar = thisMV->data[arrayIndex];
   printf("getMV val: %d", mVar);
@@ -673,7 +678,7 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
 }
 
 
-int doSetMV(int mvID, int value, int client, int threadID)
+int doSetMV(int mvID, int index, int value, int client, int threadID)
 {
   printf("setting mv %d value %d\n", mvID, value);
  char* errorMsg;
@@ -686,8 +691,17 @@ int doSetMV(int mvID, int value, int client, int threadID)
       return -1;  
     }
   ServerMV* thisMV = ServerMVTable[mvID];
-  thisMV->data[thisMV->usedLength] = value;
-  thisMV->usedLength++;
+  if(index<0)
+    {
+ errorMsg = "SetMV::invalid index";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;  
+   
+    }
+  thisMV->data[index] = value;
+  //thisMV->usedLength++;
 
   //send back message
 
@@ -872,12 +886,15 @@ void Server()
       case SMV:
 	{
 	  string mvIndex;
+	  string arrayIndex;
 	  string value;
 	  ss>>mvIndex;
+	  ss>>arrayIndex;
 	  ss>>value;
 	  int mvInt = atoi(mvIndex.c_str());
+	  int arrayIndexInt = atoi(arrayIndex.c_str());
 	  int valueInt = atoi(value.c_str());
-	  doSetMV(mvInt, valueInt, inPktHdr.from, inMailHdr.from);
+	  doSetMV(mvInt, arrayIndexInt, valueInt, inPktHdr.from, inMailHdr.from);
 
        	  break;
 	}
