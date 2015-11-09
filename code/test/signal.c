@@ -15,7 +15,7 @@ int main()
   Acquire(0);
   val = GetMonitor(0,0);
   val--;
-  PrintInt("Decrement Val to:%d\n", val, 0, 0);
+  PrintInt("Val Decremented to:%d\n", 70, val, 0);
   SetMonitor(0,0,val);
   Broadcast(0,0);
   Print("Yield to test lock release\n", 60, "", "");
