@@ -1,5 +1,5 @@
 Title: Writeup for Project 3, Fall 2015
-Date: 10/19/2015
+Date: 11/8/2015
 Group: Name-----------Email
 	   John Lucas	  johnluca@usc.edu
 	   Ian Later	  later@usc.edu
@@ -13,9 +13,27 @@ II. Assumptions
 III. Design
 	+Virtual Memory
 	+Networking
+	In order to have the server own all the locks, condition, and monitor variables, we created a server.cc that runs
+	continuously. In its main function, Server(), the server starts waiting to receive a message from any client. Since the
+	server's ID is always zero, all clients know who it is. Once it receives a message, it gets the first string out of the data sent,
+	and feeds that into a switch statement which will decide what kind of syscall was sent. Each syscall has a doSYSCALL function that takes in
+	the relevant information sent along as data from the client, and "does the work" necessary. The syscalls written in exception.cc
+	for Project 2 were utilized (by using the NETWORK define) when I added more code to them so that, instead of building a ServerLock or
+	something locally, they send their request to the server.
+	The general flow of events is as follows: 1. Client userprog requests OS resource. 2. Syscall is handled on client side. 3. since NETWORK define is true, exception syscall builds a message packet with request info, and sends to server. 
+	4. on server, request will be received, and the type of request will be the first bytes in the data. 5. knowing the request type, server can do the necessary work(create a lock, signal, monitor variables...) 6. after doing work, server sends back a response (depending on syscall) to either wake thread up, or provide requested information (like lockIndex)
+	7. Client received message, and wakes up, and continues
+	It is also important to note that the server is single threaded and cannot wait or sleep (other than waiting for a message from a client).
+	In order to do waits and lock functions that ensure mutual exclusion, the server takes advantages of the fact that the client that sent a message will
+	stay asleep until a reply is given. To do this with locks and conditions, the reply message is put on a wait queue if the resource
+	is currently being used. When the resource is released, or a signal occurs, the server sends the message at the top of the wait queue off to its client, which acts
+	the same ways as locks and conditions did in project 2. 
 IV. Implementation
 	+Files Added
 		vm/swap
+		network/server.cc
+		test/netmvtest.c
+		test/netclient.c
 	+Files Modified
 		threads/main.cc
 		threads/system.h
@@ -23,10 +41,18 @@ IV. Implementation
 		userprog/addrspace.h
 		userprog/addrspace.cc
 		userprog/exception.cc
+		test/start.s
+		userprog/syscall.h
 	+Data structures added, and which file to
-		
+		server.cc: ServerLock, ServerMonitor, ServerCondition
 	+Functions added and in which file
+		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
+			   Server(), the main server function that just runs forever in while loop
+			   helper functions in server for testing input, sending messages
+		exception.cc: new syscalls for Monitor Vars (Create, Destroy, Get, Set)
+			      helper functions for sending and receiving from server
 	+Functions modified and in which file
+		exception.cc: all syscalls modified for networking
 V. Testing
 	+Experiment expectation
 	+Experiment Result
