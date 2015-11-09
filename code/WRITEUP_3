@@ -20,7 +20,7 @@ III. Design
 	handleIPTMiss, and handleMemoryFull all in their own functions as well). Our addrspace still alots virtual pages for
 	50 threads, but only initializes code, data, and one stack in the constructor. Stack start locations are stored in 
 	process tables in exception.cc which correspond to addrspaces and are indexed by threads(their id's). We invalidate the 
-	TLB in addrspace::SaveState. In both page faults and tlb modification we disable interrupts to ensure security. 
+	TLB in addrspace::SaveState. We use locks to ensure security (interupts when swapfile invovled). 
 	+Networking
 	In order to have the server own all the locks, condition, and monitor variables, we created a server.cc that runs
 	continuously. In its main function, Server(), the server starts waiting to receive a message from any client. Since the
