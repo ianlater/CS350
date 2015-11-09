@@ -95,6 +95,10 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 
 int currentTLB = 0;
+std::queue<int> evictQueue; //FIFO queue for page eviction
+
+int swapOffset = 0; //counter for where in swap to write to 
+
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -1012,21 +1016,66 @@ void Close_Syscall(int fd) {
       printf("%s","Tried to close an unopen file\n");
     }
 }
-
+int pageToEvict()
+{
+	//random for now
+	//change to check for queue implementation later
+	if (randEvictPolicy)	return rand()%32;
+	else {
+		//FIFO
+		int page = evictQueue.front();
+		evictQueue.pop();
+		return page;
+	}
+}
 //step 4
 int handleMemoryFull(int neededVPN)
 {
-	printf("Memory full \n");
+	DEBUG('p',"Memory full \n");
 	int ppn = -1;
-	/*
-	Select page to evict
-	If the page is dirty, it must be copied into the swap file and the page table updated
-	Do swap file stuff (use the OpenFile::WriteAt function)
-	Note that you will need some way to keep track of where in the swap file a particular page has been placed. 
-	Use a BitMap object for this. make it big, as you can assume the swap file never fills up. 
-	Update the proper page table for the evicted page. When testing Exec you can evict a page from a different process.
-	*/
-	return ppn;
+	int evict = pageToEvict();
+	
+	
+	if (swapFile == NULL)
+	{
+		DEBUG('p',"    Init swapfile\n");
+			//Open file (
+		OpenFile *executable;			// The new open file
+		int id;				// The openfile id
+		swapFileName = "SwapFile";
+		if (!swapFileName) {
+			printf("%s","SwapFileName null\n");
+			return -1;
+		}
+	   
+	   swapFile = fileSystem->Open(swapFileName);
+		if ( swapFile == NULL ) {
+		  //if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
+		  //	  printf("%s\n", "Exec::Error: fielTable problem");
+		  //	  return -1;
+		  //	}
+		  // } else {
+		   printf("Unable to open swapfile %s\n", swapFileName);
+		   return -1;
+		}
+	}
+	if (IPT[evict].dirty)
+	{
+		//NOTE: the page you select to evict may belong to your process.
+		//if that's the case, then the page to evict may be present in the TLB.
+		//if it is, propagate the dirty bit to the IPT and invalidate that TLB entry. be sure to update the page table for the evicted page.
+		int sppn = swapBitMap->Find();	
+		//copy a paged size chunk from Nachos main memory into the swap file
+		DEBUG('p',"WriteAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", IPT[evict].physicalPage*PageSize, PageSize,  PageSize*sppn);
+		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage*PageSize]), PageSize, PageSize*sppn); 
+		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
+		//not sure what to do w bit map here swapBitMap->		
+	//update the proper page table for the evicted page
+		currentThread->space->pageTable[IPT[evict].virtualPage].byteOffset = PageSize*sppn;
+		currentThread->space->pageTable[IPT[evict].virtualPage].diskLocation = 1; //in swap file
+		currentThread->space->pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
+	}
+	return currentThread->space->pageTable[IPT[evict].virtualPage].physicalPage;//is this sufficient? rest is handled by handlePageMiss?
 }
 //step 3
 int handleIPTMiss(int neededVPN)
@@ -1037,9 +1086,15 @@ int handleIPTMiss(int neededVPN)
 
 	//step 4
 	if ( ppn == -1 ) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
             ppn = handleMemoryFull(neededVPN);
-    }
-		
+		(void)interrupt->SetLevel(oldLevel);//reenable interrupts
+        }
+        
+     	//add to evict queue if using FIFO implementation
+	if (!randEvictPolicy)
+		evictQueue.push(ppn);
+
         //read values from page table as to location of needed virtual page
         //copy page from disk to memory, if needed
 		
@@ -1048,6 +1103,10 @@ int handleIPTMiss(int neededVPN)
 		//in executable
 		DEBUG('p',"ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
 		currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
+	} else if(currentThread->space->pageTable[neededVPN].diskLocation == 1)
+	{
+		DEBUG('p',"ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
+		swapFile->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
 	}
 	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
 	currentThread->space->pageTable[neededVPN].valid =TRUE;
@@ -1119,6 +1178,9 @@ int HandlePageFault(int requestedVA)
 	
 	DEBUG('p',"About to update TLB-- ppn:%i\n", ppn);
 	//Code for updating the TLB - may be in a different function
+	if(machine->tlb[currentTLB].valid){
+		IPT[machine->tlb[currentTLB].physicalPage].dirty = machine->tlb[currentTLB].dirty;
+	}
 	machine->tlb[currentTLB].virtualPage = neededVPN;
 	machine->tlb[currentTLB].physicalPage = ppn;
 	machine->tlb[currentTLB].valid = TRUE;
