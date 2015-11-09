@@ -7,11 +7,20 @@ Group: Name-----------Email
 	  
 I. Requirements
   +Virtual Memory
-  	
+  	Implement software-management of the TLB
+  	Implement virtual memory using TLB, IPT, PT, swapfile, and executable
   +Networking
 II. Assumptions
 III. Design
 	+Virtual Memory
+	Keeping consistent with direction from the project guidelines and student documentation, we no longer preload into 
+	memory and on page faults begin with a search of IPT, followed by IPT misses which is how the IPT is populated, then
+	resorting to page eviction if the freePageBitmap, which we use to keep track of used pages of physical memory, is full.
+	We support both random and FIFO eviction poicies which we check in the pageToEvict() function (we've put handlepagefault,
+	handleIPTMiss, and handleMemoryFull all in their own functions as well). Our addrspace still alots virtual pages for
+	50 threads, but only initializes code, data, and one stack in the constructor. Stack start locations are stored in 
+	process tables in exception.cc which correspond to addrspaces and are indexed by threads(their id's). We invalidate the 
+	TLB in addrspace::SaveState. In both page faults and tlb modification we disable interrupts to ensure security. 
 	+Networking
 	In order to have the server own all the locks, condition, and monitor variables, we created a server.cc that runs
 	continuously. In its main function, Server(), the server starts waiting to receive a message from any client. Since the
@@ -34,6 +43,7 @@ IV. Implementation
 		network/server.cc
 		test/netmvtest.c
 		test/netclient.c
+		test/multilarge.c
 	+Files Modified
 		threads/main.cc
 		threads/system.h
@@ -51,11 +61,29 @@ IV. Implementation
 			   helper functions in server for testing input, sending messages
 		exception.cc: new syscalls for Monitor Vars (Create, Destroy, Get, Set)
 			      helper functions for sending and receiving from server
+			      handlers for: PageFault, IPTMiss, and MemoryFull
+			      pageToEvict for processing FIFO or Random eviction policy
 	+Functions modified and in which file
 		exception.cc: all syscalls modified for networking
 V. Testing
 	+Experiment expectation
+		all: pagefaults and initial IPT misses that are handled and result in expected behaviors
+		lockcondition, fork, exec, locksharing: all behave as in previous projects
+		malmult: Exit prints out value of 7220 and requires handling of memoryfull
+		sort: Exit prints out value of 1034 and requires handling of memoryfull
+		multilarge:  Runs two matmults. Exit prints out value of 7220 two times and requires handling of memoryfull
 	+Experiment Result
+		all: pagefaults and initial IPT misses that are handled and result in expected behaviors
+		lockcondition, fork, exec, locksharing: all behave as in previous projects
+		malmult: Exit prints out value of 7220 and requires handling of memoryfull
+		sort: Exit prints out value of 1034 and requires handling of memoryfull
+		multilarge:  Runs two matmults. Exit prints out value of 7220 two times and requires handling of memoryfull
 	+Explanation
+		handling of page faults, ipt misses, and memory full works properly. to see statements of this, run w/ args:
+		'-d p'. PageFaultException, IPTMiss, and MemoryFull head the appropriate function calls followed be 
+		relevant info. If something has already been loaded to IPT, it should say Found in IPT and then give the entry
+		and this should not immediately preceed an IPTMiss before the TLB's been written.
 VI. Discussion
+
 VIII. Miscellaneous
+	Not sure if matmult should fit within numPhysPages of 32, but it required handling of full memory for us.
