@@ -1034,15 +1034,15 @@ int handleIPTMiss(int neededVPN)
 	DEBUG('p',"IPT miss\n");
 	int ppn = -1;
 	ppn = freePageBitMap->Find();  //Find a physical page of memory
-/*
+
 	//step 4
 	if ( ppn == -1 ) {
-            ppn = handleMemoryFull();
-        }
+            ppn = handleMemoryFull(neededVPN);
+    }
 		
         //read values from page table as to location of needed virtual page
         //copy page from disk to memory, if needed
-	*/	
+		
 	DEBUG('p',"Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
 	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
 		//in executable
