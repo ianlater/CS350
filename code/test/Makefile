@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing
+all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing netmvtest
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -98,6 +98,12 @@ locksharing.o: locksharing.c
 locksharing: locksharing.o start.o 	
 	$(LD) $(LDFLAGS) start.o locksharing.o -o locksharing.coff
 	../bin/coff2noff locksharing.coff locksharing  
+
+netmvtest.o: netmvtest.c	
+	$(CC) $(CFLAGS) -c netmvtest.c 
+netmvtest: netmvtest.o start.o 	
+	$(LD) $(LDFLAGS) start.o netmvtest.o -o netmvtest.coff
+	../bin/coff2noff netmvtest.coff netmvtest  
 
 
 

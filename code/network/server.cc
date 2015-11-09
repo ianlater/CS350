@@ -14,10 +14,11 @@
 
 /*Const declarations*/
 const int TABLE_SIZE = 500;
+const int MV_ARRAY_SIZE = 50;
 
 int serverLockCounter = 0;
 int serverCVCounter = 0;
-
+int serverMVCounter = 0;
 
 
 enum requestType {
@@ -84,6 +85,27 @@ ServerCondition::ServerCondition(string n, int client)
   waitQueue = new List;
 }
 
+struct ServerMV
+{
+  int  data[MV_ARRAY_SIZE];
+  bool isAvailable;
+  bool isToBeDeleted;
+  int clientID;
+  int usedLength;//how much of array is used
+  List* waitQueue;
+
+  ServerMV(int client);
+};
+
+ServerMV::ServerMV(int client)
+{
+  clientID = client;
+  isAvailable = true;
+  isToBeDeleted = false;
+  waitQueue = new List;
+  usedLength = 0;
+}
+
 struct Message
 {
   int to;//this is the client machineid
@@ -103,7 +125,7 @@ Message::Message(int t,int tm, char* m)
 //vars below
 ServerLock* ServerLockTable[TABLE_SIZE];
 ServerCondition* ServerCVTable[TABLE_SIZE];
-
+ServerMV* ServerMVTable[TABLE_SIZE];
 
 //helper functions
 requestType getType(string req)
@@ -179,12 +201,37 @@ bool CVIsValid(int cv, int client)
   return true;
 }
 
-/*LOCK PROCEDURES*/
-int doCreateLock(string name, int client)
+bool MVIsValid(int mv, int client)
 {
+  if(mv < 0 || mv > serverMVCounter)
+    {
+     return false;
+    }
+    ServerMV* smv = ServerMVTable[mv];
+  if(!smv)
+   {
+    return false;
+   }
+  if(smv->clientID != client)
+   {
+    return false;
+   }
+  return true;
+
+}
+
+/*LOCK PROCEDURES*/
+int doCreateLock(string name, int client, int threadID)
+{
+  char* errorMsg;
   if(serverLockCounter > TABLE_SIZE)
   {
-    printf("Server::ERROR Cannot create lock\n");
+    printf("Create::ERROR Cannot create lock\n");
+    /*    errorMsg = "CreateLock::cannot create MV";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+     sendMessage(msg);
+    */  
     return -1;
   }
   ServerLock* newLock = new ServerLock(name,client);
@@ -342,9 +389,13 @@ int doReleaseLock(int lockIndex, int clientID, int threadID)
 int doCreateCV(string name, int client, int threadID)
 {
   printf("Server::DoCreateCV\n");
+  char* errorMsg;
   if(serverCVCounter > TABLE_SIZE)
   {
-    printf("Server::ERROR Cannot create cv\n");
+     errorMsg = "CreateCV::cannot create CV";
+      printf("%s\n", errorMsg);
+      /*     Message msg = Message(client, threadID, errorMsg);
+	     sendMessage(msg);*/
     return -1;
   }
   ServerCondition* newCV = new ServerCondition(name, client);
@@ -538,6 +589,114 @@ while(!sc->waitQueue->IsEmpty())
   return 0;
 }
 
+/*MONITOR VARIABLE PROCEDURES*/
+int doCreateMV(int client, int threadID)
+{
+  char* errorMsg;
+  if(serverMVCounter >= TABLE_SIZE)
+    {
+      errorMsg = "CreateMV::cannot create MV";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);//TODO copy this chunk to creatCV/createLock
+      return -1;
+    }
+  int thisMVID = serverMVCounter;
+  ServerMV* smv = new ServerMV(client);
+  //smv->data = {};
+  ServerMVTable[thisMVID] = smv;
+  serverMVCounter++;
+
+  stringstream strs;
+  strs<<thisMVID;
+  string temp = strs.str();
+  char const* msgDataConst = temp.c_str();
+  char* msgData = new char[temp.length()];
+  strcpy(msgData, temp.c_str());
+
+  Message msg = Message(client, threadID, msgData);
+  sendMessage(msg);
+  return 0;
+}
+
+int doDestroyMV(int mvIndex, int client, int threadID)
+{//TODO not sure about this
+  char* errorMsg;
+  if(!MVIsValid(mvIndex, client))
+    {
+      errorMsg = "DestroyMV::invalid mv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;  
+    }
+  //input error checking done
+  delete ServerMVTable[mvIndex];
+  Message msg = Message(client, threadID, "Deleted MV");
+  sendMessage(msg);
+  return 0;
+}
+
+int doGetMV(int mvID, int arrayIndex, int client, int threadID)
+{
+ char* errorMsg;
+  if(!MVIsValid(mvID, client))
+    {
+      errorMsg = "GetMV::invalid mv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;  
+    }
+  ServerMV* thisMV = ServerMVTable[mvID];
+  if(arrayIndex >= thisMV->usedLength)
+    {
+    errorMsg = "GetMV::invalid location";
+      printf("%s: %d\n", errorMsg, arrayIndex);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;        
+    }
+  //now we're good, return this int
+  int mVar = thisMV->data[arrayIndex];
+  printf("getMV val: %d", mVar);
+  stringstream strs;
+  strs<<mVar;
+  string temp = strs.str();
+  char const* msgDataConst = temp.c_str();
+  char* msgData = new char[temp.length()];
+  strcpy(msgData, temp.c_str());
+
+  Message msg = Message(client, threadID, msgData);
+  sendMessage(msg);
+  return 0;
+}
+
+
+int doSetMV(int mvID, int value, int client, int threadID)
+{
+  printf("setting mv %d value %d\n", mvID, value);
+ char* errorMsg;
+  if(!MVIsValid(mvID, client))
+    {
+      errorMsg = "SetMV::invalid mv";
+      printf("%s\n", errorMsg);
+      Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;  
+    }
+  ServerMV* thisMV = ServerMVTable[mvID];
+  thisMV->data[thisMV->usedLength] = value;
+  thisMV->usedLength++;
+
+  //send back message
+
+  Message msg = Message(client, threadID, "setMV");
+  sendMessage(msg);
+
+  return 0;
+}
+
 /*MAIN SERVER RUN FUNCTION*/
 void Server()
 {
@@ -558,9 +717,6 @@ void Server()
     outMailHdr.to = 0;
     outMailHdr.from = 0;//changed now
     outMailHdr.length = strlen(data) + 1;
-
-    // Send the first message
-    //    bool success = postOffice->Send(outPktHdr, outMailHdr, data); 
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);//TODO check mail isn't bigger than buffer
     printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
@@ -583,7 +739,7 @@ void Server()
 	  stringstream strs;
 	  ss>>lockName;
 	 
-	  int lock = doCreateLock(lockName, inPktHdr.from);
+	  int lock = doCreateLock(lockName, inPktHdr.from, inMailHdr.from);
 	  //now, build and send message back to client
 	  strs<<lock;
 	  string temp = strs.str();
@@ -688,23 +844,42 @@ void Server()
 	}
       case CMV:
 	{
-
+	  //create MV (array of ints) of size (MV_ARRAY_SIZE)
+	  doCreateMV(inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case DMV:
 	{
-
+	  string mvIndex;
+	  ss>>mvIndex;
+	  int mvInt = atoi(mvIndex.c_str());
+	  doDestroyMV(mvInt, inPktHdr.from, inMailHdr.from);
+	
 	  break;
 	}
       case GMV:
 	{
+	  string mvIndex;
+	  string arrayIndex;
+	  ss>>mvIndex;
+	  ss>>arrayIndex;
+	  int mvInt = atoi(mvIndex.c_str());
+	  int arrayIndexInt = atoi(arrayIndex.c_str());
+	  doGetMV(mvInt, arrayIndexInt, inPktHdr.from, inMailHdr.from);
 
 	  break;
 	}
       case SMV:
 	{
+	  string mvIndex;
+	  string value;
+	  ss>>mvIndex;
+	  ss>>value;
+	  int mvInt = atoi(mvIndex.c_str());
+	  int valueInt = atoi(value.c_str());
+	  doSetMV(mvInt, valueInt, inPktHdr.from, inMailHdr.from);
 
-	  break;
+       	  break;
 	}
       default:
 	{

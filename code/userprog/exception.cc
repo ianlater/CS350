@@ -842,6 +842,102 @@ if(!(kl->lock))
 #endif /*NETWORK*/
 }
 
+#ifdef NETWORK
+/*Monitor Variable syscalls. For NETWORK USE ONLY*/
+int CreateMonitor_Syscall()
+{
+  printf("Network CreateMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CMV "<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;//return index of MV
+}
+
+int DestroyMonitor_Syscall(int mvIndex)
+{
+  if(mvIndex < 0)
+    {
+      printf("%s\n", "mv index out of bounds");
+      return -1;
+    }
+    printf("Network DestroyMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DMV "<<" "<<mvIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 0;
+}
+
+int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
+{
+  printf("Network GetMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"GMV "<<" "<<mvIndex<<" "<<mvArrayLoc<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;//return index of MV
+}
+
+
+int SetMonitor_Syscall(int mvIndex, int value)
+{
+  printf("Network SetMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SMV "<<" "<<mvIndex<<" "<<value<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 0;
+}
+
+#endif/*MV NETWORK*/
+
 /*Print cstring from vaddr with option for cstring arguments 1 and 2. all args will only be read to the length parameter*/
 void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int arg2) {
     
@@ -1338,6 +1434,27 @@ void ExceptionHandler(ExceptionType which) {
 	  DEBUG('a', "Yield Syscall. \n");
 	  Yield_Syscall();
 	  break;
+#ifdef NETWORK
+	case SC_CreateMonitor:
+	  DEBUG('a', "CreateMonitor syscall.\n");
+	  CreateMonitor_Syscall();
+	  break;
+	case SC_DestroyMonitor:
+	  DEBUG('a', "DestroyMonitor syscall\n");
+	  DestroyMonitor_Syscall(machine->ReadRegister(4));
+	  break;
+	case SC_SetMonitor:
+	  DEBUG('a', "SetMonitor Syscall.\n");
+	  SetMonitor_Syscall(machine->ReadRegister(4),
+			     machine->ReadRegister(5));
+	  break;
+	case SC_GetMonitor:
+	  DEBUG('a', "GetMonitor syscall\n");
+	  GetMonitor_Syscall(machine->ReadRegister(4),
+			     machine->ReadRegister(5));
+	  break;
+
+#endif/*NETWORK*/
 	}
 
 	// Put in the return value and increment the PC
