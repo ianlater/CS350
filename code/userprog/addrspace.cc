@@ -151,7 +151,7 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
 // first, set up the translation 
     pageTable = new PTEntry[numPages + 50*8];
 	int executableBound = divRoundUp(noffH.code.size + noffH.initData.size, PageSize);
-	printf("addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
+	DEBUG('a', "addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
     for (i = 0; i < numPages +50*8; i++) {
       /*
 	  int ppn = freePageBitMap->Find();
