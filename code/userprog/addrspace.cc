@@ -163,7 +163,7 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
       }
 	*/
 		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-		//pageTable[i].physicalPage = ppn;
+		pageTable[i].physicalPage = -1;
 		pageTable[i].valid = TRUE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
@@ -351,9 +351,12 @@ AddrSpace::InitRegisters()
 
 void AddrSpace::SaveState() 
 {
-  for (int i=0; i<TLBSize; i++) {
-	machine->tlb[i].valid = false;
-  }
+    IntStatus old = interrupt->SetLevel(IntOff);
+    for(int i = 0; i < TLBSize; i ++) {
+        
+        machine->tlb[i].valid = false;
+    }
+    (void) interrupt->SetLevel(old);
 }
 
 //----------------------------------------------------------------------
