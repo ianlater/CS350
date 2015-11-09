@@ -229,7 +229,7 @@ Rand:
 	.global CreateMonitor
 	.ent CreateMonitor
 CreateMonitor:
-	addiu $w, $0, SC_CreateMonitor
+	addiu $2, $0, SC_CreateMonitor
 	syscall
 	j	$31
 	.end CreateMonitor
@@ -238,7 +238,7 @@ CreateMonitor:
 	.global DestroyMonitor
 	.ent DestroyMonitor
 DestroyMonitor:
-	addiu $w, $0, SC_DestroyMonitor
+	addiu $2, $0, SC_DestroyMonitor
 	syscall
 	j	$31
 	.end DestroyMonitor
@@ -246,7 +246,7 @@ DestroyMonitor:
 	.global SetMonitor
 	.ent SetMonitor
 SetMonitor:
-	addiu $w, $0, SC_SetMonitor
+	addiu $2, $0, SC_SetMonitor
 	syscall
 	j	$31
 	.end SetMonitor
@@ -254,7 +254,7 @@ SetMonitor:
 	.global GetMonitor
 	.ent GetMonitor
 GetMonitor:
-	addiu $w, $0, SC_GetMonitor
+	addiu $2, $0, SC_GetMonitor
 	syscall
 	j	$31
 	.end GetMonitor

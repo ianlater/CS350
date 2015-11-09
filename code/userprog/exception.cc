@@ -1437,21 +1437,21 @@ void ExceptionHandler(ExceptionType which) {
 #ifdef NETWORK
 	case SC_CreateMonitor:
 	  DEBUG('a', "CreateMonitor syscall.\n");
-	  CreateMonitor_Syscall();
+	  rv=CreateMonitor_Syscall();
 	  break;
 	case SC_DestroyMonitor:
 	  DEBUG('a', "DestroyMonitor syscall\n");
-	  DestroyMonitor_Syscall(machine->ReadRegister(4));
+	  rv=DestroyMonitor_Syscall(machine->ReadRegister(4));
 	  break;
 	case SC_SetMonitor:
 	  DEBUG('a', "SetMonitor Syscall.\n");
-	  SetMonitor_Syscall(machine->ReadRegister(4),
+	  rv=SetMonitor_Syscall(machine->ReadRegister(4),
 			     machine->ReadRegister(5),
 			     machine->ReadRegister(6));
 	  break;
 	case SC_GetMonitor:
 	  DEBUG('a', "GetMonitor syscall\n");
-	  GetMonitor_Syscall(machine->ReadRegister(4),
+	  rv=GetMonitor_Syscall(machine->ReadRegister(4),
 			     machine->ReadRegister(5));
 	  break;
 

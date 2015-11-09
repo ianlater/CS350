@@ -680,7 +680,7 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
 
 int doSetMV(int mvID, int index, int value, int client, int threadID)
 {
-  printf("setting mv %d value %d\n", mvID, value);
+  printf("setting mv %d index %d value %d\n", mvID,index,  value);
  char* errorMsg;
   if(!MVIsValid(mvID, client))
     {

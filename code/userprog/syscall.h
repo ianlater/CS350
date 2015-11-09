@@ -177,6 +177,12 @@ void PrintInt(char* buffer, int size, int arg1, int arg2);
 /* rand syscall returns rand*/
 int Rand();
 
+/*for proj3 part 3 Monitor syscalls*/
+int CreateMonitor();
+int DestroyMonitor(int mvid);
+int SetMonitor(int mvid, int arrindex, int val);
+int GetMonitor(int mvId, int arrIndex);
+
 #endif /* IN_ASM */
 
 #endif /* SYSCALL_H */
