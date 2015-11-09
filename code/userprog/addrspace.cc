@@ -367,7 +367,9 @@ void AddrSpace::SaveState()
 {
     IntStatus old = interrupt->SetLevel(IntOff);
     for(int i = 0; i < TLBSize; i ++) {
-        
+        if(machine->tlb[i].valid){
+			IPT[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
+		}
         machine->tlb[i].valid = false;
     }
     (void) interrupt->SetLevel(old);

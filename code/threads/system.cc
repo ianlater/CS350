@@ -23,7 +23,7 @@ BitMap* freePageBitMap;
 BitMap* swapBitMap;
 IPTEntry* IPT;
 
-char* swapFileName;			//name of the swap file
+char* swapFileName = "SwapFile";			//name of the swap file
 bool randEvictPolicy = true;			//true if using random, false if using FIFO. based on command line arg. default is true
 
 

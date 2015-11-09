@@ -33,6 +33,7 @@ extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
 extern BitMap* swapBitMap;	//made by Carrie for swap bit map find
+extern char* swapFileName; //for finding or initializing swapfile
 class IPTEntry : public TranslationEntry { //IPT
 	public:
 	AddrSpace * owner;
