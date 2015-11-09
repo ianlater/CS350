@@ -136,7 +136,7 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
     
     baseDataSize = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);//(old numPages w/1 stack) something to use publicly to find my stack
     //TESTING JACK REMOVED * 50 in front of divroundup below
-    numPages = divRoundUp(size, PageSize) +  50*divRoundUp(UserStackSize,PageSize);
+    numPages = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;
@@ -152,7 +152,7 @@ AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
     pageTable = new PTEntry[numPages + 50*8];
 	int executableBound = divRoundUp(noffH.code.size + noffH.initData.size, PageSize);
 	printf("addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
-    for (i = 0; i < numPages; i++) {
+    for (i = 0; i < numPages +50*8; i++) {
       /*
 	  int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
@@ -271,7 +271,7 @@ int AddrSpace::CreateStack(int thread)
 		*/
 		  thread++;
 		}
-  stackLoc = ( thread) ;
+  stackLoc = (PageSize * thread) -16;
 
   return stackLoc;
 }
@@ -281,26 +281,33 @@ int AddrSpace::CreateStack(int thread)
 //-------
 void AddrSpace::DestroyStack(int thread)
 {
-  for(int i = 0; i < 8; i++)
+  for(int i = 0; i <8; i++)
     {
-		printf("addrspace::destroy stack::to be cleared: %i\n", thread);
-for (int j = 0; j<numPages+50*8;j++){
-		if (pageTable[i].virtualPage == thread || pageTable[i].physicalPage == thread ){
-					printf("HIT::PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
+		  thread--;
+
+/*
+		for (int j = 0; j<numPages+50*8;j++){	
+			printf("PT[j].vpn:%i, PT[j].ppn:%i, PT[j].valid:%i\n", pageTable[j].virtualPage, pageTable[j].physicalPage, pageTable[j].valid);
+			if (pageTable[j].virtualPage == thread ){
+						printf("HIT::PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[j].virtualPage, pageTable[j].physicalPage, pageTable[j].valid);
+			}
 		}
-}
-		printf("PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
-		printf("IPT[thread].vpn:%i, IPT[thread].ppn:%i, IPT[thread].valid:%i\n", IPT[thread].virtualPage, IPT[thread].physicalPage, IPT[thread].valid);
-      //freePageBitMap->Clear(thread);
+*/
+		int ppn = pageTable[thread].physicalPage;
+/*
+		DEBUG('p',"PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
+		DEBUG('p',"IPT[pt].vpn:%i, IPT[pt].ppn:%i, IPT[pt].valid:%i\n", IPT[ppn].virtualPage, IPT[ppn].physicalPage, IPT[ppn].valid);
+*/
       if(pageTable[thread].valid)
 		{
 		  pageTable[thread].valid = FALSE;
 		}
-		if (IPT[thread].valid)
+		if (IPT[ppn].valid)
 		{
+			DEBUG('p', "clearing used stack ppn:%i\n", ppn);
 			IPT[thread].valid = FALSE;//is this supposed to be there?
+			freePageBitMap->Clear(ppn);
 		}
-      thread++;
     }
 }
 
