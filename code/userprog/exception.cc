@@ -290,7 +290,7 @@ ProcessLock->Release();
 #ifdef NETWORK
     //build message
 
-  printf("Network CL in progress\n");
+    //printf("Network CL in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -334,7 +334,7 @@ int Acquire_Syscall(int lockIndex)
     }
 #ifdef NETWORK
 
-  printf("Network AL in progress\n");
+  //printf("Network AL in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -380,7 +380,7 @@ int Release_Syscall(int lockIndex)
 {
 #ifdef NETWORK
 
-  printf("Network RL in progress\n");
+  //printf("Network RL in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -439,7 +439,7 @@ int DestroyLock_Syscall(int lockIndex)
 {
    /**/
 #ifdef NETWORK
-    printf("Network DL in progress\n");
+  //printf("Network DL in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -519,7 +519,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     printf("\nCreateCV::NAME:%s\n", buf);
 #ifdef NETWORK
 
-  printf("Network CCV in progress\n");
+    //printf("Network CCV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -569,7 +569,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 {
 	 /**/
 #ifdef NETWORK
-    printf("Network DCV in progress\n");
+  //printf("Network DCV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -627,7 +627,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
     }
 #ifdef NETWORK
 
-  printf("Network Wait in progress\n");
+    //printf("Network Wait in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -698,7 +698,7 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
     }
 #ifdef NETWORK
 
-  printf("Network Signal in progress\n");
+  // printf("Network Signal in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -780,7 +780,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
     }
  #ifdef NETWORK
 
-  printf("Network Broadcast in progress\n");
+  //printf("Network Broadcast in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -846,7 +846,7 @@ if(!(kl->lock))
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
 int CreateMonitor_Syscall()
 {
-  printf("Network CreateMV in progress\n");
+  //printf("Network CreateMV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -873,7 +873,7 @@ int DestroyMonitor_Syscall(int mvIndex)
       printf("%s\n", "mv index out of bounds");
       return -1;
     }
-    printf("Network DestroyMV in progress\n");
+  //printf("Network DestroyMV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -894,7 +894,7 @@ int DestroyMonitor_Syscall(int mvIndex)
 
 int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
 {
-  printf("Network GetMV in progress\n");
+  //printf("Network GetMV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
@@ -917,7 +917,7 @@ int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
 
 int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
 {
-  printf("Network SetMV in progress\n");
+  //printf("Network SetMV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;

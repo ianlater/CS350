@@ -288,7 +288,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
  //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
  //check if already held by current thread
-  if(sl->currentOwner == threadID)
+  if(sl->currentOwner == threadID && sl->clientID == clientID)
     {
       printf("Server::AcquireLock: thread that owns lock is trying to acquire again?\n");
       Message msg = Message(clientID, threadID, "AcquireLock");

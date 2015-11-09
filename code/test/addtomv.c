@@ -16,9 +16,13 @@ int main()
   while(1==1)
     {
       Wait(0,0);
+      Print("Received Signal, now will attempt Acquire\n", 70, "","");
+      Acquire(0);
+      Print("Acquired lock after signal.c released\n",70, "","");
+      val = GetMonitor(0,0);
       val++;
       SetMonitor(0,0,val);
-      val = GetMonitor(0,0);
-      PrintInt("Val is now %d\n",20, val,0);
+      PrintInt("Val incremented to: %d\nRelease lock\n",40, val,0);
+      Release(0);
     }
 }
