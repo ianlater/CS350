@@ -1019,7 +1019,13 @@ int pageToEvict()
 {
 	//random for now
 	//change to check for queue implementation later
-	return rand()*32;
+	if (randEvictPolicy)	return rand()*32;
+	else {
+		//FIFO
+		int page = evictQueue->front();
+		evictQueue->pop();
+		return page;
+	}
 }
 //step 4
 int handleMemoryFull(int neededVPN)
@@ -1050,17 +1056,21 @@ int handleIPTMiss(int neededVPN)
 	printf("IPT miss\n");
 	int ppn = -1;
 	ppn = freePageBitMap->Find();  //Find a physical page of memory
-/*
+
 	//step 4
 	if ( ppn == -1 ) {
 		interrupt->setLevel(false);//disable interrupts
             ppn = handleMemoryFull();
 		interrupt->setLevel(true);//reenable interrupts
         }
+        
+     	//add to evict queue if using FIFO implementation
+	if (!randEvictPolicy)
+		evictQueue->push(ppn);
 		
         //read values from page table as to location of needed virtual page
         //copy page from disk to memory, if needed
-	*/
+        
 	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
 	currentThread->space->pageTable[neededVPN].valid =TRUE;
 	IPT[ppn].virtualPage = neededVPN;	
