@@ -271,7 +271,7 @@ int AddrSpace::CreateStack(int thread)
 		*/
 		  thread++;
 		}
-  stackLoc = (PageSize * thread) -16;
+  stackLoc = ( thread) ;
 
   return stackLoc;
 }
@@ -283,15 +283,23 @@ void AddrSpace::DestroyStack(int thread)
 {
   for(int i = 0; i < 8; i++)
     {
-      freePageBitMap->Clear(thread);
+		printf("addrspace::destroy stack::to be cleared: %i\n", thread);
+for (int j = 0; j<numPages+50*8;j++){
+		if (pageTable[i].virtualPage == thread || pageTable[i].physicalPage == thread ){
+					printf("HIT::PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
+		}
+}
+		printf("PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
+		printf("IPT[thread].vpn:%i, IPT[thread].ppn:%i, IPT[thread].valid:%i\n", IPT[thread].virtualPage, IPT[thread].physicalPage, IPT[thread].valid);
+      //freePageBitMap->Clear(thread);
       if(pageTable[thread].valid)
-	{
-	  pageTable[thread].valid = FALSE;
-	}
-	if (IPT[thread].valid)
-	{
-		IPT[thread].valid = FALSE;//is this supposed to be there?
-	}
+		{
+		  pageTable[thread].valid = FALSE;
+		}
+		if (IPT[thread].valid)
+		{
+			IPT[thread].valid = FALSE;//is this supposed to be there?
+		}
       thread++;
     }
 }
