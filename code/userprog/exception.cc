@@ -787,6 +787,7 @@ void Exit_Syscall(int status){
 
 	*/
   // currentThread->Finish();
+  printf("Exit::arg: %i\n", status);
   ProcessLock->Acquire();
  
   int thisThread = currentThread->getID();
@@ -1041,9 +1042,16 @@ int handleIPTMiss(int neededVPN)
 		
         //read values from page table as to location of needed virtual page
         //copy page from disk to memory, if needed
-	*/
+	*/	
+	printf("Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
+	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
+		//in executable
+		printf("ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
+		currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
+	}
 	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
 	currentThread->space->pageTable[neededVPN].valid =TRUE;
+
 	IPT[ppn].virtualPage = neededVPN;	
 	IPT[ppn].physicalPage = ppn;
 	IPT[ppn].valid = TRUE;
@@ -1053,12 +1061,7 @@ int handleIPTMiss(int neededVPN)
 	IPT[ppn].owner = currentThread->space;
 	printf("in ipt miss::ppn: %i, IPT[ppn].virtualPage: %i,  IPT[ppn].physicalPage: %i\n", ppn, IPT[ppn].virtualPage, IPT[ppn].physicalPage);
 
-	printf("Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
-	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
-		//in executable
-		printf("ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
-		currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
-	}
+	
 	/*
 	To handle the IPT miss, you must allocate a page of memory (BITMAP Find()). You then go to the page table entry for the needed virtual page to find out where the page is located on disk (if it is there). However, the page table doesn't have this information. Just like with the IPT, you have to create a new class, that inherits from TranslationEntry, to hold the new fields that you need.
 	There are two types of data that you need to add to your page table entry:
@@ -1092,7 +1095,7 @@ int HandlePageFault(int requestedVA)
 		 //printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
 		if(IPT[i].owner == currentThread->space && IPT[i].valid == TRUE && IPT[i].virtualPage == neededVPN) {
 		    //Found the physical page we need
-					 printf("i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+					 printf("    Found in IPT::i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
 
 		    ppn = IPT[i	].physicalPage;
 			break;
@@ -1119,6 +1122,8 @@ int HandlePageFault(int requestedVA)
 	machine->tlb[currentTLB].virtualPage = neededVPN;
 	machine->tlb[currentTLB].physicalPage = ppn;
 	machine->tlb[currentTLB].valid = TRUE;
+	machine->tlb[currentTLB].dirty = IPT[ppn].dirty;
+	machine->tlb[currentTLB].use = IPT[ppn].use;
 
 	currentTLB = (currentTLB+1)%4; 
 	//ProcessLock->Release();	
@@ -1285,7 +1290,7 @@ void ExceptionHandler(ExceptionType which) {
 		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
 		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg));
 		
-		machine->WriteRegister(2,rv);
+		//machine->WriteRegister(2,rv);
 		return;
 	} 
 	else {
