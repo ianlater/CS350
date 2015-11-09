@@ -1022,8 +1022,8 @@ int pageToEvict()
 	if (randEvictPolicy)	return rand()*32;
 	else {
 		//FIFO
-		int page = evictQueue->front();
-		evictQueue->pop();
+		int page = evictQueue.front();
+		evictQueue.pop();
 		return page;
 	}
 }
@@ -1040,7 +1040,7 @@ int handleMemoryFull(int neededVPN)
 		//if it is, propagate the dirty bit to the IPT and invalidate that TLB entry. be sure to update the page table for the evicted page.
 		int sppn = swapBitMap->Find();	
 		//copy a paged size chunk from Nachos main memory into the swap file
-		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage])*PageSize, PageSize, PageSize*sppn); 
+		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage*PageSize]), PageSize, PageSize*sppn); 
 		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
 		//not sure what to do w bit map here swapBitMap->		
 	//update the proper page table for the evicted page
@@ -1059,14 +1059,14 @@ int handleIPTMiss(int neededVPN)
 
 	//step 4
 	if ( ppn == -1 ) {
-		interrupt->setLevel(false);//disable interrupts
-            ppn = handleMemoryFull();
-		interrupt->setLevel(true);//reenable interrupts
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+            ppn = handleMemoryFull(neededVPN);
+		(void)interrupt->SetLevel(oldLevel);//reenable interrupts
         }
         
      	//add to evict queue if using FIFO implementation
 	if (!randEvictPolicy)
-		evictQueue->push(ppn);
+		evictQueue.push(ppn);
 		
         //read values from page table as to location of needed virtual page
         //copy page from disk to memory, if needed
