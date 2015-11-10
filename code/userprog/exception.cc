@@ -1458,6 +1458,10 @@ int handleIPTMiss(int neededVPN)
 int HandlePageFault(int requestedVA)
 {
 	int neededVPN =  requestedVA/PageSize;
+	if (neededVPN <0 || neededVPN >= currentThread->space->getNumPages() + 50*8) {
+		printf("PageFaultException:: Invalid vpn:%i\n", neededVPN);
+		return -1;
+	}
 	
 	if(machine->tlb == NULL) {
 		machine->tlb = new TranslationEntry[TLBSize];
