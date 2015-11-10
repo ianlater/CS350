@@ -93,7 +93,7 @@ Process* mainProcess = new Process(1);
 int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
-
+Lock* VMLock = new Lock("VMLock");// lock for virtual memory tables
 int currentTLB = 0;
 std::queue<int> evictQueue; //FIFO queue for page eviction
 
@@ -792,6 +792,7 @@ void Exit_Syscall(int status){
 	*/
   // currentThread->Finish();
   printf("Exit::arg: %i\n", status);
+
   ProcessLock->Acquire();
  
   int thisThread = currentThread->getID();
@@ -1059,6 +1060,13 @@ int handleMemoryFull(int neededVPN)
 		   return -1;
 		}
 	}
+	
+	for (int i = 0; i < TLBSize; i++) {
+        if (machine->tlb[i].physicalPage == evict && machine->tlb[i].valid) {
+                IPT[evict].dirty = machine->tlb[i].dirty;
+                machine->tlb[i].valid = FALSE;
+        }
+    }
 	if (IPT[evict].dirty)
 	{
 		//NOTE: the page you select to evict may belong to your process.
@@ -1073,9 +1081,10 @@ int handleMemoryFull(int neededVPN)
 	//update the proper page table for the evicted page
 		currentThread->space->pageTable[IPT[evict].virtualPage].byteOffset = PageSize*sppn;
 		currentThread->space->pageTable[IPT[evict].virtualPage].diskLocation = 1; //in swap file
-		currentThread->space->pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
 	}
-	return currentThread->space->pageTable[IPT[evict].virtualPage].physicalPage;//is this sufficient? rest is handled by handlePageMiss?
+	currentThread->space->pageTable[IPT[evict].virtualPage].valid = FALSE;//can be written over again
+	
+	return evict;//is this sufficient? rest is handled by handlePageMiss?
 }
 //step 3
 int handleIPTMiss(int neededVPN)
@@ -1110,6 +1119,9 @@ int handleIPTMiss(int neededVPN)
 	}
 	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
 	currentThread->space->pageTable[neededVPN].valid =TRUE;
+	currentThread->space->pageTable[neededVPN].use =FALSE;
+	currentThread->space->pageTable[neededVPN].dirty =FALSE;
+	currentThread->space->pageTable[neededVPN].readOnly =FALSE;
 
 	IPT[ppn].virtualPage = neededVPN;	
 	IPT[ppn].physicalPage = ppn;
@@ -1145,8 +1157,8 @@ int HandlePageFault(int requestedVA)
 	int ppn = -1;
 	DEBUG('p',"    calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
 	//check if requestedVA is in currentThread->space somehow
-	//ProcessLock->Acquire();	
-	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts instead of lock (mentioned in class better than lock in this case)
+	VMLock->Acquire();	
+	//IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts instead of lock (mentioned in class better than lock in this case)
 
 	//search for neededVPN in IPT
 	 for ( int i=0; i < NumPhysPages; i++ ) {
@@ -1156,7 +1168,7 @@ int HandlePageFault(int requestedVA)
 		    //Found the physical page we need
 					 DEBUG('p',"    Found in IPT::i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
 
-		    ppn = IPT[i	].physicalPage;
+		    ppn = IPT[i].physicalPage;
 			break;
 		}
 	 }
@@ -1186,10 +1198,11 @@ int HandlePageFault(int requestedVA)
 	machine->tlb[currentTLB].valid = TRUE;
 	machine->tlb[currentTLB].dirty = IPT[ppn].dirty;
 	machine->tlb[currentTLB].use = IPT[ppn].use;
+	machine->tlb[currentTLB].readOnly = IPT[ppn].readOnly;
 
 	currentTLB = (currentTLB+1)%4; 
-	//ProcessLock->Release();	
-    (void) interrupt->SetLevel(oldLevel); 
+	VMLock->Release();	
+    //		(void)interrupt->SetLevel(oldLevel);//reenable interrupts
 
 	
 	/*
