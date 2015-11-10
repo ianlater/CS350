@@ -10,17 +10,20 @@ I. Requirements
   	Implement software-management of the TLB
   	Implement virtual memory using TLB, IPT, PT, swapfile, and executable
   +Networking
+  	Implement a server that hold all locks, conditions, and monitors. 
+  	Modify syscalls so that all syscall requests are sent to server rather than being handled by the client.
 II. Assumptions
 III. Design
 	+Virtual Memory
 	Keeping consistent with direction from the project guidelines and student documentation, we no longer preload into 
 	memory and on page faults begin with a search of IPT, followed by IPT misses which is how the IPT is populated, then
 	resorting to page eviction if the freePageBitmap, which we use to keep track of used pages of physical memory, is full.
-	We support both random and FIFO eviction poicies which we check in the pageToEvict() function (we've put handlepagefault,
-	handleIPTMiss, and handleMemoryFull all in their own functions as well). Our addrspace still alots virtual pages for
+	We support both random and FIFO eviction poicies which we check in the pageToEvict() function. The eviction policy is decided at runtime
+	with the -P tag (-P {RAND|FIFO}). If FIFO is selected, pageToEvict() returns an index of the IPT which was added the longest ago.
+	We've put handlepagefault,handleIPTMiss, and handleMemoryFull all in their own functions as well. Our addrspace still allots virtual pages for
 	50 threads, but only initializes code, data, and one stack in the constructor. Stack start locations are stored in 
 	process tables in exception.cc which correspond to addrspaces and are indexed by threads(their id's). We invalidate the 
-	TLB in addrspace::SaveState. In both page faults and tlb modification we disable interrupts to ensure security. 
+	TLB in addrspace::SaveState. We use locks to ensure security (interupts when swapfile invovled). 
 	+Networking
 	In order to have the server own all the locks, condition, and monitor variables, we created a server.cc that runs
 	continuously. In its main function, Server(), the server starts waiting to receive a message from any client. Since the
@@ -83,6 +86,7 @@ V. Testing
 		'-d p'. PageFaultException, IPTMiss, and MemoryFull head the appropriate function calls followed be 
 		relevant info. If something has already been loaded to IPT, it should say Found in IPT and then give the entry
 		and this should not immediately preceed an IPTMiss before the TLB's been written.
+	
 VI. Discussion
 
 VIII. Miscellaneous
