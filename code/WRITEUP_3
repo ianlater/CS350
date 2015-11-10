@@ -10,6 +10,8 @@ I. Requirements
   	Implement software-management of the TLB
   	Implement virtual memory using TLB, IPT, PT, swapfile, and executable
   +Networking
+  	Implement a server that hold all locks, conditions, and monitors. 
+  	Modify syscalls so that all syscall requests are sent to server rather than being handled by the client.
 II. Assumptions
 III. Design
 	+Virtual Memory
@@ -83,6 +85,7 @@ V. Testing
 		'-d p'. PageFaultException, IPTMiss, and MemoryFull head the appropriate function calls followed be 
 		relevant info. If something has already been loaded to IPT, it should say Found in IPT and then give the entry
 		and this should not immediately preceed an IPTMiss before the TLB's been written.
+	
 VI. Discussion
 
 VIII. Miscellaneous
