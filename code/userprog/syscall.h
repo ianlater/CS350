@@ -41,6 +41,10 @@
 #define SC_Print		20
 #define SC_PrintInt		21
 #define SC_Rand			22
+#define SC_CreateMonitor        23
+#define SC_DestroyMonitor       24
+#define SC_SetMonitor           25
+#define SC_GetMonitor           26
 
 #define MAXFILENAME 256
 
@@ -172,6 +176,12 @@ void PrintInt(char* buffer, int size, int arg1, int arg2);
 
 /* rand syscall returns rand*/
 int Rand();
+
+/*for proj3 part 3 Monitor syscalls*/
+int CreateMonitor();
+int DestroyMonitor(int mvid);
+int SetMonitor(int mvid, int arrindex, int val);
+int GetMonitor(int mvId, int arrIndex);
 
 #endif /* IN_ASM */
 
