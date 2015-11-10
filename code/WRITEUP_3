@@ -100,7 +100,7 @@ V. Testing
 		'-d p'. PageFaultException, IPTMiss, and MemoryFull head the appropriate function calls followed be 
 		relevant info. If something has already been loaded to IPT, it should say Found in IPT and then give the entry
 		and this should not immediately preceed an IPTMiss before the TLB's been written.
-		multilarge: the bad exit args with certain random seeds is likely a race condition within exec we were unable
+		multilarge: the bad exit args with certain random seeds is a race condition within exec or fork we were unable
 		to find/fix
 	
 VI. Discussion
