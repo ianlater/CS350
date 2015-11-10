@@ -13,6 +13,7 @@ I. Requirements
   	Implement a server that hold all locks, conditions, and monitors. 
   	Modify syscalls so that all syscall requests are sent to server rather than being handled by the client.
 II. Assumptions
+	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id 0.
 III. Design
 	+Virtual Memory
 	Keeping consistent with direction from the project guidelines and student documentation, we no longer preload into 
