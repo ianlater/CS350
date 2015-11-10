@@ -59,6 +59,8 @@ IV. Implementation
 		userprog/syscall.h
 	+Data structures added, and which file to
 		server.cc: ServerLock, ServerMonitor, ServerCondition
+		system.h/cc: swapBitMap
+		system.h/cc: IPTEntry class and declaration of IPT
 	+Functions added and in which file
 		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
 			   Server(), the main server function that just runs forever in while loop
