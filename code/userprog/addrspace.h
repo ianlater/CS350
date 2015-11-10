@@ -22,6 +22,7 @@
 #define MaxOpenFiles 256
 #define MaxChildSpaces 256
 
+class PTEntry;
 class AddrSpace {
   public:
     AddrSpace(OpenFile *executable);	// Create an address space,
@@ -48,14 +49,15 @@ class AddrSpace {
     void DestroyStack(int threadNum);
 
 
- private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
+    PTEntry* pageTable;	// Assume linear page table translation
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
     int processID;  //added by JACK to use as key in processTable
 
     int baseDataSize;
+
+    OpenFile* executable;//step3 stop preloading to memory
 };
 
 

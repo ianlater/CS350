@@ -38,6 +38,7 @@
 //    -n sets the network reliability
 //    -m sets this machine's host id (needed for the network)
 //    -o runs a simple test of the Nachos network software
+// 	NEW in project 3: -P {FIFO|RAND} changes evict routine
 //
 //  NOTE -- flags are ignored until the relevant assignment.
 //  Some of the flags are interpreted here; some in system.cc.
@@ -141,8 +142,21 @@ main(int argc, char **argv)
 	}
 #endif // FILESYS
 #ifdef NETWORK
-        if (!strcmp(*argv, "-o")) {
+	if (strcmp(*argv, "-P")==0) {
+		ASSERT(argc > 1);
+		if (strcmp(*(argv + 1), "RAND")== 0) {
+			//set randEvictPolicy to true 
+			randEvictPolicy = true;	
+		}
+		else if (strcmp(*(argv + 1), "FIFO")==0) {
+			//set randEvictPolicy to false
+			randEvictPolicy = false;
+		}
+	
+	}
+       else if (!strcmp(*argv, "-o")) {
 	    ASSERT(argc > 1);
+	
             Delay(2); 				// delay for 2 seconds
 						// to give the user time to 
 						// start up another nachos

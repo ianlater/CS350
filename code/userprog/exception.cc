@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <iostream>
 #include <sstream>
-
+#include <queue>
 using namespace std;
 
 const int TABLE_SIZE = 200;//shoud there be a max size?
@@ -94,6 +94,11 @@ Process* mainProcess = new Process(1);
 int numProcesses = 1;
 bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
+
+int currentTLB = 0;
+std::queue<int> evictQueue; //FIFO queue for page eviction
+
+int swapOffset = 0; //counter for where in swap to write to 
 
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
@@ -174,10 +179,11 @@ void Kernel_Thread(int func)
  //printf("ACQUIRED LOCK: %s\n", currentThread->getName());
  //printf("KERNELTHREAD\n");
   //set up my registers
-  currentThread->space->InitRegisters();//zero out
+  //currentThread->space->InitRegisters();//zero out
   machine->WriteRegister(PCReg, func);
   machine->WriteRegister(NextPCReg, func + 4);
-  //TODO optimize the follwoing line. lots of arrows...
+    currentThread->space->RestoreState();
+//TODO optimize the follwoing line. lots of arrows...
   int currentProcess = currentThread->space->getID();
   int thisThread = currentThread->getID();
   //printf("CREATESTACK");
@@ -190,7 +196,6 @@ void Kernel_Thread(int func)
   */
 
   machine->WriteRegister(StackReg, stackLoc);  
-  currentThread->space->RestoreState();
  ProcessLock->Release(); 
 
  machine->Run();//now, use the registers i set above and LIVE
@@ -1095,6 +1100,7 @@ void Exit_Syscall(int status){
 
 	*/
   // currentThread->Finish();
+  printf("Exit::arg: %i\n", status);
   ProcessLock->Acquire();
  
   int thisThread = currentThread->getID();
@@ -1319,6 +1325,213 @@ void Close_Syscall(int fd) {
       printf("%s","Tried to close an unopen file\n");
     }
 }
+int pageToEvict()
+{
+	//random for now
+	//change to check for queue implementation later
+	if (randEvictPolicy)	return rand()%32;
+	else {
+		//FIFO
+		int page = evictQueue.front();
+		evictQueue.pop();
+		return page;
+	}
+}
+//step 4
+int handleMemoryFull(int neededVPN)
+{
+	DEBUG('p',"Memory full \n");
+	int ppn = -1;
+	int evict = pageToEvict();
+	
+	
+	if (swapFile == NULL)
+	{
+		DEBUG('p',"    Init swapfile\n");
+			//Open file (
+		OpenFile *executable;			// The new open file
+		int id;				// The openfile id
+		swapFileName = "../vm/SwapFile";
+		if (!swapFileName) {
+			printf("%s","SwapFileName null\n");
+			return -1;
+		}
+	   
+	   swapFile = fileSystem->Open(swapFileName);
+		if ( swapFile == NULL ) {
+		  //if ((id = currentThread->space->fileTable.Put(executable)) != -1 ) {
+		  //	  printf("%s\n", "Exec::Error: fielTable problem");
+		  //	  return -1;
+		  //	}
+		  // } else {
+		   printf("Unable to open swapfile %s\n", swapFileName);
+		   return -1;
+		}
+	}
+	if (IPT[evict].dirty)
+	{
+		//NOTE: the page you select to evict may belong to your process.
+		//if that's the case, then the page to evict may be present in the TLB.
+		//if it is, propagate the dirty bit to the IPT and invalidate that TLB entry. be sure to update the page table for the evicted page.
+		int sppn = swapBitMap->Find();	
+		//copy a paged size chunk from Nachos main memory into the swap file
+		DEBUG('p',"WriteAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", IPT[evict].physicalPage*PageSize, PageSize,  PageSize*sppn);
+		swapFile->WriteAt(&(machine->mainMemory[IPT[evict].physicalPage*PageSize]), PageSize, PageSize*sppn); 
+		//keep track of it in bit map to keep track of where in the swap file a particular page has been placed
+		//not sure what to do w bit map here swapBitMap->		
+	//update the proper page table for the evicted page
+		currentThread->space->pageTable[IPT[evict].virtualPage].byteOffset = PageSize*sppn;
+		currentThread->space->pageTable[IPT[evict].virtualPage].diskLocation = 1; //in swap file
+		currentThread->space->pageTable[IPT[evict].virtualPage].valid = true;//can be written over again
+	}
+	return currentThread->space->pageTable[IPT[evict].virtualPage].physicalPage;//is this sufficient? rest is handled by handlePageMiss?
+}
+//step 3
+int handleIPTMiss(int neededVPN)
+{
+	DEBUG('p',"IPT miss\n");
+	int ppn = -1;
+	ppn = freePageBitMap->Find();  //Find a physical page of memory
+
+	//step 4
+	if ( ppn == -1 ) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+            ppn = handleMemoryFull(neededVPN);
+		(void)interrupt->SetLevel(oldLevel);//reenable interrupts
+        }
+        
+     	//add to evict queue if using FIFO implementation
+	if (!randEvictPolicy)
+		evictQueue.push(ppn);
+
+        //read values from page table as to location of needed virtual page
+        //copy page from disk to memory, if needed
+		
+	DEBUG('p',"Current thread space diskLocation: %i\n", currentThread->space->pageTable[neededVPN].diskLocation);
+	if (currentThread->space->pageTable[neededVPN].diskLocation == 0) {
+		//in executable
+		DEBUG('p',"ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
+		currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
+	} else if(currentThread->space->pageTable[neededVPN].diskLocation == 1)
+	{
+		DEBUG('p',"ReadAt: ppn*PageSize:%i (pageSize:%i), byteOffset:%i\n", ppn*PageSize, PageSize, currentThread->space->pageTable[neededVPN].byteOffset);
+		swapFile->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , currentThread->space->pageTable[neededVPN].byteOffset);
+	}
+	currentThread->space->pageTable[neededVPN].physicalPage = ppn;
+	currentThread->space->pageTable[neededVPN].valid =TRUE;
+
+	IPT[ppn].virtualPage = neededVPN;	
+	IPT[ppn].physicalPage = ppn;
+	IPT[ppn].valid = TRUE;
+	IPT[ppn].use = FALSE;
+	IPT[ppn].dirty = FALSE;
+	IPT[ppn].readOnly = FALSE;
+	IPT[ppn].owner = currentThread->space;
+	DEBUG('p',"in ipt miss::ppn: %i, IPT[ppn].virtualPage: %i,  IPT[ppn].physicalPage: %i\n", ppn, IPT[ppn].virtualPage, IPT[ppn].physicalPage);
+
+	
+	/*
+	To handle the IPT miss, you must allocate a page of memory (BITMAP Find()). You then go to the page table entry for the needed virtual page to find out where the page is located on disk (if it is there). However, the page table doesn't have this information. Just like with the IPT, you have to create a new class, that inherits from TranslationEntry, to hold the new fields that you need.
+	There are two types of data that you need to add to your page table entry:
+		byte offset: This is the location of a virtual page in the executable (in step 4, when you have a swap file, this field will also work for holding the byte offset of a page in your swap file). The value for this field in in the third argument of your executable->ReadAt statement in the AddrSpace constructor.
+		disk location: Code pages and initialized data pages are in the executable file. However, uninitialized data pages and stack pages are not. In step 4, you will also have a disk location that can be the swap file. Your data field(s) must handle all three values: swap, executable, or neither.
+	
+	These two fields are to be populated in your AddrSpace constructor instead of doing the ReadAt. The will be used when you get an IPT miss so that you will know whether to read a page from the executable, or not.
+	
+	Update the page table with the physical page number and set the valid bit to true. The valid bit is important, as you will be using it to decide which memory pages to evict on an Exit syscall.
+	*/
+	return ppn;
+}
+
+int HandlePageFault(int requestedVA)
+{
+	int neededVPN =  requestedVA/PageSize;
+	
+	if(machine->tlb == NULL) {
+		machine->tlb = new TranslationEntry[TLBSize];
+	}	
+	DEBUG('p',"Page Fault Exception:\n");
+	int ppn = -1;
+	DEBUG('p',"    calculated neededVPN: %i, BadVaddrReg: %i\n", neededVPN, requestedVA);
+	//check if requestedVA is in currentThread->space somehow
+	//ProcessLock->Acquire();	
+	IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts instead of lock (mentioned in class better than lock in this case)
+
+	//search for neededVPN in IPT
+	 for ( int i=0; i < NumPhysPages; i++ ) {
+		 //DEBUG('p',"i: %i, pt[i].virtualPage: %i,  pt[i].physicalPage: %i\n", i, currentThread->space->pageTable[i].virtualPage, currentThread->space->pageTable[i].physicalPage);
+		 //DEBUG('p',"i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+		if(IPT[i].owner == currentThread->space && IPT[i].valid == TRUE && IPT[i].virtualPage == neededVPN) {
+		    //Found the physical page we need
+					 DEBUG('p',"    Found in IPT::i: %i, Ipt[i].virtualPage: %i,  Ipt[i].physicalPage: %i Ipt[i].valid: %i\n", i, IPT[i].virtualPage, IPT[i].physicalPage, IPT[i].valid);
+
+		    ppn = IPT[i	].physicalPage;
+			break;
+		}
+	 }
+	 /*
+	 //check if in PT
+	 if(	currentThread->space->pageTable[neededVPN].virtualPage == neededVPN) {
+		    //Found the physical page we need
+		    ppn = currentThread->space->pageTable[neededVPN].physicalPage;
+	} else {
+		//PT doesn't hold vpn
+		printf("ERROR PT doesn't have vpn: i: %i, pageTable[i].virtualPage: %i,  pageTable[i].physicalPage: %i\n", neededVPN, currentThread->space->pageTable[neededVPN].virtualPage, currentThread->space->pageTable[neededVPN].physicalPage);
+	}*/
+	
+	
+	//step 3
+	if ( ppn == -1 ) {
+          ppn = handleIPTMiss( neededVPN );
+    	}
+	
+	DEBUG('p',"About to update TLB-- ppn:%i\n", ppn);
+	//Code for updating the TLB - may be in a different function
+	if(machine->tlb[currentTLB].valid){
+		IPT[machine->tlb[currentTLB].physicalPage].dirty = machine->tlb[currentTLB].dirty;
+	}
+	machine->tlb[currentTLB].virtualPage = neededVPN;
+	machine->tlb[currentTLB].physicalPage = ppn;
+	machine->tlb[currentTLB].valid = TRUE;
+	machine->tlb[currentTLB].dirty = IPT[ppn].dirty;
+	machine->tlb[currentTLB].use = IPT[ppn].use;
+
+	currentTLB = (currentTLB+1)%4; 
+	//ProcessLock->Release();	
+    (void) interrupt->SetLevel(oldLevel); 
+
+	
+	/*
+	Step 1: Populate TLB from PT
+	Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
+	Find that entry in the current thread's page table. Remember the page table is indexed by virtual page number. Just divide the virtual address from step 1 by PageSize
+	Copy the virtual and physical page numbers from the page table to the slot in the TLB. The TLB is an array of size 4. Just use successive index positions with modulus arithmetic so that the index values are 0, 1, 2, 3, 0, 1, 2, 3, 0, and so on.
+	After step 1, tests from p2 should run
+	*/
+	/*
+	Step 2: Implement IPT
+	Create IPTEntry class which inherits from TranslationEntry and adds owner plus whatever other fields you want (in system.h/.c)
+	After creating IPT array of size NumPhysPages, update it when moving data in and out of virtual memory
+	This doesn't actually happen in this function, but is added alongside page table updates in rest of code like when theres Bitmap find(), in fork, maybe exec, and AddrSpace constructor
+	In this function, replace TLB update to update from IPT instead of regular PT
+	Again can test with p2 tests
+	*/
+	/*
+	Step 3: Stop preloading into memory
+	In addrspace constructor everything was loaded to main memory. Now we should do it only on page fault exception
+	Progtest.cc closes executables after adding new process-- shuold stop that. Move declaration of executbale variable to addrspace class ? 
+	translation entry no longer sufficient. PT needs to know if page is on disk or in memory (mod PT)
+	Any place that you do a BitMap Find() - AddrSpace executable and maybe Fork syscall, comment out the Find(). Also, don't set the physicalPage value, since you aren't doing the Find(). 
+	You will do the Find() and the setting of the physicalPage argument on a PageFaultException and an IPT miss.
+	*/
+	/*
+	Step 4: Demanded Page Virtual Memory
+	Reduce NumPhysPages back to 32 in machine.h
+	In IPT miss, bitmap find may result in -1 
+	*/
+	
+	return ppn;
+}
 
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
@@ -1458,13 +1671,22 @@ void ExceptionHandler(ExceptionType which) {
 #endif/*NETWORK*/
 	}
 
-	// Put in the return value and increment the PC
-	machine->WriteRegister(2,rv);
-	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
-	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
-	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
-	return;
-    } else {
+		// Put in the return value and increment the PC
+		machine->WriteRegister(2,rv);
+		machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
+		machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
+		machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
+		return;
+    } 
+	else if (which == PageFaultException)
+	{
+		//Get the virtual page required by dividing the virtual address by the page size. This comes from Nachos register 39, or BadVAddrReg
+		rv = HandlePageFault(machine->ReadRegister(BadVAddrReg));
+		
+		//machine->WriteRegister(2,rv);
+		return;
+	} 
+	else {
       cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<<endl;
       interrupt->Halt();
     }

@@ -19,6 +19,27 @@ Address space page table can only accomodate up to 50 thread stacks.
 
 III. Design
 
+#Syscalls and Exception.cc structure#
+In implementing Fork, Exec, and Exit we understood that a Process Table is absolutely necessary. Furthermore, we understood that Fork and Exec 
+populate the ProcessTable (where Fork adds a new thread and Exec adds a new Process with one thread) where Exit takes away from the Process Table (by either
+just removing a thread, removing and cleaning up a process, or ending the program when there are no more processes). This producer-consumer relationship helped me
+implement these three syscalls with some symmetry, as well as carefully manage the shared ProcessTable with a ProcessLock local to Exception.cc.
+
+Furthermore, another huge hurdle was managing how stack was allocated and deallocated. To do this, I first made the choice to construct AddrSpace with a fixed size
+PageTable (with room for 50 additional stacks) and, upon construction, only set the first stack as well as the executable code and data pages to be valid = true, with a good ppn
+produced by a bitmap.find(). With stacks being constructed upon Addrspace construction, I then created two functions in AddrSpace, CreateStack and DestroyStack, that could be called
+within the Fork and Exec syscalls to allocate or deallocate stack by setting the next 8 virtual pages with a ppn and valid = true. Both these functions are called by the newly created thread
+or process by doin an internal nachos Fork. 
+
+For creating Locks and CV's, we created a KernelLock and KernelCV data structure that held the actual lock/cv as well as a pointer to the address space
+of the thread that created it. This pointer is used to check who owns each lock/cv. Implementing the syscalls that did lock/cv interactions was mostly a matter of sever bulletprrofing and error checking.
+These data structs also had a bool to check if they should be deleted, as deleting a lock or cv immediately, especially if they had a populated waitQ, is bad. 
+
+When testing these tricky syscalls, writing userprogram tests to test every little interaction proved a huge help. Creating small fork, exec, and lock sharing test illustrated errors in our bulletprrofing that have since been fixed.
+Additionally, using the Print syscall we wrote helped us visualize data as we went along. 
+
+Stacks were carefully managed and debugged to make sure they were always at the right location, always 8 pages apart, and allocated and deallocated correctly. Then rigorously tested from there.
+
 #Passport Office#
 Lacking dynamic allocation, entities are created and given id's based on order of creation. Because this requires a counter, 
 there is a createLock that is acquired by each entity before their creation and released at the beginning of their run function,
@@ -53,12 +74,14 @@ IV. Implementation
   Process ProcessTable, KernelLock LockTable, KernelCondition ConditionTable added to Exception.cc
   BitMap* freePageBitMap added to system.h/system.cc
 	+Data Structures modified, and the file added to
-	
+	threads/thread.h: given private int ID
+	userprog/addrspace.h: given private int ID
 	
 	+Functions added and in which file
-	userprog/addrspace.h: getId(), setID(int), getNumPages(), setNumPages(int), getBaseDataSize(), CreateStack(int)
+	userprog/addrspace.h: getId(), setID(int), getNumPages(), setNumPages(int), getBaseDataSize(), CreateStack(int), DestroyStack(int)
 	userprog/exception.cc: KernelThread(int), Fork_Syscall(int),Yield_Syscall(), CreateLock_Syscall(int, int), Acquire_Syscall(int), Release_Syscall(int), DestroyLock_Syscall(int), CreateCondition_Syscall(int, int), DestroyCondition_Syscall(int), Wait_Syscall(int, int), Signal_Syscall(int, int), Broadcast_Syscall(int, int), Print_Syscall(int, int, int, int), PrintInt_Syscall(int, int, int, int), Rand_Syscall(), Exec_Thread(), Exec_Syscall(int, int),Exit_Syscall(int)
 	userprog/syscall.h: CreateLock(char*, int), DestroyLock(int), Acquire(int), Release(int), CreateCondition(int), DestroyCondition(int), Signal(int, int), Wait(int, int), Broadcast(int, int), Print(char*, int, char*, char*), PrintInt(char*, int, char*, char*),Rand
+	threads/thread.h: getID(), setID(int)
 	
 	+Functions modified and in which file
 	userprog/exception.cc: ExceptionHandler
@@ -76,6 +99,7 @@ V. Testing
 	tests/fork: three different fork calls to test different functions being called. Then, a loop of 40 times forking the same function. The Fork syscall is able to hold up these amounts of threads properly.
 	tests/exec: five exec calls. The first two halt. The next is an invalid exec call which should cause an error message. The last two calls simply exec the fork test.
 	tests/passport: runs a modified, converted version of passport office from part 1. More information on this will be described below.
+	tests/locksharing: ensures that locks can only be acquired by the user program that created them. Also, attempts to acquire random numbers for locks will be givern error readouts.
 	
 VI. Discussion
 	+Experiment expectation (What is supposed to happen)
@@ -90,9 +114,10 @@ VI. Discussion
 	
 	+Experiment result. (What actually happened)
 	* Passport Office:
-		* For tested seeds, the result was as expected 
+		* For unseeded test, the results were as expected. Seeded results pulled up errors in lock acquires and condition waits.
+		* For seeded tests, there is frequently a mismatch of condition and lock in the Wait call for when the clerks go on break--this causes an infinite loop. We spent a while trying to debug this but couldn't figure out the source of the problem. We suspect it has to do with the KernelLock/Condition tables.
 	* Multi Passport Office:
-		* 
+		* Doesn't work, has shared memory errors--also couldn't deduce the cause behind these problems. Exec has worked in our tests, but not in running passport office. We suspect it might have to do with sizes.
 		
 	+Explanation
 		

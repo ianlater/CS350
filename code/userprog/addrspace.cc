@@ -117,7 +117,8 @@ SwapHeader (NoffHeader *noffH)
 //      constructed set to false.
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+AddrSpace::AddrSpace(OpenFile *exec) : fileTable(MaxOpenFiles) {
+    executable = exec;
     NoffHeader noffH;
     unsigned int i, size;
 
@@ -133,14 +134,14 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
     
-    baseDataSize = size;//something to use publicly to find my stack
+    baseDataSize = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);//(old numPages w/1 stack) something to use publicly to find my stack
     //TESTING JACK REMOVED * 50 in front of divroundup below
     numPages = divRoundUp(size, PageSize) +  divRoundUp(UserStackSize,PageSize);
                                                 // we need to increase the size
 						// to leave room for the stack
     size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
+    //ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
@@ -148,23 +149,43 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages + (50 * 8)];
-    for (i = 0; i < numPages; i++) {
-      int ppn = freePageBitMap->Find();
+    pageTable = new PTEntry[numPages + 50*8];
+	int executableBound = divRoundUp(noffH.code.size + noffH.initData.size, PageSize);
+	DEBUG('a', "addrspace constructor:: executableBound(divRoundUp(code.size+initData.size,PageSize)):%i \n", executableBound);
+    for (i = 0; i < numPages +50*8; i++) {
+      /*
+	  int ppn = freePageBitMap->Find();
       //printf("PPN: %d\n", ppn);
       if(ppn < 0){
         printf("BitMap Find returned <0. OUT OF MEMORY/n");
-	interrupt->Halt();
+		interrupt->Halt();
       }
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = ppn;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-	executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
+	*/
+		pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
+		pageTable[i].physicalPage = -1;
+		pageTable[i].valid = TRUE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+						// a separate page, we could set its 
+						// pages to be read-only
+		pageTable[i].byteOffset = 40 + (i*PageSize);//location of VP in executable
+		if (i < executableBound){
+			pageTable[i].diskLocation = 0; //0=executable;
+		} else {
+			pageTable[i].diskLocation = 2; //2=neither swap nor executable
+		}
+		/*
+		//Populate IPT: don't set ppn yet
+		IPT[i].virtualPage = i;	
+		//IPT[i].physicalPage = ppn;
+		IPT[i].valid = FALSE;
+		IPT[i].use = FALSE;
+		IPT[i].dirty = FALSE;
+		IPT[i].readOnly = FALSE;
+		IPT[i].owner = this; //set owner to this addrspace. is this necessary not in constructor?
+		*/
+		//executable->ReadAt(&(machine->mainMemory[ppn*PageSize]) , PageSize , 40 + (i*PageSize));
     }
     
 // zero out the entire address space, to zero the unitialized data segment 
@@ -196,23 +217,60 @@ int AddrSpace::CreateStack(int thread)
   int stackLoc;
   //set up 8 pages for this new thread's stack
   int ppn;
-  for(int i = 0; i<8; i++)
-    {
-      ppn = freePageBitMap->Find();
-      if(ppn < 0)
-	{
-	  printf("CreateStack::Bitmapfind returned out of memory\n");
-	  interrupt->Halt();
-	}
-      pageTable[thread].virtualPage = thread;
-      pageTable[thread].physicalPage = ppn;
-      pageTable[thread].valid = TRUE;
-      pageTable[thread].use = FALSE;
-      pageTable[thread].dirty = FALSE;
-      pageTable[thread].readOnly = FALSE;
-
-      thread++;
-    }
+  /*
+  numPages += 8;
+  PTEntry* temp = new PTEntry[numPages];
+  for (int i=0;i<numPages; i++){
+	  if (i < numPages - 8){
+		  temp[i].virtualPage = pageTable[i].virtualPage;
+		  temp[i].physicalPage = pageTable[i].physicalPage;
+		  temp[i].valid =  pageTable[i].valid;
+		  temp[i].dirty =  pageTable[i].dirty;
+		  temp[i].use =  pageTable[i].use;
+		  temp[i].readOnly =  pageTable[i].readOnly;
+		  temp[i].byteOffset = pageTable[i].byteOffset;
+		  temp[i].diskLocation = pageTable[i].diskLocation;
+	  } else {
+		temp[i].virtualPage = i;	// for now, virtual page # = phys page #
+		//pageTable[i].physicalPage = ppn;
+		temp[i].valid = TRUE;
+		temp[i].use = FALSE;
+		temp[i].dirty = FALSE;
+		temp[i].readOnly = FALSE;
+		temp[i].byteOffset = 40 + (i*PageSize);//location of VP in executable
+		temp[i].diskLocation = 2; //2=neither swap nor executable
+	  }
+  }
+	  pageTable = temp;
+*/
+	  for(int i = 0; i<8; i++)
+		{
+			/*
+		  ppn = freePageBitMap->Find();
+		  if(ppn < 0)
+		{
+		  printf("CreateStack::Bitmapfind returned out of memory\n");
+		  interrupt->Halt();
+		}
+		*/
+		  pageTable[thread].virtualPage = thread;
+		  //pageTable[thread].physicalPage = ppn;
+		  pageTable[thread].valid = TRUE;
+		  pageTable[thread].use = FALSE;
+		  pageTable[thread].dirty = FALSE;
+		  pageTable[thread].readOnly = FALSE;
+		/*
+			//populate IPT because of Find()
+			IPT[ppn].virtualPage = thread;	
+			IPT[ppn].physicalPage = ppn;
+			IPT[ppn].valid = TRUE;
+			IPT[ppn].use = FALSE;
+			IPT[ppn].dirty = FALSE;
+			IPT[ppn].readOnly = FALSE;
+			IPT[ppn].owner = this;
+		*/
+		  thread++;
+		}
   stackLoc = (PageSize * thread) -16;
 
   return stackLoc;
@@ -223,14 +281,33 @@ int AddrSpace::CreateStack(int thread)
 //-------
 void AddrSpace::DestroyStack(int thread)
 {
-  for(int i = 0; i < 8; i++)
+  for(int i = 0; i <8; i++)
     {
-      freePageBitMap->Clear(thread);
+		  thread--;
+
+/*
+		for (int j = 0; j<numPages+50*8;j++){	
+			printf("PT[j].vpn:%i, PT[j].ppn:%i, PT[j].valid:%i\n", pageTable[j].virtualPage, pageTable[j].physicalPage, pageTable[j].valid);
+			if (pageTable[j].virtualPage == thread ){
+						printf("HIT::PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[j].virtualPage, pageTable[j].physicalPage, pageTable[j].valid);
+			}
+		}
+*/
+		int ppn = pageTable[thread].physicalPage;
+/*
+		DEBUG('p',"PT[thread].vpn:%i, PT[thread].ppn:%i, PT[thread].valid:%i\n", pageTable[thread].virtualPage, pageTable[thread].physicalPage, pageTable[thread].valid);
+		DEBUG('p',"IPT[pt].vpn:%i, IPT[pt].ppn:%i, IPT[pt].valid:%i\n", IPT[ppn].virtualPage, IPT[ppn].physicalPage, IPT[ppn].valid);
+*/
       if(pageTable[thread].valid)
-	{
-	  pageTable[thread].valid = FALSE;
-	}
-      thread++;
+		{
+		  pageTable[thread].valid = FALSE;
+		}
+		if (IPT[ppn].valid)
+		{
+			DEBUG('p', "clearing used stack ppn:%i\n", ppn);
+			IPT[thread].valid = FALSE;//is this supposed to be there?
+			freePageBitMap->Clear(ppn);
+		}
     }
 }
 
@@ -274,7 +351,7 @@ AddrSpace::InitRegisters()
    // Set the stack register to the end of the address space, where we
    // allocated the stack; but subtract off a bit, to make sure we don't
    // accidentally reference off the end!
-    machine->WriteRegister(StackReg,  baseDataSize + UserStackSize - 16);//changed to not use numPages by JACK
+    machine->WriteRegister(StackReg,  baseDataSize*PageSize - 16);//changed to not use numPages by JACK// moved to old numPages by Ian
     DEBUG('a', "Initializing stack register to %x\n", numPages * PageSize - 16);
 }
 
@@ -287,7 +364,16 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState() 
-{}
+{
+    IntStatus old = interrupt->SetLevel(IntOff);
+    for(int i = 0; i < TLBSize; i ++) {
+        if(machine->tlb[i].valid){
+			IPT[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
+		}
+        machine->tlb[i].valid = false;
+    }
+    (void) interrupt->SetLevel(old);
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -299,6 +385,6 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable;
-    machine->pageTableSize = numPages;
+    //machine->pageTable = pageTable;
+   // machine->pageTableSize = numPages;
 }

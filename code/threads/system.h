@@ -15,8 +15,8 @@
 #include "interrupt.h"
 #include "stats.h"
 #include "timer.h"
-#include "../userprog/addrspace.h"
-//#include "../userprog/table.h"
+#include "translate.h"
+//#include "../userprog/addrspace.h"
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -32,6 +32,22 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
 extern BitMap* freePageBitMap;      //made by JACK for finding empty page
+extern BitMap* swapBitMap;	//made by Carrie for swap bit map find
+extern char* swapFileName; //for finding or initializing swapfile
+class IPTEntry : public TranslationEntry { //IPT
+	public:
+	AddrSpace * owner;
+	
+};
+class PTEntry : public TranslationEntry {
+  public:
+	int byteOffset; //loc of VP in executable
+	int diskLocation;//keep track of whether in disk, swap file, or neither
+};
+
+extern IPTEntry* IPT;
+extern bool randEvictPolicy;
+
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers
@@ -40,6 +56,7 @@ extern Machine* machine;	// user program memory and registers
 #ifdef FILESYS_NEEDED 		// FILESYS or FILESYS_STUB 
 #include "filesys.h"
 extern FileSystem  *fileSystem;
+extern OpenFile* swapFile;	//inserted by Carrie, does this belong here?
 #endif
 
 #ifdef FILESYS
@@ -54,14 +71,3 @@ extern PostOffice* postOffice;
 
 
 #endif // SYSTEM_H
-
-/*
-class Lock;
-class AddrSpace;
-
-struct KernelLock{
-		Lock* lock;
-		AddrSpace * addrspace;
-
-}           
-*/

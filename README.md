@@ -6,4 +6,4 @@
 * Jack Lucas - johnluca@usc.edu - 5194054637
 
 ###Conventions
-* start private/member variables w/ '_'
+* start private/member variables w/ '_' (P1)

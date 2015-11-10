@@ -20,9 +20,16 @@ Timer *timer;				// the hardware timer device,
 
 BitMap* freePageBitMap;
 					// for invoking context switches
+BitMap* swapBitMap;
+IPTEntry* IPT;
+
+char* swapFileName = "SwapFile";			//name of the swap file
+bool randEvictPolicy = true;			//true if using random, false if using FIFO. based on command line arg. default is true
+
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
+OpenFile* swapFile; 			//not sure if this belongs here. only here because the include of filesys in system.h in this macro by Carrie
 #endif
 
 #ifdef FILESYS
@@ -169,6 +176,18 @@ Initialize(int argc, char **argv)
 #endif
 
     freePageBitMap = new BitMap(NumPhysPages);
+	swapBitMap = new BitMap(1000);//arbitrary big number, "assume swap never fills up" make bigger if necessary   
+ IPT = new IPTEntry[NumPhysPages];
+	//open swap file here
+	swapFileName = new char[5];
+	//there has got to be a better way to do this... but for now..
+	swapFileName[0] = 's';
+	swapFileName[1] = 'w';
+	swapFileName[2] = 'a';
+	swapFileName[3] = 'p';
+	swapFileName[4] = '/0'; 
+	swapFile = fileSystem->Open(swapFileName);
+	//need to test reading from swap file. do so in exception.cc
 }
 
 //----------------------------------------------------------------------
