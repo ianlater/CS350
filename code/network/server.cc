@@ -710,11 +710,15 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
 
   return 0;
 }
-
-/*MAIN SERVER RUN FUNCTION*/
-void Server()
+/*COMMUNICATES WITH OTHER SERVERS ONLY*/
+void ServerToServer()
 {
-  printf("SERVER STARTED\n");
+  printf("INTER-SERVER STARTED\n");
+}
+/*COMMUNICATES WITH CLIENTS ONLY*/
+void ServerToClient()
+{
+ printf("SERVER STARTED\n");
   while(true)
     {
     PacketHeader outPktHdr, inPktHdr;
@@ -911,4 +915,17 @@ void Server()
     //2. use stringstream on buffer to get what type of syscall it is
     //3. use switch statement to get to that syscall, and actually call syscall
     ////ex. if CL, get name out of ss, and call doCreateLock, which calls syscall?
+}
+/*MAIN SERVER RUN FUNCTION, called by -server cmd line*/
+void Server()
+{
+  Thread* t;
+ 
+ //thread to handle server client
+  t = new Thread("client-server thread");
+  t->Fork((VoidFunctionPtr)ServerToClient, 0);
+  
+//for project 4, fork inter-server thread
+  t = new Thread("interserver Thread");
+  t->Fork((VoidFunctionPtr)ServerToServer, 0);
 }
