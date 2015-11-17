@@ -19,7 +19,7 @@ main()
 {
     Exec("../test/matmult",15);
     Exec("Bark", 4);
-    Exec("../test/halt",12);
+    /*Exec("../test/halt",12);*/
     /*dont know how to stop exec negative*/
     /* not reached */
 }

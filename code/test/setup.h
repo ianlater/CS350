@@ -17,65 +17,58 @@ typedef enum
 /*struct declarations*/
 struct Clerk
 {
-  int type;/*represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassportClerk (used to to facilitate abstract use of clerk)*/
-  char* name;
-  int id;
+  int type = CreateMonitor(1);/*represents type of clerk 1 = ApplicationClerk, 2 = PictureClerk, 3 = PassportClerk (used to to facilitate abstract use of clerk)*/
+  int id = CreateMonitor(1);
 };
 
 struct Customer
 {
-  char* name;
-  int money;
-  int myLine;/*-1 represents not in a line*/
-  int id;
-  int ssn; /*unique ssn for each customer*/
-  int credentials[NUM_CLERK_TYPES];
-  bool rememberLine;
-  bool isBribing;
-  bool isSenator;
+  int money = CreateMonitor(1);
+  int myLine = CreateMonitor(1);/*-1 represents not in a line*/
+  int id = CreateMonitor(1);
+  int ssn = CreateMonitor(1); /*unique ssn for each customer*/
+  int credentials = CreateMonitor(NUM_CLERK_TYPES);
+  bool rememberLine = CreateMonitor(1);
+  bool isBribing = CreateMonitor(1);
+  bool isSenator = CreateMonitor(1);
 };
 
 struct Manager
 {
-  char* name;
 };
 
-/*
-Monitor setup:
-array of lock(ptrs) for each clerk+their lines
-*/
+/*Lock and Condition Variables*/
+/* Values refer lock or condition index */
+int clerkLock = CreateMonitor(NUM_CLERKS);
+int clerkLineLock = CreateMonitor(1);
+int outsideLock = CreateMonitor(1);
+int senatorLock = CreateMonitor(1);
+int createLock = CreateMonitor(1); /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
 
-int clerkLock[NUM_CLERKS];
-int clerkLineLock = -1;
-int outsideLock = -1;
-int senatorLock = -1;
-int createLock = -1; /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
-
-/*Condition Variables*/
-int clerkLineCV[NUM_CLERKS ];
-int clerkBribeLineCV[NUM_CLERKS];
-int clerkCV[NUM_CLERKS];/*I think we need this? -Jack*/
-int clerkBreakCV[NUM_CLERKS] ; /*CV for break, for use with manager*/
-int senatorCV = -1;
+int clerkLineCV = CreateMonitor(NUM_CLERKS);
+int clerkBribeLineCV = CreateMonitor(NUM_CLERKS);
+int clerkCV = CreateMonitor(NUM_CLERKS);/*I think we need this? -Jack*/
+int clerkBreakCV  = CreateMonitor(NUM_CLERKS); /*CV for break, for use with manager*/
+int senatorCV = CreateMonitor(1);
 
 /*Monitor Variables*/
-int clerkLineCount[NUM_CLERKS] = {0};/*start big so we can compare later*/
-int clerkBribeLineCount[NUM_CLERKS] = {0};
-int clerkState[NUM_CLERKS] = {0};/*keep track of state of clerks with ints 0=free,1=busy,2-on breaK /*sidenote:does anyone know how to do enums? would be more expressive?*/
-int totalEarnings[NUM_CLERK_TYPES] = {0};/*keep track of money submitted by each type of clerk*/
-int customersInBuilding = 0;
-int clerksInBuilding = 0;
-int managersInBuilding = 0;
-int senatorsAlive = 0;
-bool senatorInBuilding = false;
-int clerkCurrentCustomer[NUM_CLERKS];/*relate clerk id to customer id*/
-int clerkCurrentCustomerSSN[NUM_CLERKS];/*relate clerk id to customer ssn*/
-int currentSenatorId = -1;
-int i;/*iterator for loops*/
-bool simulationStarted = false;/*so simulation doesn't end before customers enter*/
-bool simulationEnded = false;
+int clerkLineCount = CreateMonitor(NUM_CLERKS);/*start big so we can compare later*/
+int clerkBribeLineCount = CreateMonitor(NUM_CLERKS);
+int clerkState = CreateMonitor(NUM_CLERKS);/*keep track of state of clerks with ints 0=free,1=busy,2-on breaK /*sidenote:does anyone know how to do enums? would be more expressive?*/
+int totalEarnings[NUM_CLERK_TYPES] = CreateMonitor(NUM_CLERK_TYPES);/*keep track of money submitted by each type of clerk*/
+int customersInBuilding = CreateMonitor(1);
+int clerksInBuilding = CreateMonitor(1);
+int managersInBuilding = CreateMonitor(1);
+int senatorsAlive = CreateMonitor(1);
+bool senatorInBuilding = CreateMonitor(1);
+int clerkCurrentCustomer = CreateMonitor(NUM_CLERKS);/*relate clerk id to customer id*/
+int clerkCurrentCustomerSSN = CreateMonitor(NUM_CLERKS);/*relate clerk id to customer ssn*/
+int currentSenatorId = CreateMonitor(1);
+bool simulationStarted = CreateMonitor(1);/*so simulation doesn't end before customers enter*/
+bool simulationEnded = CreateMonitor(1);
 
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
-struct Clerk clerks[NUM_CLERKS];/*global array of clerks*/
-struct Customer customers[NUM_CUSTOMERS];
-struct Manager manager;
+/* MV to keep track of entities. Values refer to mailbox# of entity. */
+int clerks = CreateMonitor(NUM_CLERKS);
+int customers = CreateMonitor(NUM_CUSTOMERS);
+int manager = CreateMonitor(1);
