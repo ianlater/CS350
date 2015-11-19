@@ -151,7 +151,6 @@ int picApproval;
 void Customer_Run(struct Customer* customer)
 {
   simulationStarted = true;
-  Release(createLock);
   while(true)
   {
 	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
@@ -159,40 +158,46 @@ void Customer_Run(struct Customer* customer)
 	pickLine(customer);
 	/*now, myLine is the index of the shortest line*/
 	/*if the clerk is busy or on break, get into line*/
-	if (clerkState[customer->myLine] != 0) {
+	if (GetMonitor(clerkState, customer->myLine) != 0){
 		if(customer->isBribing)
 		  {
-			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, customer->id, clerks[customer->myLine].id);
-			clerkBribeLineCount[customer->myLine]++;
+		  	int myLineBribeCount = GetMonitor(clerkIds, customer->myLine);
+			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, customer->id, myLineBribeCount);
+			SetMonitor(clerkBribeLineCount, customer->myLine, myLineBribeCount + 1 );
 			
-		    Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+		    Wait(clerkLineLock, GetMonitor(clerkBribeLineCV, customer->myLine));
+		    myLineBribeCount = GetMonitor(clerkBribeLineCount, customer->myLine);
 			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, customer->id, clerks[customer->myLine].id);
-		    clerkBribeLineCount[customer->myLine]--;
-		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, clerkBribeLineCount[customer->myLine]);
+		    SetMonitor(clerkBribeLineCount, customer->myLine, myLineBribeCount-1);
+		    myLineBribeCount--;
+		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, myLineBribeCount);
 		  }
 		else
 		  {
 			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, clerks[customer->myLine].id);
 			clerkLineCount[customer->myLine]++;
 			
-			Wait(clerkLineLock, clerkLineCV[customer->myLine]);
+			Wait(clerkLineLock, Get(clerkLineCV,customer->myLine);
 			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, customer->id, clerks[customer->myLine].id);
-			clerkLineCount[customer->myLine]--;
-			PrintInt("regular line%i count: %i\n", 26, customer->myLine, clerkLineCount[customer->myLine]);
+			int myClerkLineCount = GetMonitor(clerkLineCount, customer->myLine);
+			SetMonitor(clerkLineCount, customer->myLine, myClerkLineCount - 1);
+			myClerkLineCount--;
+			PrintInt("regular line%i count: %i\n", 26, customer->myLine, myClerkLineCount);
 		  }
 		  
 		if (senatorInBuilding) {
 		  customer->rememberLine = true;/*you're in line being kicked out by senatr. senator can't kick self out*/
   			/*make sure to signal senator who may be in line */
 			if(customer->isBribing) {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+			  Signal(clerkLineLock, GetMonitor(clerkBribeLineCV, customer->myLine));
 			}
 			else {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
+				//TODO: fix this, should be reg line?
+			  Signal(clerkLineLock, GetMonitor(clerkBribeLineCV, customer->myLine));
 			}
 			Release(clerkLineLock);
 		}
-
+		//TODO: convert rest of senator to use proper MV stuff
 		/*senator may have sent everyone out of lineCV so this nesting is for getting back in line	*/
 		checkSenator(); /*after this point senator is gone- get back in line if you were kicked out*/
 		if (customer->rememberLine) {
@@ -275,7 +280,7 @@ void pickLine(struct Customer* customer)
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
 		  /*check if the type of this line is something I need! TODO*/
-			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, clerks[i].type)) {
+			if(/*clerks[i] != NULL &&*/ isNexitClerkType(customer, clerks[i].type)) {
 			  if(clerkLineCount[i] < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
 				  customer->myLine = i;
@@ -289,15 +294,16 @@ void pickLine(struct Customer* customer)
 	    {
 	      for(i = 0; i < NUM_CLERKS; i++)
 			{
-				if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, clerks[i].type)) 
+				if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) 
 				{
-				  if(clerkBribeLineCount[i] <=  lineSize)/*for TESTING. do less than only for real*/
+					int theBribeLineCount = GetMonitor(clerkBribeLineCount, i);
+				  	if(theBribeLineCount <=  lineSize)/*for TESTING. do less than only for real*/
 					{
 					  /*PrintInt("Clerk%i: I'm BRIBING\n", name);*/
 					  customer->money -= 500;
 					  customer->myLine = i;
 					  customer->isBribing = true;
-					  lineSize = clerkBribeLineCount[i];
+					  lineSize = theBribeLineCount;
 					}
 				}
 			}
