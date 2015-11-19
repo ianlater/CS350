@@ -38,7 +38,9 @@ int main()
 
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
- clerks = CreateMonitor(NUM_CLERKS);
+ clerkIds = CreateMonitor(NUM_CLERKS);
+ clerkTypes = CreateMonitor(NUM_CLERKS);
+ 
  customers = CreateMonitor(NUM_CUSTOMERS);
  manager = CreateMonitor(1);	
  

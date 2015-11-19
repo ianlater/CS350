@@ -17,7 +17,6 @@ int CreateClerk()
 	Acquire(CreateLock);
 	id = GetMonitor(clerksInBuilding, 0);
 	SetMonitor(clerkIds, id, id);
-	SetMonitor(clerkNames,id, myName);
 	SetMonitor(clerkTypes,id, myType);
 	
 	/*clerk lock*/
