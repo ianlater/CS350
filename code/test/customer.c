@@ -5,37 +5,66 @@
 #include "setup.h"
 int a[3];
 int b, c;
-
-
+int id;//index of customer arrays to use
+//instead of an array of customers struct, use one array for each customers field
+/*
+ARRAYS:
+	c_id
+	c_ssn
+	c_name
+*/
 /* creates new customer w/ given name. should declare new customer ahead of time and place where needed. this just fills in info*/
 int CreateCustomer(char* name) 
 {	
-    customers[customersInBuilding].id = customersInBuilding;
-	customers[customersInBuilding].ssn = customersInBuilding + 1000;
+	
+	//need to acquire createLock before creating
+	createLock->Acquire();
+	id = customersInBuilding;
+	customers[id].id = id;
+	c_id[id] = id; //ID array
+	customers[id].ssn = id + 1000;
+	C_ssn[id] = id +1000; //ssn array
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	customers[customersInBuilding].name = name;
-	customers[customersInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	customers[customersInBuilding].myLine = -1;
-	customers[customersInBuilding].rememberLine = false;
-	customers[customersInBuilding].isSenator = false;
+	customers[id].name = name;
+	c_name[id] = name; //name array
+	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	c_money[id] = customers[id].money; //money array
+	customers[id].myLine = -1;
+	customers[id].rememberLine = false;
+	customers[id].isSenator = false;
+	/*strcpy(customers[customersInBuilding].name, name);
+	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
+	createLock->Release();
 	return customersInBuilding++; 
 }
 
 int CreateCustomer_WithCredentials(char* name, int* credentials) 
 {
+	createLock->Acquire();
+	//TODO: how to deal with credential arrays.
+	//possibly change them to a single variable for each customer
+	
 	for(i=0;i<NUM_CLERK_TYPES;i++) {
 	  customers[customersInBuilding].credentials[i] = credentials[i];
 	}
-    customers[customersInBuilding].id =customersInBuilding;
-	customers[customersInBuilding].ssn = customersInBuilding + 1000;
+	id = customersInBuilding;
+	customers[id].id = id;
+	c_id[id] = id; //ID array
+	customers[id].ssn = id + 1000;
+	C_ssn[id] = id +1000; //ssn array
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	customers[customersInBuilding].name = name;
-	customers[customersInBuilding].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	customers[customersInBuilding].myLine = -1;
-	customers[customersInBuilding].rememberLine = false;
-	customers[customersInBuilding].isSenator = false;
+	customers[id].name = name;
+	c_name[id] = name; //name array
+	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	c_money[id] = customers[id].money; //money array
+	customers[id].myLine = -1;
+	customers[id].rememberLine = false;
+	customers[id].isSenator = false;
+	/*strcpy(customers[customersInBuilding].name, name);
+	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
+	createLock->Release();
 	return customersInBuilding++;
 }
 
