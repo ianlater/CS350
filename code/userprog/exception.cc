@@ -27,7 +27,8 @@
 #include "synch.h"
 #include <stdio.h>
 #include <iostream>
-
+#include <sstream>
+#include <queue>
 using namespace std;
 
 const int TABLE_SIZE = 200;//shoud there be a max size?
@@ -151,7 +152,25 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 
     return n;
 }
+#ifdef NETWORK
+void sendMsgToServer(char* msg)
+{
+  PacketHeader outPktHdr;
+    MailHeader outMailHdr;
 
+    // construct packet, mail header for original message
+    // To: destination machine, mailbox 0
+    // From: our machine, reply to: mailbox 1
+    outPktHdr.to = 0;//TODO hard testing		
+    outMailHdr.to = 0;
+    outMailHdr.from = 0;//TODO set this up to mailbox id
+    outMailHdr.length = strlen(msg) + 1;
+
+    // Send the first message
+    bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
+
+}
+#endif/*NETWORK*/
 
 //use nachos thread::fork to get here from Fork
 void Kernel_Thread(int func)
@@ -274,8 +293,32 @@ ProcessLock->Release();
 	return -1;
     }
     buf[len]='\0';
+#ifdef NETWORK
+    //build message
+
+    //printf("Network CL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CL "<<buf<< " ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int lockIndex = atoi(buffer);//convert char* to int
+    
+    printf("CreateLock:: Lock Index given %d\n", lockIndex);
+    return lockIndex;
+#else
     ProcessLock->Acquire();    
-printf("\nCreateLocK::NAME:%s \n", buf);
+    printf("\nCreateLocK::NAME:%s \n", buf);
 
 	Lock* newLock = new Lock(buf);
 	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
@@ -284,6 +327,7 @@ printf("\nCreateLocK::NAME:%s \n", buf);
 	lockCounter++;
 	ProcessLock->Release();
 	return thisLock;
+#endif /*NETWORK*/
 }
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
@@ -294,6 +338,26 @@ int Acquire_Syscall(int lockIndex)
       printf("%s\n", "Acquire::ERROR: Lock Index out of bounds");
       return -1;
     }
+#ifdef NETWORK
+
+  //printf("Network AL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"AL "<<lockIndex;//TODO HERE JACK
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 1;
+#else
   KernelLock* kl = LockTable[lockIndex];
 if(!(kl))
     {
@@ -313,12 +377,33 @@ if(!(kl))
     }
   //all good to go, do acquire
   kl->lock->Acquire();
+#endif /*NETWORK*/
   return 1;
 }
 
 // Takes an integer number as an argument - the lock table index of the lock to release.
 int Release_Syscall(int lockIndex)
 {
+#ifdef NETWORK
+
+  //printf("Network RL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"RL "<<lockIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 1;
+#else
   if(lockIndex < 0 || lockIndex >= TABLE_SIZE)
     {
       printf("%s\n", "Release::ERROR: Lock Index out of bounds");
@@ -352,12 +437,31 @@ if(!(kl->lock))
       delete kl;
     }
   return 1;
+#endif/*NETWORK*/
 }
 
 // Deletes a lock from the lock table using an interger argument, IF the lock is not in use. If the lock is in use, it is eventually deleted when the lock is no longer in use.
 int DestroyLock_Syscall(int lockIndex)
 {
    /**/
+#ifdef NETWORK
+  //printf("Network DL in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DL "<<lockIndex;//TODO HERE JACK
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+    return 1;
+#else
 	if (lockIndex <0 || lockIndex >= TABLE_SIZE){
 		printf("DestroyLock::Error: Lock Index out of bounds\n");
 		return -1;
@@ -365,18 +469,18 @@ int DestroyLock_Syscall(int lockIndex)
 	KernelLock* kl = LockTable[lockIndex];
 	if(!(kl))
 	{
-		printf("%s\n", "Release::ERROR: Lock is null");
+		printf("%s\n", "Destroy::ERROR: Lock is null");
 		return -1;
 	}
 	if(!(kl->lock))
 	{
-		printf("%s\n", "Release::ERROR: Lock is null");
+		printf("%s\n", "Destroy::ERROR: Lock is null");
 		return -1;
 	}
 	//does this lock belong to current address space?
 	if(kl->addrSpace != currentThread->space)
 	{
-		printf("%s\n", "Release::ERROR: Lock does not belong to this address space");
+		printf("%s\n", "Destroy::ERROR: Lock does not belong to this address space");
 		return -1;
 	}
 	if (kl->lock->isLockWaitQueueEmpty()) {
@@ -388,6 +492,7 @@ int DestroyLock_Syscall(int lockIndex)
 	  kl->isToBeDeleted = true;
 	}
 	return 1;
+#endif/*NETWORK*/
   /**/
 }
 
@@ -418,7 +523,30 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
     buf[len]='\0';
     printf("\nCreateCV::NAME:%s\n", buf);
-  Condition* cv = new Condition(buf);
+#ifdef NETWORK
+
+    //printf("Network CCV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CCV "<<buf;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int cvIndex = atoi(buffer);//convert char* to int
+    
+    printf("CreateCV:: CV Index given %d\n", cvIndex);
+    return cvIndex;
+#else
+ Condition* cv = new Condition(buf);
   //build KernelCondtion
   KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
 
@@ -440,12 +568,30 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 	ProcessLock->Release();
 
   return thisCV;//mehh
-
+#endif/*NETWORK*/
 }
 // 
 int DestroyCondition_Syscall(int conditionIndex)
 {
 	 /**/
+#ifdef NETWORK
+  //printf("Network DCV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DCV "<<conditionIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Acquire::Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+    return 1;
+#else
 	if (conditionIndex <0 || conditionIndex >= TABLE_SIZE){
 		printf("DestroyCondition::Error: Condition Index out of bounds\n");
 		return -1;
@@ -475,7 +621,7 @@ int DestroyCondition_Syscall(int conditionIndex)
 		kc->isToBeDeleted = true;
 	}
 	return 1;
-	/**/
+#endif/*NETWORK*/
 }
 // 
 int Wait_Syscall(int lockIndex, int conditionIndex)
@@ -485,6 +631,27 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
       return -1;
     }
+#ifdef NETWORK
+
+    //printf("Network Wait in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"WCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+#else
   KernelLock* kl = LockTable[lockIndex];
 if(!(kl))
     {
@@ -524,6 +691,7 @@ if(!(kc->cv))
   //We're all good!
   kc->cv->Wait(kl->lock);
   return 1;
+#endif/*NETWORK*/
 }
 
 // 
@@ -534,6 +702,27 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
       printf("%s%d\n", "Signal::ERROR: Lock Index out of bounds:", lockIndex);
       return -1;
     }
+#ifdef NETWORK
+
+  // printf("Network Signal in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+#else
   KernelLock* kl = LockTable[lockIndex];
   if(!(kl))
     {
@@ -579,6 +768,7 @@ if(!(kc->cv))
       DEBUG('a', "Deleting CV after signalling\n");
     }
   return 1;
+#endif/*NETWORK*/
 }
 
 int Broadcast_Syscall(int lockIndex, int conditionIndex)
@@ -588,7 +778,35 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Broadcast::ERROR: Lock Index out of bounds");
       return -1;
     }
-  KernelLock* kl = LockTable[lockIndex];
+ //now, repeat for condition
+  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+    {
+      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
+      return -1;
+    }
+ #ifdef NETWORK
+
+  //printf("Network Broadcast in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;
+
+#else 
+ KernelLock* kl = LockTable[lockIndex];
   if(!(kl))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
@@ -597,12 +815,6 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
 if(!(kl->lock))
     {
       printf("%s\n", "Broadcast::ERROR: Lock is null");
-      return -1;
-    }
-  //now, repeat for condition
-  if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
-    {
-      printf("%s\n","Broadcast::ERROR: Condition Index is out of bounds");
       return -1;
     }
   KernelCondition* kc = ConditionTable[conditionIndex];
@@ -633,7 +845,104 @@ if(!(kl->lock))
       DEBUG('a', "Deleting CV after Broadcasting\n");
     }
   return 1;
+#endif /*NETWORK*/
 }
+
+#ifdef NETWORK
+/*Monitor Variable syscalls. For NETWORK USE ONLY*/
+int CreateMonitor_Syscall()
+{
+  //printf("Network CreateMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CMV "<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;//return index of MV
+}
+
+int DestroyMonitor_Syscall(int mvIndex)
+{
+  if(mvIndex < 0)
+    {
+      printf("%s\n", "mv index out of bounds");
+      return -1;
+    }
+  //printf("Network DestroyMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"DMV "<<" "<<mvIndex;
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 0;
+}
+
+int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
+{
+  //printf("Network GetMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"GMV "<<" "<<mvIndex<<" "<<mvArrayLoc<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int result = atoi(buffer);
+    return result;//return index of MV
+}
+
+
+int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
+{
+  //printf("Network SetMV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"SMV "<<" "<<mvIndex<<" "<<arrIndex<<" "<<value<<" ";
+    char* msg = (char*)ss.str().c_str();
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    return 0;
+}
+
+#endif/*MV NETWORK*/
 
 /*Print cstring from vaddr with option for cstring arguments 1 and 2. all args will only be read to the length parameter*/
 void Print_Syscall(unsigned int vaddr, int len, unsigned int arg1, unsigned int arg2) {
@@ -1044,7 +1353,7 @@ int handleMemoryFull(int neededVPN)
 			//Open file (
 	//	OpenFile *executable;			// The new open file
 		int id;				// The openfile id
-		swapFileName = "SwapFile";
+		swapFileName = "../vm/SwapFile";
 		if (!swapFileName) {
 			printf("%s","SwapFileName null\n");
 			return -1;
@@ -1150,6 +1459,10 @@ int handleIPTMiss(int neededVPN)
 int HandlePageFault(int requestedVA)
 {
 	int neededVPN =  requestedVA/PageSize;
+	if (neededVPN <0 || neededVPN >= currentThread->space->getNumPages() + 50*8) {
+		printf("PageFaultException:: Invalid vpn:%i\n", neededVPN);
+		return -1;
+	}
 	
 	if(machine->tlb == NULL) {
 		machine->tlb = new TranslationEntry[TLBSize];
@@ -1243,116 +1556,138 @@ void ExceptionHandler(ExceptionType which) {
     int rv=0; 	// the return value from a syscall
 
     if ( which == SyscallException ) {
-		switch (type) {
-			default:
-			DEBUG('a', "Unknown syscall - shutting down.\n");
-			case SC_Halt:
-			DEBUG('a', "Shutdown, initiated by user program.\n");
-			interrupt->Halt();
-			break;
-			case SC_Create:
-			DEBUG('a', "Create syscall.\n");
-			Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
-			case SC_Open:
-			DEBUG('a', "Open syscall.\n");
-			rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
-			case SC_Write:
-			DEBUG('a', "Write syscall.\n");
-			Write_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5),
-					  machine->ReadRegister(6));
-			break;
-			case SC_Read:
-			DEBUG('a', "Read syscall.\n");
-			rv = Read_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5),
-					  machine->ReadRegister(6));
-			break;
-			case SC_Close:
-			DEBUG('a', "Close syscall.\n");
-			Close_Syscall(machine->ReadRegister(4));
-			break;
-			
-			case SC_CreateCondition:
-				DEBUG('a', "Create Condition syscall. \n");
-				rv = CreateCondition_Syscall(machine->ReadRegister(4),
-							 machine->ReadRegister(5));
-			break;
-			case SC_CreateLock:
-			DEBUG('a', "Create lock syscall. \n");
-			rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
-			break;
-			case SC_DestroyLock:
-			DEBUG('a', "Destroy lock syscall. \n");
-			rv = DestroyLock_Syscall(machine->ReadRegister(4));
-			break;
-			case SC_DestroyCondition:
-			DEBUG('a', "Destroy condition syscall. \n");
-			rv = DestroyCondition_Syscall(machine->ReadRegister(4));
-			break;
-			case SC_Acquire:
-				DEBUG('a', "Acquire Lock syscall. \n");
-				rv = Acquire_Syscall(machine->ReadRegister(4));
-			break;
-			case SC_Release:
-			  DEBUG('a', "Release Lock Syscall. \n");
-			  rv = Release_Syscall(machine->ReadRegister(4));
-			  break;
-		case SC_Wait:
-		  DEBUG('a', "Wait Condition Syscall. \n");
-		  rv = Wait_Syscall(machine->ReadRegister(4),
-					machine->ReadRegister(5));
-		  break;
-		case SC_Signal:
-		  DEBUG('a', "Signal Condition Syscall. \n");
-		  rv = Signal_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5));
-		  break;
-		case SC_Broadcast:
-		  DEBUG('a', "Broadcast Condition Syscall. \n");
-		  rv = Broadcast_Syscall(machine->ReadRegister(4),
-					 machine->ReadRegister(5));
-		  break;
-			case SC_Print:
-			DEBUG('a', "Print syscall.\n");
-			Print_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5),
-					  machine->ReadRegister(6),
-					  machine->ReadRegister(7));
-			break;
-			case SC_PrintInt:
-			DEBUG('a', "PrintInt syscall.\n");
-			PrintInt_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5),
-					  machine->ReadRegister(6),
-					  machine->ReadRegister(7));
-			break;
-			
-		case SC_Exec:
-			DEBUG('a', "Exec syscall.\n");
-			rv = Exec_Syscall(machine->ReadRegister(4),
-					  machine->ReadRegister(5));
-			break;
-		case SC_Fork:
-		  DEBUG('a', "Fork syscall. \n");
-		  Fork_Syscall(machine->ReadRegister(4));
-		  break;
-		case SC_Exit:
-		  DEBUG('a', "Exit Syscall. \n");
-		  Exit_Syscall(machine->ReadRegister(4));
-		  break;
-		 case SC_Rand:
-		  DEBUG('a', "Rand Syscall. \n");
-		  rv = Rand_Syscall();
-		  break;
-			
-		 case SC_Yield:
-		  DEBUG('a', "Yield Syscall. \n");
-		  Yield_Syscall();
-		  break;
-		}
+	switch (type) {
+	    default:
+		DEBUG('a', "Unknown syscall - shutting down.\n");
+	    case SC_Halt:
+		DEBUG('a', "Shutdown, initiated by user program.\n");
+		interrupt->Halt();
+		break;
+	    case SC_Create:
+		DEBUG('a', "Create syscall.\n");
+		Create_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_Open:
+		DEBUG('a', "Open syscall.\n");
+		rv = Open_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_Write:
+		DEBUG('a', "Write syscall.\n");
+		Write_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6));
+		break;
+	    case SC_Read:
+		DEBUG('a', "Read syscall.\n");
+		rv = Read_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6));
+		break;
+	    case SC_Close:
+		DEBUG('a', "Close syscall.\n");
+		Close_Syscall(machine->ReadRegister(4));
+		break;
+		
+	    case SC_CreateCondition:
+	        DEBUG('a', "Create Condition syscall. \n");
+	        rv = CreateCondition_Syscall(machine->ReadRegister(4),
+					     machine->ReadRegister(5));
+		break;
+	    case SC_CreateLock:
+		DEBUG('a', "Create lock syscall. \n");
+		rv = CreateLock_Syscall(machine->ReadRegister(4), machine->ReadRegister(5));
+		break;
+	    case SC_DestroyLock:
+		DEBUG('a', "Destroy lock syscall. \n");
+		rv = DestroyLock_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_DestroyCondition:
+		DEBUG('a', "Destroy condition syscall. \n");
+		rv = DestroyCondition_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_Acquire:
+	        DEBUG('a', "Acquire Lock syscall. \n");
+	        rv = Acquire_Syscall(machine->ReadRegister(4));
+		break;
+	    case SC_Release:
+	      DEBUG('a', "Release Lock Syscall. \n");
+	      rv = Release_Syscall(machine->ReadRegister(4));
+	      break;
+	case SC_Wait:
+	  DEBUG('a', "Wait Condition Syscall. \n");
+	  rv = Wait_Syscall(machine->ReadRegister(4),
+			    machine->ReadRegister(5));
+	  break;
+	case SC_Signal:
+	  DEBUG('a', "Signal Condition Syscall. \n");
+	  rv = Signal_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
+	  break;
+	case SC_Broadcast:
+	  DEBUG('a', "Broadcast Condition Syscall. \n");
+	  rv = Broadcast_Syscall(machine->ReadRegister(4),
+				 machine->ReadRegister(5));
+	  break;
+	    case SC_Print:
+		DEBUG('a', "Print syscall.\n");
+		Print_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6),
+			      machine->ReadRegister(7));
+		break;
+	    case SC_PrintInt:
+		DEBUG('a', "PrintInt syscall.\n");
+		PrintInt_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5),
+			      machine->ReadRegister(6),
+			      machine->ReadRegister(7));
+		break;
+		
+	case SC_Exec:
+		DEBUG('a', "Exec syscall.\n");
+		rv = Exec_Syscall(machine->ReadRegister(4),
+			      machine->ReadRegister(5));
+		break;
+	case SC_Fork:
+	  DEBUG('a', "Fork syscall. \n");
+	  Fork_Syscall(machine->ReadRegister(4));
+	  break;
+	case SC_Exit:
+	  DEBUG('a', "Exit Syscall. \n");
+	  Exit_Syscall(machine->ReadRegister(4));
+	  break;
+	 case SC_Rand:
+	  DEBUG('a', "Rand Syscall. \n");
+	  rv = Rand_Syscall();
+	  break;
+		
+	 case SC_Yield:
+	  DEBUG('a', "Yield Syscall. \n");
+	  Yield_Syscall();
+	  break;
+#ifdef NETWORK
+	case SC_CreateMonitor:
+	  DEBUG('a', "CreateMonitor syscall.\n");
+	  rv=CreateMonitor_Syscall();
+	  break;
+	case SC_DestroyMonitor:
+	  DEBUG('a', "DestroyMonitor syscall\n");
+	  rv=DestroyMonitor_Syscall(machine->ReadRegister(4));
+	  break;
+	case SC_SetMonitor:
+	  DEBUG('a', "SetMonitor Syscall.\n");
+	  rv=SetMonitor_Syscall(machine->ReadRegister(4),
+			     machine->ReadRegister(5),
+			     machine->ReadRegister(6));
+	  break;
+	case SC_GetMonitor:
+	  DEBUG('a', "GetMonitor syscall\n");
+	  rv=GetMonitor_Syscall(machine->ReadRegister(4),
+			     machine->ReadRegister(5));
+	  break;
+
+#endif/*NETWORK*/
+	}
 
 		// Put in the return value and increment the PC
 		machine->WriteRegister(2,rv);
