@@ -21,15 +21,15 @@ int CreateCustomer(char* name)
 	createLock->Acquire();
 	id = customersInBuilding;
 	customers[id].id = id;
-	c_id[id] = id; //ID array
+	SetMonitor(c_id, id, id);
 	customers[id].ssn = id + 1000;
-	C_ssn[id] = id +1000; //ssn array
+	SetMonitor(c_ssn, id, customers[id].ssn);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	customers[id].name = name;
-	c_name[id] = name; //name array
+	SetMonitor(c_name, id, customers[id].name);
 	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	c_money[id] = customers[id].money; //money array
+	SetMonitor(c_money, id, customers[id].money);
 	customers[id].myLine = -1;
 	customers[id].rememberLine = false;
 	customers[id].isSenator = false;
@@ -50,15 +50,15 @@ int CreateCustomer_WithCredentials(char* name, int* credentials)
 	}
 	id = customersInBuilding;
 	customers[id].id = id;
-	c_id[id] = id; //ID array
+SetMonitor(c_id, id, id);
 	customers[id].ssn = id + 1000;
-	C_ssn[id] = id +1000; //ssn array
+	SetMonitor(c_ssn, id, customers[id].ssn);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	customers[id].name = name;
-	c_name[id] = name; //name array
+	SetMonitor(c_name, id, customers[id].name);
 	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	c_money[id] = customers[id].money; //money array
+	SetMonitor(c_money, id, customers[id].money);
 	customers[id].myLine = -1;
 	customers[id].rememberLine = false;
 	customers[id].isSenator = false;
