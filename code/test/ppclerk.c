@@ -9,7 +9,7 @@ int b, c;
 
 int id = -1;
 char* myName = "Clerk";
-int myType = APPLICATION_CLERK_TYPE;
+int myType = PASSPORT_CLERK_TYPE;
 int myClerkCV, myClerkLock, myClerkLineCV, myClerkBribeLineCV, myClearkBreakCV;
 
 int CreateClerk() 	
