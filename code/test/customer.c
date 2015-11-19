@@ -95,7 +95,7 @@ bool isNextClerkType(struct Customer* customer, int clerk_type)
 
 void giveData(struct Customer *customer)
 {
-	switch (clerks[customer->myLine].type) {
+	switch (GetMonitor(clerkTypes, customer->myLine)) {
 	  case APPLICATION_CLERK_TYPE:
 		PrintInt("Customer%i: may I have application please?\n", 44,  customer->id, 0);
 		if(customer->isBribing) {
@@ -167,18 +167,19 @@ void Customer_Run(struct Customer* customer)
 			
 		    Wait(clerkLineLock, GetMonitor(clerkBribeLineCV, customer->myLine));
 		    myLineBribeCount = GetMonitor(clerkBribeLineCount, customer->myLine);
-			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, customer->id, clerks[customer->myLine].id);
+			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, customer->id, GetMonitor(clerkIds, customer->myLine));
 		    SetMonitor(clerkBribeLineCount, customer->myLine, myLineBribeCount-1);
 		    myLineBribeCount--;
 		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, myLineBribeCount);
 		  }
 		else
 		  {
-			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, clerks[customer->myLine].id);
+		  	int theClerkId = GetMonitor(clerkIds, customer->myLine);
+			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, theClerkId);
 			clerkLineCount[customer->myLine]++;
 			
 			Wait(clerkLineLock, Get(clerkLineCV,customer->myLine);
-			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, customer->id, clerks[customer->myLine].id);
+			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, customer->id, theClerkId);
 			int myClerkLineCount = GetMonitor(clerkLineCount, customer->myLine);
 			SetMonitor(clerkLineCount, customer->myLine, myClerkLineCount - 1);
 			myClerkLineCount--;
@@ -213,7 +214,7 @@ void Customer_Run(struct Customer* customer)
 			  else
 			    {
 			      clerkLineCount[customer->myLine]++;
-				PrintInt("Customer%i: waiting in line for Clerk%i\n", 41, customer->id, clerks[customer->myLine].id);
+				PrintInt("Customer%i: waiting in line for Clerk%i\n", 41, customer->id, GetMonitor(clerkIds, customer->myLine));
 				Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
 				clerkLineCount[customer->myLine]--;
 			    }
@@ -221,41 +222,44 @@ void Customer_Run(struct Customer* customer)
 		}
 		/*at this point we assume won't have to go outside till finished with current clerk*/
 	}
-
+	int myClerkId = GetMonitor(clerkIds, customer->myLine);
+	int myClerkType = GetMonitor(clerkTypes, customer->myLine);
+	int myClerkLock = GetMonitor(clerkLock, customer->myLine);
+	int myClerkCV = GetMonitor(clerkCV, customer->myLine);
 	clerkState[customer->myLine] = 1;
 	Release(clerkLineLock);/*i no longer need to consume lineCount values, leave this CS*/
 
-	Acquire(clerkLock[customer->myLine]);/*we are now in a new CS, need to share data with my clerk*/
+	Acquire(myClerkLock);/*we are now in a new CS, need to share data with my clerk*/
 	clerkCurrentCustomerSSN[customer->myLine] = customer->ssn;
 	PrintInt("Customer%i has given SSN %i", 27, customer->id, customer->ssn);
-	PrintInt("to Clerk%i\n", 12, clerks[customer->myLine].id, 0);
+	PrintInt("to Clerk%i\n", 12, myClerkId, 0);
 	clerkCurrentCustomer[customer->myLine] = customer->id;
 	giveData(customer);
 	customer->isBribing = false;
-	Signal(clerkLock[customer->myLine], clerkCV[customer->myLine]);
+	Signal(myClerkLock, myClerkCV);
 	/*now we wait for clerk to do job*/
-	Wait(clerkLock[customer->myLine], clerkCV[customer->myLine]);
+	Wait(myClerkLock, myClerkCV);
 	
 	/*set credentials*/
-	customer->credentials[clerks[customer->myLine].type] = true;
-	PrintInt("Customer%i: Thank you Clerk%i\n", 31, customer->id, clerks[customer->myLine].id);
+	customer->credentials[myClerkType] = true;
+	PrintInt("Customer%i: Thank you Clerk%i\n", 31, customer->id, myClerkId);
 
-	if (clerks[customer->myLine].type == PICTURE_CLERK_TYPE) {
+	if (myClerkType == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RandOM VAL*/
 	  picApproval = Rand() % 10;/*generate Random num between 0 and 10*/
 	  if(picApproval >8)
 	    {
-	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, customer->id, clerks[customer->myLine].id);
+	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, customer->id, myClerkId);
 	      /*store that i have pic*/
 	    }
 	  else
 	    {
-	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, customer->id, clerks[customer->myLine].id);
+	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, customer->id, myClerkId);
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
-	Signal(clerkLock[customer->myLine], clerkCV[customer->myLine]);/*let clerk know you're leaving*/
-	Release(clerkLock[customer->myLine]);/*give up lock*/
+	Signal(myClerkLock, myClerkCV);/*let clerk know you're leaving*/
+	Release(myClerkLock);/*give up lock*/
 	
 	customer->myLine = -1;
 	customer->rememberLine = false;
@@ -280,7 +284,7 @@ void pickLine(struct Customer* customer)
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
 		  /*check if the type of this line is something I need! TODO*/
-			if(/*clerks[i] != NULL &&*/ isNexitClerkType(customer, clerks[i].type)) {
+			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) {
 			  if(clerkLineCount[i] < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
 				  customer->myLine = i;
