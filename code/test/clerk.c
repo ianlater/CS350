@@ -55,8 +55,8 @@ void DestroyClerk(struct Clerk* clerk)
 }
 
 /*@param id is id of clerk doing job*/
-void doJob(int id){
-	switch (clerks[id].type) {
+void doJob(int type){
+	switch (type) {
 		case APPLICATION_CLERK_TYPE:
 			for(i = 0; i < 50; i++)
 				Yield();
@@ -88,7 +88,7 @@ void doJob(int id){
 			break;
 	}
 }
-void Clerk_Run(struct Clerk* clerk)
+void Clerk_Run(int type)
 {
   PrintInt("Clerk%i beginning to run\n", 24, clerk->id, 0);
   Release(createLock);
@@ -113,7 +113,7 @@ void Clerk_Run(struct Clerk* clerk)
 		PrintInt("Clerk%i has received SSN %i from Customer", 45, clerk->id, clerkCurrentCustomerSSN[clerk->id]);
 		PrintInt("%d\n",4, clerkCurrentCustomer[clerk->id],0);
 
-		doJob(clerk->id);
+		doJob(type);
 		
 		Signal(clerkLock[clerk->id], clerkCV[clerk->id]);/*tell customer jobs done*/
 		Wait(clerkLock[clerk->id], clerkCV[clerk->id]);/*wait for customer to leave*/
@@ -193,39 +193,17 @@ void SenatorRun(){
 }
 
 int main(){
-	/* init all locks, cvs, and agents*/
-	clerkLineLock  = CreateLock("ClerkLineLock", 13);
-	outsideLock = CreateLock("OutsideLock",11);
-	senatorLock = CreateLock("SenatorLock", 11);
-	senatorCV = CreateCondition("SenatorCV", 9);
-	createLock = CreateLock("CreateLock", 10);
+	/* init all individual clerk*/
+
 	
-	for (i=0; i< NUM_CLERKS; i++){
 		clerkLock[i] = -1;
 		/*Condition Variables*/
 		clerkLineCV[i] = -1;
 		clerkBribeLineCV[i] = -1;
 		clerkCV[i] = -1;/*I think we need this? -Jack*/
 		clerkBreakCV[i] = -1; 
-	}
+	/*Run clerk*/
+	Clerk_Run(APPLICATION_CLERK_TYPE);
 	
-	for (i=0; i<NUM_CLERKS;i++){
-		Fork(ClerkRun);
-	}
-	for (i=0; i<NUM_CUSTOMERS;i++){
-		Fork(CustRun);
-	}
-	manager.name = "Mr. Manager";
-	Fork(Manager_Run);
-	for (i=0; i<NUM_SENATORS;i++){
-		Fork(SenatorRun);
-	}
-	
-	
-
-	i = Rand();
-	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
-	i = Rand();
-	PrintInt("Rand_Sysall test: %i, mod 10: %i\n", 34, i, i%10);
 	Exit(0);
 }
