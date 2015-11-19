@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles lockcondition fork exec passport exit multipassport locksharing
+all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing multilarge
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -80,12 +80,6 @@ exec: exec.o start.o
 	$(LD) $(LDFLAGS) start.o exec.o -o exec.coff
 	../bin/coff2noff exec.coff exec 
 
-exit.o: exit.c
-	$(CC) $(CFLAGS) -c exit.c
-exit: exit.o exit.o
-	$(LD) $(LDFLAGS) start.o exit.o -o exit.coff
-	../bin/coff2noff exit.coff exit 
-
 passport.o: passport.c	
 	$(CC) $(CFLAGS) -c passport.c 
 passport: passport.o start.o 	
@@ -104,6 +98,13 @@ locksharing.o: locksharing.c
 locksharing: locksharing.o start.o 	
 	$(LD) $(LDFLAGS) start.o locksharing.o -o locksharing.coff
 	../bin/coff2noff locksharing.coff locksharing  
+
+multilarge.o: multilarge.c	
+	$(CC) $(CFLAGS) -c multilarge.c 
+multilarge: multilarge.o start.o 	
+	$(LD) $(LDFLAGS) start.o multilarge.o -o multilarge.coff
+	../bin/coff2noff multilarge.coff multilarge  
+
 
 
 
