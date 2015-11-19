@@ -71,4 +71,8 @@ bool simulationEnded = CreateMonitor(1);
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
 int clerks = CreateMonitor(NUM_CLERKS);
 int customers = CreateMonitor(NUM_CUSTOMERS);
+int c_id = CreateMonitor(NUM_CUSTOMERS); //customer id
+int c_ssn = CreateMonitor(NUM_CUSTOMERS); //customer ssn
+int c_name = CreateMonitor(NUM_CUSTOMERS); //customer name
+int c_money = CreateMonitor(NUM_CUSTOMERS); //customer money
 int manager = CreateMonitor(1);
