@@ -40,5 +40,12 @@ int main()
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
  clerks = CreateMonitor(NUM_CLERKS);
  customers = CreateMonitor(NUM_CUSTOMERS);
- manager = CreateMonitor(1);	Exit(0);
+ manager = CreateMonitor(1);	
+ 
+ /* populate pp office */
+ Exec("picappclerkgen.c");
+ Exec("passcashclerkgen.c");
+ 
+ 
+ Exit(0);
 }
