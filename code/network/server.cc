@@ -712,10 +712,17 @@ int doDestroyMV(int mvIndex, int client, int threadID)
   char* errorMsg;
   if(!MVIsValid(mvIndex, client))
     {
-      errorMsg = "DestroyMV::invalid mv";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg);
+      printf("MV not on this server, asking others\n");
+      stringstream ss;
+      ss<<"DMV "<<mvIndex;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(client, threadID, msgData);
+      SendMessageToServers(msg, DMV);
+      
+      //errorMsg = "DestroyMV::invalid mv";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(client, threadID, errorMsg);
+      //sendMessage(msg);
       return -1;  
     }
   //input error checking done
@@ -995,6 +1002,34 @@ int SSGetMV(int mvIndex,int arrayIndex, int clientId, int clientMB, int reqId, i
   return 1;
 }
 
+int SSDestroyMV(int mvIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+ Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(MVIsValid(mvIndex, clientId))
+  {
+    //give client their mv (copied from doGetMV)
+    doDestroyMV(mvIndex, clientId, clientMB);
+ 
+    //send yes reply to requestor
+    printf("SSDMV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"DMV";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSGMV Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"DMV";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+ 
+ 
+  return 1;
+}
 /*SS Bookkeeping Functions*/
 int SSProcessYes(int clientId, int clientMB, int reqType)
 {
@@ -1158,6 +1193,19 @@ void ServerToServer()
       case DMV:
 	{
 	  printf("server-server DMV\n");
+	  string mvIndexStr, clientIdStr, clientMBStr;
+	  int mvIndex,  clientId, clientMB, reqId, reqMB;
+	  ss>>mvIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to int
+	  mvIndex = atoi(mvIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSDestroyMV(mvIndex, clientId, clientMB, reqId, reqMB);
 
 	  break;
 	}
