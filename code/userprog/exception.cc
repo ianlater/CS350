@@ -160,12 +160,19 @@ void sendMsgToServer(char* msg)
     // construct packet, mail header for original message
     // To: destination machine, mailbox 0
     // From: our machine, reply to: mailbox 1
-    outPktHdr.to = 0;//TODO hard testing		
+    //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
+    if(msg[0] == 'G' && msg[1] == 'M')
+      {
+	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
+      }
+    else
+      outPktHdr.to = 1;
     outMailHdr.to = 0;
     outMailHdr.from = 0;//TODO set this up to mailbox id
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
+    printf("send to ID %d\n", outPktHdr.to);
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
 
 }
@@ -851,7 +858,7 @@ if(!(kl->lock))
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
 int CreateMonitor_Syscall()
 {
-  //printf("Network CreateMV in progress\n");
+  printf("Network CreateMV\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;

@@ -718,18 +718,25 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
  char* errorMsg;
   if(!MVIsValid(mvID, client))
     {
-      errorMsg = "GetMV::invalid mv";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg);
+      printf("MV not on this server, asking others\n");
+      stringstream ss;
+      ss<<"GMV "<<mvID<<" "<<arrayIndex;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(client, threadID, msgData);
+      SendMessageToServers(msg, GMV);
+      //    errorMsg = "GetMV::invalid mv";
+      // printf("%s\n", errorMsg);
+      //Message msg = Message(client, threadID, errorMsg);
+      //sendMessage(msg);
       return -1;  
     }
   ServerMV* thisMV = ServerMVTable[mvID];
   /* if(arrayIndex >= thisMV->usedLength)
     {
+
     errorMsg = "GetMV::invalid location";
       printf("%s: %d\n", errorMsg, arrayIndex);
-      Message msg = Message(client, threadID, errorMsg);
+     Message msg = Message(client, threadID, errorMsg);
       sendMessage(msg);
       return -1;        
       }*/
@@ -863,6 +870,49 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
 
 }
 
+/*SS MV functions*/
+int SSSetMV()
+{
+
+  return 1;
+}
+
+int SSGetMV(int mvIndex,int arrayIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+  Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(MVIsValid(mvIndex, clientId))
+  {
+    //give client their mv (copied from doGetMV)
+    ServerMV* thisMV = ServerMVTable[mvIndex];
+    int mVar = thisMV->data[arrayIndex];
+    printf("getMV val: %d\n", mVar);
+    stringstream str;//use for client's message
+    str<<mVar;
+    char* msgDataClient = (char*)str.str().c_str();
+    msg = Message(clientId, clientMB, msgDataClient);
+    sendMessage(msg);
+
+    //send yes reply to requestor
+    printf("SSGMV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"GMV";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSRL Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"GMV";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+ 
+  return 1;
+}
+
+/*SS Bookkeeping Functions*/
 int SSProcessYes(int clientId, int clientMB, int reqType)
 {
  PendingRequest* pr = FindPR(clientId, clientMB, reqType);
@@ -960,9 +1010,30 @@ void ServerToServer()
 	 
 	  break;
 	}
+      case GMV:
+	{
+	  printf("server-server GMV\n");
+	  string mvIndexStr, mvArrayIndexStr, clientIdStr, clientMBStr;
+	  int mvIndex, mvArrayIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>mvIndexStr;
+	  ss>>mvArrayIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to int
+	  mvIndex = atoi(mvIndexStr.c_str());
+	  mvArrayIndex = atoi(mvArrayIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSGetMV(mvIndex, mvArrayIndex, clientId, clientMB, reqId, reqMB);
+
+	  break;
+	}
       case YES:
 	{
-	  printf("ss YES\n");
+	  printf("ss YES: other server has resource\n");
 	 
 	  string clientIdStr, clientMBStr, reqTypeStr;
 	  int clientId, clientMB, reqType;
