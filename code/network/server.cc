@@ -229,7 +229,7 @@ void SendMessageToServers(Message msg, int reqType)
 
 bool LockIsValid(int lock, int client)
 {
- if(lock < 0 || lock > serverLockCounter)
+ if(lock < 0 || lock > (serverLockCounter* SERVER_SCALAR))
     {
      return false;
     }
@@ -247,7 +247,7 @@ bool LockIsValid(int lock, int client)
 
 bool CVIsValid(int cv, int client)
 {
- if(cv < 0 || cv > serverCVCounter)
+ if(cv < 0 || cv > (serverCVCounter* SERVER_SCALAR))
     {
      return false;
     }
@@ -265,7 +265,7 @@ bool CVIsValid(int cv, int client)
 
 bool MVIsValid(int mv, int client)
 {
-  if(mv < 0 || mv > serverMVCounter)
+  if(mv < 0 || mv > (serverMVCounter*SERVER_SCALAR))
     {
      return false;
     }
@@ -310,10 +310,17 @@ int doDestroyLock(int lock, int client, int owner)
   char* errorMsg;
   if(!LockIsValid(lock, client))
     {
-      errorMsg = "DestroyLock::Error. invalid Lock";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, owner, errorMsg);
-      sendMessage(msg); 
+      //NEW. Send 1 message to each server
+      stringstream ss;
+      ss<<"DL "<<lock;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(client, owner, msgData);
+      SendMessageToServers(msg, DL);
+     
+      // errorMsg = "DestroyLock::Error. invalid Lock";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(client, owner, errorMsg);
+      //sendMessage(msg); 
       return -1;
     }
   //error checking done
@@ -836,8 +843,9 @@ int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
   if(LockIsValid(lockIndex, clientId))
   {
     //wake up client first
-    msg = Message(clientId, clientMB, "Acquire Success");
-    sendMessage(msg);
+    ///msg = Message(clientId, clientMB, "Acquire Success");
+    ///sendMessage(msg);
+    doAcquireLock(lockIndex, clientId, clientMB);
     //TODO send yes reply to requestor
     printf("SSAL Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"AL";
@@ -863,9 +871,11 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
   if(LockIsValid(lockIndex, clientId))
   {
     //wake up client first
-    msg = Message(clientId, clientMB, "Release Success");
-    sendMessage(msg);
-    //TODO send yes reply to requestor
+    doReleaseLock(lockIndex, clientId, clientMB);
+    ///msg = Message(clientId, clientMB, "Release Success");
+    ///sendMessage(msg);
+ 
+   //TODO send yes reply to requestor
     printf("SSRL Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"RL";
     char* msgData = (char*)ss.str().c_str();
@@ -883,6 +893,38 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
 
 }
 
+
+int SSDestroyLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+
+  Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(LockIsValid(lockIndex, clientId))
+  {
+    //wake up client first
+    doDestroyLock(lockIndex, clientId, clientMB);
+    ///msg = Message(clientId, clientMB, "Destroy Success");
+    ///sendMessage(msg);
+ 
+   //TODO send yes reply to requestor
+    printf("SSDL Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"DL";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSRL Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"DL";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+  return 1;
+
+}
+
 /*SS MV functions*/
 int SSSetMV(int mvIndex,int arrayIndex, int value, int clientId, int clientMB, int reqId, int reqMB)
 {
@@ -892,11 +934,12 @@ int SSSetMV(int mvIndex,int arrayIndex, int value, int clientId, int clientMB, i
   if(MVIsValid(mvIndex, clientId))
   {
     //set mv (copied from doSetMV)
-    ServerMV* thisMV = ServerMVTable[mvIndex];
-    thisMV->data[arrayIndex] = value;
+    doSetMV(mvIndex, arrayIndex, value, clientId, clientMB);
+    ///ServerMV* thisMV = ServerMVTable[mvIndex];
+    ///thisMV->data[arrayIndex] = value;
     //send back message
-    Message msg = Message(clientId, clientMB, "setMV");
-    sendMessage(msg);
+    ///Message msg = Message(clientId, clientMB, "setMV");
+    ///sendMessage(msg);
 
     //send yes reply to requestor
     printf("SSSMV Sending YES to %d\n", reqId);
@@ -924,14 +967,15 @@ int SSGetMV(int mvIndex,int arrayIndex, int clientId, int clientMB, int reqId, i
   if(MVIsValid(mvIndex, clientId))
   {
     //give client their mv (copied from doGetMV)
-    ServerMV* thisMV = ServerMVTable[mvIndex];
-    int mVar = thisMV->data[arrayIndex];
-    printf("getMV val: %d\n", mVar);
-    stringstream str;//use for client's message
-    str<<mVar;
-    char* msgDataClient = (char*)str.str().c_str();
-    msg = Message(clientId, clientMB, msgDataClient);
-    sendMessage(msg);
+    doGetMV(mvIndex, arrayIndex, clientId, clientMB);
+    ///ServerMV* thisMV = ServerMVTable[mvIndex];
+    ///int mVar = thisMV->data[arrayIndex];
+    ///printf("getMV val: %d\n", mVar);
+    ///stringstream str;//use for client's message
+    ///str<<mVar;
+    ///char* msgDataClient = (char*)str.str().c_str();
+    ///msg = Message(clientId, clientMB, msgDataClient);
+    ///sendMessage(msg);
 
     //send yes reply to requestor
     printf("SSGMV Sending YES to %d\n", reqId);
@@ -996,7 +1040,7 @@ void ServerToServer()
     char buffer[MaxMailSize];
 
     postOffice->Receive(1, &inPktHdr, &inMailHdr, buffer);//TODO check mail isn't bigger than buffer
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("SS Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
   
     stringstream ss;
@@ -1049,6 +1093,24 @@ void ServerToServer()
 	 
 	  break;
 	}
+      case DL:
+	{
+	  printf("server-server DL\n");
+	  string lockIndexStr, clientIdStr, clientMBStr;
+	  int lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSDestroyLock(lockIndex, clientId, clientMB, reqId, reqMB);
+
+	  break;
+	}
       case SMV:
 	{
 	  printf("received server-server SMV\n");
@@ -1090,6 +1152,12 @@ void ServerToServer()
 	  reqMB = inMailHdr.from;
 
 	  SSGetMV(mvIndex, mvArrayIndex, clientId, clientMB, reqId, reqMB);
+
+	  break;
+	}
+      case DMV:
+	{
+	  printf("server-server DMV\n");
 
 	  break;
 	}
