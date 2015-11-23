@@ -201,8 +201,11 @@ void sendMessage(Message msg)
 }
 
 //send this messsage to all servers except me
-void SendMessageToServers(Message msg)
+void SendMessageToServers(Message msg, int reqType)
 {
+  PendingRequest* pr = new PendingRequest(msg.to, msg.toMailbox, reqType);
+  PRTable[prCounter] = pr;
+  prCounter++;
   //msg has. WHO is asking (client machId and mailbox), TYPE of request, and request PARAMS
   //is sent to all other server machineID's that aren't mine
   for(int i = 0; i < numServers; i++)
@@ -337,11 +340,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
       ss<<"AL "<<lockIndex;
       char* msgData = (char*)ss.str().c_str();
       Message msg = Message(clientID, threadID, msgData);
-      SendMessageToServers(msg);
-      //TODO create PR entry and add to table
-      PendingRequest* pr = new PendingRequest(clientID, threadID, AL);
-      PRTable[prCounter] = pr;
-      prCounter++;
+      SendMessageToServers(msg, AL);
       // errorMsg = "AcquireLock::Error. invalid Lock";
       //printf("%s\n", errorMsg);
       //Message msg = Message(clientID, threadID, errorMsg);
@@ -382,10 +381,18 @@ int doReleaseLock(int lockIndex, int clientID, int threadID)
   char* errorMsg;
   if(!LockIsValid(lockIndex, clientID))
     {
-      errorMsg = "ReleaseLock::Error. invalid Lock";
-      printf("%s\n", errorMsg);
-      Message msg = Message(clientID, threadID, errorMsg);
-      sendMessage(msg); 
+ //NEW. Send 1 message to each server
+      stringstream ss;
+      ss<<"RL "<<lockIndex;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(clientID, threadID, msgData);
+      SendMessageToServers(msg, RL);
+     
+
+      // errorMsg = "ReleaseLock::Error. invalid Lock";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(clientID, threadID, errorMsg);
+      //sendMessage(msg); 
       return -1;
     }
   
@@ -828,6 +835,34 @@ int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
   return 1;
 }
 
+int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+  Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(LockIsValid(lockIndex, clientId))
+  {
+    //wake up client first
+    msg = Message(clientId, clientMB, "Release Success");
+    sendMessage(msg);
+    //TODO send yes reply to requestor
+    printf("SSRL Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"RL";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSRL Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"RL";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+  return 1;
+
+}
+
 int SSProcessYes(int clientId, int clientMB, int reqType)
 {
  PendingRequest* pr = FindPR(clientId, clientMB, reqType);
@@ -902,6 +937,27 @@ void ServerToServer()
 	  reqMB = inMailHdr.from;
 
 	  SSAcquireLock(lockIndex, clientId, clientMB, reqId, reqMB);
+	  break;
+	}
+      case RL:
+	{
+	  printf("server-server Rl\n");
+	  string lockIndexStr, clientIdStr, clientMBStr, reqIdStr, reqMBStr;
+	  int lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  ss>>reqIdStr;
+	  ss>>reqMBStr;
+	  //convert to int
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSReleaseLock(lockIndex, clientId, clientMB, reqId, reqMB);
+	 
 	  break;
 	}
       case YES:
