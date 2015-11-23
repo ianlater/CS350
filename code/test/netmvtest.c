@@ -12,7 +12,7 @@ int main()
 {
   int mv = CreateMonitor();
   Print("Monitor created: %s\n", mv, "", "");
-  SetMonitor(mv,0, 32);
+  SetMonitor(mv,0, 3);/*not 32? space ascii?*/
   mVar = GetMonitor(mv, 0);
   DestroyMonitor(mv);
 

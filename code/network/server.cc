@@ -193,6 +193,7 @@ void sendMessage(Message msg)
   outMailHdr.from = 0;//server mailbox? only one thread
   outMailHdr.length = strlen(data) + 1;
 
+  printf("SENDING TO ID %d box %d MESSAGE: %s\n", msg.to, msg.toMailbox, data); 
   bool success = postOffice->Send(outPktHdr, outMailHdr, data);
   if(!success)
     {
@@ -203,6 +204,10 @@ void sendMessage(Message msg)
 //send this messsage to all servers except me
 void SendMessageToServers(Message msg, int reqType)
 {
+  printf("MSG %s\n", msg.msg);
+  stringstream str;
+  str<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
+  char* data = (char*)str.str().c_str();
   PendingRequest* pr = new PendingRequest(msg.to, msg.toMailbox, reqType);
   PRTable[prCounter] = pr;
   prCounter++;
@@ -213,9 +218,9 @@ void SendMessageToServers(Message msg, int reqType)
       //dont send message to me
       if(i != netname)
 	{
-	  stringstream ss;
-	  ss<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
-	  char* data = (char*)ss.str().c_str();
+	  //  stringstream ss;
+	  //ss<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;//THIS BREAKS FOR NO GODDAM REASON
+	  //char* data = (char*)ss.str().c_str();
 	  Message outMsg = Message(i, 1, data);//1 is mailbox of serverserver thread
 	  sendMessage(outMsg);
 	}
@@ -760,24 +765,32 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
 {
   printf("setting mv %d index %d value %d\n", mvID,index,  value);
  char* errorMsg;
-  if(!MVIsValid(mvID, client))
+ if(index<0 || mvID < 0)
     {
-      errorMsg = "SetMV::invalid mv";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg);
-      return -1;  
-    }
-  ServerMV* thisMV = ServerMVTable[mvID];
-  if(index<0)
-    {
- errorMsg = "SetMV::invalid index";
+      errorMsg = "SetMV::invalid index";
       printf("%s\n", errorMsg);
       Message msg = Message(client, threadID, errorMsg);
       sendMessage(msg);
       return -1;  
    
     }
+  
+ if(!MVIsValid(mvID, client))
+    {
+      printf("MV not on this server, asking others\n");
+      stringstream ss;
+      ss<<"SMV "<<mvID<<" "<<index<<" "<<value;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(client, threadID, msgData);
+      SendMessageToServers(msg, SMV);
+
+      //errorMsg = "SetMV::invalid mv";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(client, threadID, errorMsg);
+      //sendMessage(msg);
+      return -1;  
+    }
+  ServerMV* thisMV = ServerMVTable[mvID];
   thisMV->data[index] = value;
   //thisMV->usedLength++;
 
@@ -871,9 +884,35 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
 }
 
 /*SS MV functions*/
-int SSSetMV()
+int SSSetMV(int mvIndex,int arrayIndex, int value, int clientId, int clientMB, int reqId, int reqMB)
 {
+ Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(MVIsValid(mvIndex, clientId))
+  {
+    //set mv (copied from doSetMV)
+    ServerMV* thisMV = ServerMVTable[mvIndex];
+    thisMV->data[arrayIndex] = value;
+    //send back message
+    Message msg = Message(clientId, clientMB, "setMV");
+    sendMessage(msg);
 
+    //send yes reply to requestor
+    printf("SSSMV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"SMV";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSSMV Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"SMV";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+ 
   return 1;
 }
 
@@ -903,7 +942,7 @@ int SSGetMV(int mvIndex,int arrayIndex, int clientId, int clientMB, int reqId, i
     return 1;
   }
   //else, send NO to requestor
-  printf("SSRL Sending NO to %d\n", reqId);
+  printf("SSGMV Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"GMV";
   char* msgData = (char*)ss.str().c_str();
   msg = Message(reqId, 1, msgData);
@@ -1008,6 +1047,29 @@ void ServerToServer()
 
 	  SSReleaseLock(lockIndex, clientId, clientMB, reqId, reqMB);
 	 
+	  break;
+	}
+      case SMV:
+	{
+	  printf("received server-server SMV\n");
+	  string mvIndexStr, mvArrayIndexStr, valueStr, clientIdStr, clientMBStr;
+	  int mvIndex, mvArrayIndex, value, clientId, clientMB, reqId, reqMB;
+	  ss>>mvIndexStr;
+	  ss>>mvArrayIndexStr;
+	  ss>>valueStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to int
+	  mvIndex = atoi(mvIndexStr.c_str());
+	  mvArrayIndex = atoi(mvArrayIndexStr.c_str());
+	  value = atoi(valueStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSSetMV(mvIndex, mvArrayIndex, value, clientId, clientMB, reqId, reqMB);
+
 	  break;
 	}
       case GMV:

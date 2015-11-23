@@ -161,7 +161,7 @@ void sendMsgToServer(char* msg)
     // To: destination machine, mailbox 0
     // From: our machine, reply to: mailbox 1
     //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
-    if(msg[0] == 'G' && msg[1] == 'M')
+    if(msg[0] == 'S' && msg[1] == 'M')
       {
 	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
       }
