@@ -15,11 +15,14 @@
 /*Const declarations*/
 const int TABLE_SIZE = 500;
 const int MV_ARRAY_SIZE = 50;
+const int SERVER_SCALAR = 100;//this will modify what index gets passed when creating something on a server by mutlpilying this with this machine's ID
 
 int serverLockCounter = 0;
 int serverCVCounter = 0;
 int serverMVCounter = 0;
+int prCounter = 0;
 
+Lock* RPCLock = new Lock("RPCLock");
 
 enum requestType {
   CL,//Create Lock
@@ -35,6 +38,8 @@ enum requestType {
   DMV,//Destroy Monitor Var
   SMV,//Set Monitor Var
   GMV,//Get Monitor Var
+  YES,//servertoserver confirmation of resoutce
+  NO,//servertoserver i dont have that resource
   UNKNOWN,
 };
 
@@ -113,8 +118,12 @@ struct Message
   char* msg;
 
   Message(int t,int tm, char* m);
+  Message();
 };
+Message::Message()
+{
 
+}
 Message::Message(int t,int tm, char* m)
 {
   to = t;
@@ -122,10 +131,34 @@ Message::Message(int t,int tm, char* m)
   msg = m;
 }
 
-//vars below
+/*Pending Request Struct*/
+struct PendingRequest
+{
+  int reqMId;//requestor machineID
+  int reqMBId;//requestor Mailbox ID
+  int reqType;//what kind of resource requet this is
+  int id1;//index of resource, the parameter
+  int id2;//index of resource, the parameter
+  //int id3;//needed for mv's later on
+  int noCount;//keep track of how many servers have said NO. starts at 1
+
+  PendingRequest(int reqId, int mbId, int type);
+};
+
+PendingRequest::PendingRequest(int reqId, int mbId, int type)
+{
+  reqMId = reqId;
+  reqMBId = mbId;
+  reqType = type;
+
+  noCount = 1;
+}
+
+//Tables below
 ServerLock* ServerLockTable[TABLE_SIZE];
 ServerCondition* ServerCVTable[TABLE_SIZE];
 ServerMV* ServerMVTable[TABLE_SIZE];
+PendingRequest* PRTable[TABLE_SIZE];
 
 //helper functions
 requestType getType(string req)
@@ -143,6 +176,8 @@ requestType getType(string req)
   if(req == "DMV") return DMV;
   if(req == "GMV") return GMV;
   if(req == "SMV") return SMV;
+  if(req == "YES") return YES;
+  if(req == "NO") return NO;
 return UNKNOWN;
 }
 
@@ -162,6 +197,25 @@ void sendMessage(Message msg)
   if(!success)
     {
       printf("SendMessage::ERROR: could not send message\n");
+    }
+}
+
+//send this messsage to all servers except me
+void SendMessageToServers(Message msg)
+{
+  //msg has. WHO is asking (client machId and mailbox), TYPE of request, and request PARAMS
+  //is sent to all other server machineID's that aren't mine
+  for(int i = 0; i < numServers; i++)
+    {
+      //dont send message to me
+      if(i != netname)
+	{
+	  stringstream ss;
+	  ss<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
+	  char* data = (char*)ss.str().c_str();
+	  Message outMsg = Message(i, 1, data);//1 is mailbox of serverserver thread
+	  sendMessage(outMsg);
+	}
     }
 }
 
@@ -235,7 +289,7 @@ int doCreateLock(string name, int client, int threadID)
     return -1;
   }
   ServerLock* newLock = new ServerLock(name,client);
-  int thisLock = serverLockCounter;
+  int thisLock = (netname * SERVER_SCALAR) + serverLockCounter;
   ServerLockTable[thisLock] = newLock;
   serverLockCounter++;
   printf("Server::DoCreateLock: ID:%d\n", thisLock);
@@ -278,10 +332,20 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
   char* errorMsg;
   if(!LockIsValid(lockIndex, clientID))
     {
-      errorMsg = "AcquireLock::Error. invalid Lock";
-      printf("%s\n", errorMsg);
-      Message msg = Message(clientID, threadID, errorMsg);
-      sendMessage(msg); 
+      //NEW. Send 1 message to each server
+      stringstream ss;
+      ss<<"AL "<<lockIndex;
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(clientID, threadID, msgData);
+      SendMessageToServers(msg);
+      //TODO create PR entry and add to table
+      PendingRequest* pr = new PendingRequest(clientID, threadID, AL);
+      PRTable[prCounter] = pr;
+      prCounter++;
+      // errorMsg = "AcquireLock::Error. invalid Lock";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(clientID, threadID, errorMsg);
+      //sendMessage(msg); 
       return -1;
     }
  
@@ -710,15 +774,180 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
 
   return 0;
 }
+/*Server to Server Functions*/
+//return pr with parameters equal to inputs
+PendingRequest* FindPR(int clientId, int clientMB, int reqType)
+{
+  printf("FindPR: id: %d mb: %d type: %d\n", clientId, clientMB, reqType);
+  for(int i = 0; i < prCounter; i++)
+    {
+      PendingRequest* pr = PRTable[i];
+      if(pr)
+	{
+	  if(pr->reqMId == clientId)
+	    {
+	      if(pr->reqMBId == clientMB)
+		{
+		  if(pr->reqType == reqType)
+		    {
+		      return pr;
+		    }
+		}
+	    }
+	}
+    }
+  printf("Can't find PR!\n");
+  return NULL;
+}
+
+int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+  printf("SSACQUIRE\n");
+  Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(LockIsValid(lockIndex, clientId))
+  {
+    //wake up client first
+    msg = Message(clientId, clientMB, "Acquire Success");
+    sendMessage(msg);
+    //TODO send yes reply to requestor
+    printf("SSAL Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"AL";
+    char* msgData = (char*)ss.str().c_str();
+    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSAL Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"AL";
+  char* msgData = (char*)ss.str().c_str();
+  msg = Message(reqId, 1, msgData);
+  sendMessage(msg);
+  return 1;
+}
+
+int SSProcessYes(int clientId, int clientMB, int reqType)
+{
+ PendingRequest* pr = FindPR(clientId, clientMB, reqType);
+  //modify pointer? by incrementing it's no count, if nocount == numservers, send back error (depends on reqtype)
+  if(!pr)
+    {
+      return -1;
+    }
+  delete pr;
+  return 1;
+}
+
+int SSProcessNo(int clientId, int clientMB, int reqType)
+{
+  PendingRequest* pr = FindPR(clientId, clientMB, reqType);
+  //modify pointer? by incrementing it's no count, if nocount == numservers, send back error (depends on reqtype)
+  if(!pr)
+    {
+      return -1;
+    }
+  pr->noCount++;
+  if(pr->noCount == numServers)
+    {
+      printf("SSNO sending back error\n");
+      stringstream ss;
+      //send that error message! TODOQ. then test. then do same for yes. then expand
+      ss<<reqType<<" ERROR ";
+      char* msgData = (char*)ss.str().c_str();
+      Message msg = Message(clientId, clientMB, msgData);
+      sendMessage(msg);
+    }  
+}
+	  
 /*COMMUNICATES WITH OTHER SERVERS ONLY*/
 void ServerToServer()
 {
   printf("INTER-SERVER STARTED\n");
+  while(true)
+    {
+    PacketHeader outPktHdr, inPktHdr;
+    MailHeader outMailHdr, inMailHdr;
+    char buffer[MaxMailSize];
+
+    postOffice->Receive(1, &inPktHdr, &inMailHdr, buffer);//TODO check mail isn't bigger than buffer
+    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+  
+    stringstream ss;
+
+    ss<<buffer;
+    string request;
+    ss>>request;
+
+    //which type of request is this
+    switch(getType(request))
+      {
+      case AL:
+	{
+	  printf("server-server AL\n");
+	  string lockIndexStr, clientIdStr, clientMBStr, reqIdStr, reqMBStr;
+	  int lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  ss>>reqIdStr;
+	  ss>>reqMBStr;
+	  //convert to int
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSAcquireLock(lockIndex, clientId, clientMB, reqId, reqMB);
+	  break;
+	}
+      case YES:
+	{
+	  printf("ss YES\n");
+	 
+	  string clientIdStr, clientMBStr, reqTypeStr;
+	  int clientId, clientMB, reqType;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  ss>>reqTypeStr;
+	  //convert to int
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqType= getType(reqTypeStr);
+	 
+	  SSProcessYes(clientId, clientMB, reqType);
+
+	  break;
+	}
+      case NO:
+	{
+	  printf("ss NO\n");
+	  string clientIdStr, clientMBStr, reqTypeStr;
+	  int clientId, clientMB, reqType;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  ss>>reqTypeStr;
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqType = getType(reqTypeStr);
+	  SSProcessNo(clientId, clientMB, reqType);//TODOQ
+	  //TODO find the PR related to this request, and increment its noCount
+	  //if noCount == numServers, send back errormsg to client
+	  break;
+	}
+      default:
+	printf("unrecognized server-server message\n");
+	break;
+      }
+    }
 }
 /*COMMUNICATES WITH CLIENTS ONLY*/
 void ServerToClient()
 {
- printf("SERVER STARTED\n");
+  printf("SERVER STARTED ID: %d numservers: %d\n", netname, numServers);
   while(true)
     {
     PacketHeader outPktHdr, inPktHdr;
@@ -733,14 +962,15 @@ void ServerToClient()
     // From: our machine, reply to: mailbox 1
     outPktHdr.to = 1;//TODO hard testing		
     outMailHdr.to = 0;
-    outMailHdr.from = 0;//changed now
+    outMailHdr.from = 0;//netname?
     outMailHdr.length = strlen(data) + 1;
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);//TODO check mail isn't bigger than buffer
     printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
-  
+    outPktHdr.to = inPktHdr.from;  
+
     stringstream ss;
 
     ss<<buffer;
