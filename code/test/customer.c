@@ -125,7 +125,21 @@ void Customer_Run(struct Customer* customer)
   Release(createLock);
   while(true)
   {
+	  
+	
 	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
+	
+	activeCustomers++;/* regulate w/clerklinelock. senator should check this number and senatorInBuilding before  operation and wait in senatorLineCV if both true */
+	if(senatorInBuilding){
+		Acquire(senatorSemaphoreLock);
+		activeCustomers--;
+		if(activeCustomers == 0){ /* if you're last to go outside signal first senator to come in */
+			Signal(SenatorLineCV, senatorSemaphoreLock);
+		}
+		Wait(OutsideCV, senatorSemaphoreLock);
+		activeCustomers++; /* come back inside */
+		Release(senatorSemaphoreLock);
+	}
 	
 	pickLine(customer);
 	/*now, myLine is the index of the shortest line*/
@@ -151,43 +165,13 @@ void Customer_Run(struct Customer* customer)
 			clerkLineCount[customer->myLine]--;
 			PrintInt("regular line%i count: %i\n", 26, customer->myLine, clerkLineCount[customer->myLine]);
 		  }
-		  
-		if (senatorInBuilding) {
-		  customer->rememberLine = true;/*you're in line being kicked out by senatr. senator can't kick self out*/
-  			/*make sure to signal senator who may be in line */
-			if(customer->isBribing) {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			}
-			else {
-			  Signal(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			}
-			Release(clerkLineLock);
-		}
-
-		/*senator may have sent everyone out of lineCV so this nesting is for getting back in line	*/
-		checkSenator(); /*after this point senator is gone- get back in line if you were kicked out*/
-		if (customer->rememberLine) {
-			Acquire(clerkLineLock);
-			/*you may be the first one in line now so check. in the case that you were senator you wouldn't remember line */
-			if (clerkState[customer->myLine] != 0) {
-			  if(customer->isBribing)
-			    {
-			      clerkBribeLineCount[customer->myLine]++;
-			      Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-			      clerkBribeLineCount[customer->myLine]--;
-			    }
-			  else
-			    {
-			      clerkLineCount[customer->myLine]++;
-				PrintInt("Customer%i: waiting in line for Clerk%i\n", 41, customer->id, clerks[customer->myLine].id);
-				Wait(clerkLineLock, clerkBribeLineCV[customer->myLine]);
-				clerkLineCount[customer->myLine]--;
-			    }
-			}
-		}
-		/*at this point we assume won't have to go outside till finished with current clerk*/
 	}
-
+	if (senatorInBuilding) {
+		customer->rememberLine = true;/*you're in line being kicked out by senator. */
+		Release(clerkLineLock); /* free up your locks */
+		continue; /* go back up to beginning of while loop where you will leave building.pickLine should manage line remembering */
+	}
+	
 	clerkState[customer->myLine] = 1;
 	Release(clerkLineLock);/*i no longer need to consume lineCount values, leave this CS*/
 
