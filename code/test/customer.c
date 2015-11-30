@@ -129,9 +129,9 @@ void Customer_Run(struct Customer* customer)
 		Acquire(senatorLock);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
 		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
-			Signal(SenatorLineCV, senatorLock);
+			Signal(senatorLock, SenatorLineCV);
 		}
-		Wait(OutsideCV, senatorLock);
+		Wait(senatorLock, OutsideCV);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
