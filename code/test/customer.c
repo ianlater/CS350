@@ -6,6 +6,8 @@
 int i, id, money, ssn, myLine;
 bool credentials[4]; 
 bool rememberLine, isSenator;
+int myClerksLock = -1;
+int myClerksCV = -1;
 /*
 ARRAYS:
 	c_id
@@ -25,7 +27,6 @@ int CreateCustomer()
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	
 	money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, money);
 	myLine = -1;
 	rememberLine = false;
 	isSenator = false;
@@ -48,7 +49,6 @@ SetMonitor(c_id, id, id);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, money);
 	myLine = -1;
 	rememberLine = false;
 	isSenator = false;
@@ -150,9 +150,9 @@ void Customer_Run()
 		Acquire(senatorLock);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
 		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
-			Signal(senatorLock, SenatorLineCV);
+			Signal(senatorLock, senatorLineCV);
 		}
-		Wait(senatorLock, OutsideCV);
+		Wait(senatorLock, outsideCV);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
@@ -163,21 +163,21 @@ void Customer_Run()
 	if (GetMonitor(clerkState, myLine) != 0) {
 		if(isBribing)
 		  {
-			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, id, GetMonitor(ClerkIds, myLine));
+			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, id, GetMonitor(clerkIds, myLine));
 			SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)+1);
 			
 		    Wait(clerkLineLock, clerkBribeLineCV[myLine]);
-			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(ClerkIds, myLine));
+			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(clerkIds, myLine));
 		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1)
 		    PrintInt("bribe line%i count: %i\n",23, myLine, GetMonitor(clerkBribeLineCount, myLine));
 		  }
 		else
 		  {
-			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, id, GetMonitor(ClerkIds, myLine));
+			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, id, GetMonitor(clerkIds, myLine));
 			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)+1)
 			
 			Wait(clerkLineLock, clerkLineCV[myLine]);
-			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(ClerkIds, myLine));
+			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(clerkIds, myLine));
 			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1)
 			PrintInt("regular line%i count: %i\n", 26, myLine, GetMonitor(clerkLineCount, myLine));
 		  }
@@ -196,7 +196,7 @@ void Customer_Run()
 	Acquire(myClerksLock);/*we are now in a new CS, need to share data with my clerk*/
 	SetMonitor(clerkCurrentCustomerSSN, myLine, ssn);
 	PrintInt("Customer%i has given SSN %i", 27, id, ssn);
-	PrintInt("to Clerk%i\n", 12, GetMonitor(ClerkIds, myLine), 0);
+	PrintInt("to Clerk%i\n", 12, GetMonitor(clerkIds, myLine), 0);
 	SetMonitor(clerkCurrentCustomer, myLine, id);
 	giveData();
 	isBribing = false;
@@ -205,20 +205,20 @@ void Customer_Run()
 	Wait(myClerksLock, myClerksCV);
 	
 	/*set credentials*/
-	credentials[GetMonitor(ClerkTypes, myLine)] = true;
-	PrintInt("Customer%i: Thank you Clerk%i\n", 31, id,  GetMonitor(ClerkIds, myLine));
+	credentials[GetMonitor(clerkTypes, myLine)] = true;
+	PrintInt("Customer%i: Thank you Clerk%i\n", 31, id,  GetMonitor(clerkIds, myLine));
 
-	if (GetMonitor(ClerkTypes, myLine) == PICTURE_CLERK_TYPE) {
+	if (GetMonitor(clerkTypes, myLine) == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RandOM VAL*/
 	  picApproval = Rand() % 10;/*generate Random num between 0 and 10*/
 	  if(picApproval >8)
 	    {
-	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, id, GetMonitor(ClerkIds, myLine));
+	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, id, GetMonitor(clerkIds, myLine));
 	      /*store that i have pic*/
 	    }
 	  else
 	    {
-	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, id, GetMonitor(ClerkIds, myLine));
+	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, id, GetMonitor(clerkIds, myLine));
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
