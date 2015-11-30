@@ -148,7 +148,7 @@ void Customer_Run(struct Customer* customer)
 		    Wait(clerkLineLock, clerkBribeLineCV[myLine]);
 			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(ClerkIds, myLine));
 		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1)
-		    PrintInt("bribe line%i count: %i\n",23, myLine, clerkBribeLineCount[myLine]);
+		    PrintInt("bribe line%i count: %i\n",23, myLine, GetMonitor(clerkBribeLineCount, myLine));
 		  }
 		else
 		  {
@@ -158,7 +158,7 @@ void Customer_Run(struct Customer* customer)
 			Wait(clerkLineLock, clerkLineCV[myLine]);
 			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(ClerkIds, myLine));
 			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1)
-			PrintInt("regular line%i count: %i\n", 26, myLine, clerkLineCount[myLine]);
+			PrintInt("regular line%i count: %i\n", 26, myLine, GetMonitor(clerkLineCount, myLine));
 		  }
 	}
 	if (GetMonitor(senatorInBuilding, 0)) {
