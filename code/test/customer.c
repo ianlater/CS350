@@ -148,108 +148,102 @@ void checkSenator(/*struct Customer *customer*/)
 }
 
 int picApproval;
-void Customer_Run(struct Customer* customer)
+void Customer_Run()
 {
   simulationStarted = true;
+  SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1);/* regulate w/clerklinelock. senator should check this number and GetMonitor(senatorInBuilding, 0) before  operation and wait in senatorLineCV if both true */
+  Release(createLock);
   while(true)
   {
-	  
-	
-	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
-	
-	activeCustomers++;/* regulate w/clerklinelock. senator should check this number and senatorInBuilding before  operation and wait in senatorLineCV if both true */
-	if(senatorInBuilding){
+	if(GetMonitor(senatorInBuilding, 0)){
 		Acquire(senatorLock);
-		activeCustomers--;
-		if(activeCustomers == 0){ /* if you're last to go outside signal first senator to come in */
+		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
+		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
 			Signal(SenatorLineCV, senatorLock);
 		}
 		Wait(OutsideCV, senatorLock);
-		activeCustomers++; /* come back inside */
+		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
-	
-	pickLine(customer);
+	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
+	pickLine();
 	/*now, myLine is the index of the shortest line*/
 	/*if the clerk is busy or on break, get into line*/
-	if (GetMonitor(clerkState, customer->myLine) != 0){
-		if(customer->isBribing)
+	if (GetMonitor(clerkState, myLine) != 0) {
+		if(isBribing)
 		  {
-		  	int myLineBribeCount = GetMonitor(clerkIds, customer->myLine);
-			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, customer->id, myLineBribeCount);
-			SetMonitor(clerkBribeLineCount, customer->myLine, myLineBribeCount + 1 );
+			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, id, GetMonitor(ClerkIds, myLine));
+			SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)+1);
 			
-		    Wait(clerkLineLock, GetMonitor(clerkBribeLineCV, customer->myLine));
-		    myLineBribeCount = GetMonitor(clerkBribeLineCount, customer->myLine);
-			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, customer->id, GetMonitor(clerkIds, customer->myLine));
-		    SetMonitor(clerkBribeLineCount, customer->myLine, myLineBribeCount-1);
-		    myLineBribeCount--;
-		    PrintInt("bribe line%i count: %i\n",23, customer->myLine, myLineBribeCount);
+		    Wait(clerkLineLock, clerkBribeLineCV[myLine]);
+			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(ClerkIds, myLine));
+		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1)
+		    PrintInt("bribe line%i count: %i\n",23, myLine, clerkBribeLineCount[myLine]);
 		  }
 		else
 		  {
-		  	int theClerkId = GetMonitor(clerkIds, customer->myLine);
-			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, customer->id, theClerkId);
-			clerkLineCount[customer->myLine]++;
+			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, id, GetMonitor(ClerkIds, myLine));
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)+1)
 			
-			Wait(clerkLineLock, Get(clerkLineCV,customer->myLine);
-			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, customer->id, theClerkId);
-			int myClerkLineCount = GetMonitor(clerkLineCount, customer->myLine);
-			SetMonitor(clerkLineCount, customer->myLine, myClerkLineCount - 1);
-			myClerkLineCount--;
-			PrintInt("regular line%i count: %i\n", 26, customer->myLine, myClerkLineCount);
+			Wait(clerkLineLock, clerkLineCV[myLine]);
+			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(ClerkIds, myLine));
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1)
+			PrintInt("regular line%i count: %i\n", 26, myLine, clerkLineCount[myLine]);
 		  }
 	}
-	if (senatorInBuilding) {
-		customer->rememberLine = true;/*you're in line being kicked out by senator. */
+	if (GetMonitor(senatorInBuilding, 0)) {
+		rememberLine = true;/*you're in line being kicked out by senator. */
 		Release(clerkLineLock); /* free up your locks */
 		continue; /* go back up to beginning of while loop where you will leave building.pickLine should manage line remembering */
 	}
 	
-	clerkState[customer->myLine] = 1;
+	SetMonitor(clerkState, myLine, 1);
 	Release(clerkLineLock);/*i no longer need to consume lineCount values, leave this CS*/
-
-	Acquire(myClerkLock);/*we are now in a new CS, need to share data with my clerk*/
-	clerkCurrentCustomerSSN[customer->myLine] = customer->ssn;
-	PrintInt("Customer%i has given SSN %i", 27, customer->id, customer->ssn);
-	PrintInt("to Clerk%i\n", 12, myClerkId, 0);
-	clerkCurrentCustomer[customer->myLine] = customer->id;
-	giveData(customer);
-	customer->isBribing = false;
-	Signal(myClerkLock, myClerkCV);
+	
+	myClerksLock = GetMonitor(clerkLock, myLine);
+	myClerksCV = GetMonitor(clerkCV, myLine);
+	Acquire(myClerksLock);/*we are now in a new CS, need to share data with my clerk*/
+	SetMonitor(clerkCurrentCustomerSSN, myLine, ssn);
+	PrintInt("Customer%i has given SSN %i", 27, id, ssn);
+	PrintInt("to Clerk%i\n", 12, GetMonitor(ClerkIds, myLine), 0);
+	SetMonitor(clerkCurrentCustomer, myLine, id);
+	giveData();
+	isBribing = false;
+	Signal(myClerksLock, myClerksCV);
 	/*now we wait for clerk to do job*/
-	Wait(myClerkLock, myClerkCV);
+	Wait(myClerksLock, myClerksCV);
 	
 	/*set credentials*/
-	customer->credentials[myClerkType] = true;
-	PrintInt("Customer%i: Thank you Clerk%i\n", 31, customer->id, myClerkId);
+	credentials[GetMonitor(ClerkTypes, myLine)] = true;
+	PrintInt("Customer%i: Thank you Clerk%i\n", 31, id,  GetMonitor(ClerkIds, myLine));
 
-	if (myClerkType == PICTURE_CLERK_TYPE) {
+	if (GetMonitor(ClerkTypes, myLine) == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RandOM VAL*/
 	  picApproval = Rand() % 10;/*generate Random num between 0 and 10*/
 	  if(picApproval >8)
 	    {
-	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, customer->id, myClerkId);
+	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, id, GetMonitor(ClerkIds, myLine));
 	      /*store that i have pic*/
 	    }
 	  else
 	    {
-	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, customer->id, myClerkId);
+	      PrintInt("Customer%i: does not like their picture from Clerk%i, please retake\n",69, id, GetMonitor(ClerkIds, myLine));
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
-	Signal(myClerkLock, myClerkCV);/*let clerk know you're leaving*/
-	Release(myClerkLock);/*give up lock*/
+	Signal(myClerksLock, myClerksCV);/*let clerk know you're leaving*/
+	Release(myClerksLock);/*give up lock*/
 	
-	customer->myLine = -1;
-	customer->rememberLine = false;
+	myLine = -1;
+	rememberLine = false;
 	
 	/*chose exit condition here*/
-	if(customer->credentials[CASHIER_CLERK_TYPE])
+	if(credentials[CASHIER_CLERK_TYPE])
 	  break;
   }
-  PrintInt("Customer%i: IS LEAVING THE PASSPORT OFFICE\n", 44, customer->id, 0);
-  customersInBuilding--;/*assumption: customers are all created at start before any can leave office*/
+  SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
+  PrintInt("Customer%i: IS LEAVING THE PASSPORT OFFICE\n", 44, id, 0);
+  SetMonitor(customersInBuilding, GetMonitor(customersInBuilding)-1);/*assumption: customers are all created at start before any can leave office*/
 }
 int testLine = 69;
 int lineSize = 1001;
