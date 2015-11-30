@@ -36,7 +36,8 @@ int CreateCustomer()
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
-	return customersInBuilding++; 
+	SetMonitor(customersInBuilding, 0, id + 1);
+	return id;
 }
 int CreateCustomer_WithCredentials(int* credentials) 
 {
@@ -64,7 +65,8 @@ SetMonitor(c_id, id, id);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
-	return id++;
+	SetMonitor(customersInBuilding, 0, id + 1);
+	return id;
 }
 
 bool isNextClerkType(int clerk_type)
