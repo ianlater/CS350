@@ -131,14 +131,14 @@ void Customer_Run(struct Customer* customer)
 	
 	activeCustomers++;/* regulate w/clerklinelock. senator should check this number and senatorInBuilding before  operation and wait in senatorLineCV if both true */
 	if(senatorInBuilding){
-		Acquire(senatorSemaphoreLock);
+		Acquire(senatorLock);
 		activeCustomers--;
 		if(activeCustomers == 0){ /* if you're last to go outside signal first senator to come in */
-			Signal(SenatorLineCV, senatorSemaphoreLock);
+			Signal(SenatorLineCV, senatorLock);
 		}
-		Wait(OutsideCV, senatorSemaphoreLock);
+		Wait(OutsideCV, senatorLock);
 		activeCustomers++; /* come back inside */
-		Release(senatorSemaphoreLock);
+		Release(senatorLock);
 	}
 	
 	pickLine(customer);

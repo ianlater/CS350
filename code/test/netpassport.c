@@ -19,7 +19,9 @@ int main()
  clerkCV = CreateMonitor(NUM_CLERKS);
  clerkBreakCV  = CreateMonitor(NUM_CLERKS); /*CV for break, for use with manager*/
  senatorCV = CreateCondition();
-
+ outsideCV = CreateCondition();
+ senatorLineCV = CreateCondition();
+ 
 /*Monitor Variables*/
  clerkLineCount = CreateMonitor(NUM_CLERKS);/*start big so we can compare later*/
  clerkBribeLineCount = CreateMonitor(NUM_CLERKS);
@@ -35,7 +37,8 @@ int main()
  currentSenatorId = CreateMonitor(1);
  simulationStarted = CreateMonitor(1);/*so simulation doesn't end before customers enter*/
  simulationEnded = CreateMonitor(1);
-
+ activeCustomers = CreateMonitor(1);
+ 
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
  clerkIds = CreateMonitor(NUM_CLERKS);
