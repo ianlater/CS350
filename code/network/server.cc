@@ -38,6 +38,7 @@ enum requestType {
   DMV,//Destroy Monitor Var
   SMV,//Set Monitor Var
   GMV,//Get Monitor Var
+  CRL,//semi-magical Release Lock, only called by inter-server Signal Wait. has bool false
   YES,//servertoserver confirmation of resoutce
   NO,//servertoserver i dont have that resource
   UNKNOWN,
@@ -176,6 +177,7 @@ requestType getType(string req)
   if(req == "DMV") return DMV;
   if(req == "GMV") return GMV;
   if(req == "SMV") return SMV;
+  if(req == "CRL") return CRL;
   if(req == "YES") return YES;
   if(req == "NO") return NO;
 return UNKNOWN;
@@ -202,12 +204,13 @@ void sendMessage(Message msg)
 }
 
 //send this messsage to all servers except me
-void SendMessageToServers(Message msg, int reqType)
+PendingRequest* SendMessageToServers(Message msg, int reqType)
 {
   printf("MSG %s\n", msg.msg);
   stringstream str;
   str<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
-  char* data = (char*)str.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, str.str().c_str());
   PendingRequest* pr = new PendingRequest(msg.to, msg.toMailbox, reqType);
   PRTable[prCounter] = pr;
   prCounter++;
@@ -225,6 +228,7 @@ void SendMessageToServers(Message msg, int reqType)
 	  sendMessage(outMsg);
 	}
     }
+  return pr;
 }
 
 bool LockIsValid(int lock, int client)
@@ -347,7 +351,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
   char* errorMsg;
   if(!LockIsValid(lockIndex, clientID))
     {
-      //NEW. Send 1 message to each server
+      //Send 1 message to each server
       stringstream ss;
       ss<<"AL "<<lockIndex;
       char* msgData = (char*)ss.str().c_str();
@@ -374,6 +378,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
  //otherwise, make this client wait for the lock's release
  if(sl->isAvailable)
    {
+     printf("ACQUIRE:: lock is available, take it and make it BUSY\n");
      sl->currentOwner = threadID;
      sl->isAvailable = false;
      Message msg = Message(clientID, threadID, "AcquireLock");
@@ -388,7 +393,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
  return 0;
 }
 
-int doReleaseLock(int lockIndex, int clientID, int threadID)
+int doReleaseLock(int lockIndex, int clientID, int threadID, bool doReleaseClient)
 {
   char* errorMsg;
   if(!LockIsValid(lockIndex, clientID))
@@ -444,20 +449,27 @@ int doReleaseLock(int lockIndex, int clientID, int threadID)
 	}
       else
 	{
-	  sl->isAvailable = true;
-	  infoMessage = "Release::lock released and available";
-	  printf("%s\n", infoMessage);
-	  Message msg = Message(clientID, threadID, infoMessage);
-	  sendMessage(msg);	 
+	  if(doReleaseClient)
+	    {
+	      sl->isAvailable = true;
+	      infoMessage = "Release::lock released and available";
+	      printf("%s\n", infoMessage);
+	      Message msg = Message(clientID, threadID, infoMessage);
+	      sendMessage(msg);	 
+	    }
 	}
     }
   else//someone is waiting. send 2 reply messages
     {
       //first, wake up person who released lock successfully
-      infoMessage = "Release::lock released successfully";
-      printf("%s\n", infoMessage);
-      Message msg = Message(clientID, threadID, infoMessage);
-      sendMessage(msg);	 
+      //this is for proj 4. this function is used by serverserver wait
+      if(doReleaseClient)
+	{
+	  infoMessage = "Release::lock released successfully";
+	  printf("%s\n", infoMessage);
+	  Message msg = Message(clientID, threadID, infoMessage);
+	  sendMessage(msg);	 
+	}
       //send msg at front of waitQ to person who now owns lock
       printf("Release::Waking up waiting client\n");
       Message* msg2 = (Message*)sl->waitQueue->Remove();
@@ -597,23 +609,43 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
 {
   char* errorMsg;
-  if(!LockIsValid(lockIndex, client))
+ if(!CVIsValid(cvIndex, client))
     {
-      errorMsg = "Wait::Error. invalid Lock";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg); 
+      printf("WAIT::cv %d not valid on this server\n", cvIndex);
+      //Send 1 message to each server to check for cv
+      stringstream ss;
+      ss<<"WCV "<<cvIndex<<" "<<lockIndex;
+      //      char* msgData = (char*)ss.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
+      PendingRequest* pr = SendMessageToServers(msg, WCV);
+      pr->id1 = cvIndex;
+      //errorMsg = "Wait::Error. invalid cv";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(client, threadID, errorMsg);
+      //sendMessage(msg); 
       return -1;
     }
-  if(!CVIsValid(cvIndex, client))
+ 
+//if i have the cv, but not the lock, i need someone else to release the lock
+ if(!LockIsValid(lockIndex, client))
     {
-      errorMsg = "Wait::Error. invalid cv";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg); 
+      printf("WAIT::lock %d  not valid on this server\n", lockIndex);
+      //send CRL message?
+      stringstream ss;
+      ss<<"CRL "<<lockIndex;
+      //    char* msgData = (char*)ss.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
+      PendingRequest* pr = SendMessageToServers(msg, CRL);
+      pr->id1 = cvIndex;
       return -1;
     }
-  
+ 
  //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
   ServerCondition* sc = ServerCVTable[cvIndex];
@@ -626,6 +658,8 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
     {
       char* error = "Wait:error: lock mismatch";
       printf("%s\n", error);
+      Message msg =  Message(client, threadID, error);
+      sendMessage(msg);
       //send back message
       return -1;
     }
@@ -633,7 +667,9 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
 //now, put wait message in waitQ but do not send
 Message* msg = new Message(client, threadID, "Wake after Wait");
 sc->waitQueue->Append(msg);
-  return 0;
+//SHOULD RELEASE ON LOCK HERE JACK
+ doReleaseLock(lockIndex, client, threadID, false);//maybe? 
+ return 0;
 }
 
 int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
@@ -715,8 +751,11 @@ int doDestroyMV(int mvIndex, int client, int threadID)
       printf("MV not on this server, asking others\n");
       stringstream ss;
       ss<<"DMV "<<mvIndex;
-      char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(client, threadID, msgData);
+      //      char* msgData = (char*)ss.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
       SendMessageToServers(msg, DMV);
       
       //errorMsg = "DestroyMV::invalid mv";
@@ -740,8 +779,11 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
       printf("MV not on this server, asking others\n");
       stringstream ss;
       ss<<"GMV "<<mvID<<" "<<arrayIndex;
-      char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(client, threadID, msgData);
+      //      char* msgData = (char*)ss.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
       SendMessageToServers(msg, GMV);
       //    errorMsg = "GetMV::invalid mv";
       // printf("%s\n", errorMsg);
@@ -794,8 +836,11 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
       printf("MV not on this server, asking others\n");
       stringstream ss;
       ss<<"SMV "<<mvID<<" "<<index<<" "<<value;
-      char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(client, threadID, msgData);
+      //      char* msgData = (char*)ss.str().c_str();
+  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
       SendMessageToServers(msg, SMV);
 
       //errorMsg = "SetMV::invalid mv";
@@ -825,12 +870,14 @@ PendingRequest* FindPR(int clientId, int clientMB, int reqType)
       PendingRequest* pr = PRTable[i];
       if(pr)
 	{
+	  printf("HELLO\n");
 	  if(pr->reqMId == clientId)
 	    {
 	      if(pr->reqMBId == clientMB)
 		{
 		  if(pr->reqType == reqType)
 		    {
+		      printf("found PR: nocount %d\n", pr->noCount);
 		      return pr;
 		    }
 		}
@@ -856,21 +903,27 @@ int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
     //TODO send yes reply to requestor
     printf("SSAL Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"AL";
-    char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    //    char* msgData = (char*)ss.str().c_str();
+ char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+   
+ msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSAL Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"AL";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
+   //char* msgData = (char*)ss.str().c_str();
+ char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+  
+  msg = Message(reqId, 1, data);
   sendMessage(msg);
   return 1;
 }
 
-int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB, bool doClient)
 {
   Message msg = Message();
   stringstream ss;
@@ -878,25 +931,41 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
   if(LockIsValid(lockIndex, clientId))
   {
     //wake up client first
-    doReleaseLock(lockIndex, clientId, clientMB);
+    doReleaseLock(lockIndex, clientId, clientMB, doClient);
     ///msg = Message(clientId, clientMB, "Release Success");
     ///sendMessage(msg);
  
    //TODO send yes reply to requestor
-    printf("SSRL Sending YES to %d\n", reqId);
-    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"RL";
+    if(doClient)
+      {
+	printf("SSRL Sending YES to %d\n", reqId);
+	ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"RL";
+      }
+    else//CRL
+      {
+	printf("SSCRL Sending YES to %d\n", reqId);
+	ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"CRL";
+      }
     char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+    strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSRL Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"RL";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
-  sendMessage(msg);
-  return 1;
+   //char* msgData = (char*)ss.str().c_str();
+ char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+  if(doClient)
+    {
+      msg = Message(reqId, 1, data);
+      sendMessage(msg);
+    }  
+return 1;
 
 }
 
@@ -917,16 +986,21 @@ int SSDestroyLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
    //TODO send yes reply to requestor
     printf("SSDL Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"DL";
-    char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    //char* msgData = (char*)ss.str().c_str();
+ char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+    
+msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSRL Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"DL";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
+   char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+  msg = Message(reqId, 1, data);
   sendMessage(msg);
   return 1;
 
@@ -951,16 +1025,21 @@ int SSSetMV(int mvIndex,int arrayIndex, int value, int clientId, int clientMB, i
     //send yes reply to requestor
     printf("SSSMV Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"SMV";
-    char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    
+   char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSSMV Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"SMV";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
+   char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+  msg = Message(reqId, 1, data);
   sendMessage(msg);
  
   return 1;
@@ -987,16 +1066,20 @@ int SSGetMV(int mvIndex,int arrayIndex, int clientId, int clientMB, int reqId, i
     //send yes reply to requestor
     printf("SSGMV Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"GMV";
-    char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSGMV Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"GMV";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
+     char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+  msg = Message(reqId, 1, data);
   sendMessage(msg);
  
   return 1;
@@ -1015,30 +1098,114 @@ int SSDestroyMV(int mvIndex, int clientId, int clientMB, int reqId, int reqMB)
     //send yes reply to requestor
     printf("SSDMV Sending YES to %d\n", reqId);
     ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"DMV";
-    char* msgData = (char*)ss.str().c_str();
-    msg = Message(reqId, 1, msgData);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
     sendMessage(msg);
     return 1;
   }
   //else, send NO to requestor
   printf("SSGMV Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"DMV";
-  char* msgData = (char*)ss.str().c_str();
-  msg = Message(reqId, 1, msgData);
+     char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+  msg = Message(reqId, 1, data);
   sendMessage(msg);
  
  
   return 1;
 }
+
+/*CV SS STUFF*/
+
+int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+ Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(CVIsValid(cvIndex, clientId))
+  {
+    //now, we have cv. check lock first in my lock table, then everywhere else
+   
+    //send yes reply to requestor
+    printf("SSWCV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"WCV";
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    //return 1;
+    //instead of returning, check if the lock sent over is here, too
+    if(LockIsValid(lockIndex, clientId))
+      {
+	ServerCondition* sc = ServerCVTable[cvIndex];
+	if(sc->waitingLock == -1)
+	  {
+	    sc->waitingLock = lockIndex;
+	  }
+	if(sc->waitingLock != lockIndex)
+	  {
+	    char* error = "Wait:error: lock mismatch";
+	    printf("%s\n", error);
+	    Message msg = Message(clientId, clientMB, error);
+	    sendMessage(msg);
+	    //send back message
+	    return -1;
+	  }
+	//we have the lock! do release, but do NOT reply to client
+	doReleaseLock(lockIndex, clientId, clientMB, false);
+      }
+    else//I don't have lock!
+      {
+	//the lock needs to be released by whoever is holding it
+	//and i still need to add me to cv's waitQ
+	//if lock does not exist, send error back to client. use PR
+	stringstream ss;
+	ss<<"CRL "<<lockIndex;//do same thing as RL, but CRL has false in dorelease?
+	   char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+	Message msg = Message(clientId, clientMB, data);
+	SendMessageToServers(msg, RL);
+	//adding me to CV's waitQ will be handled in YES response
+      }
+  }
+  else//else, send NO to requestor
+  {
+    printf("SSWCV Sending NO to %d\n", reqId);
+    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"WCV";
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);
+    sendMessage(msg);
+  }
+  //at this 
+  return 1;
+}
+
 /*SS Bookkeeping Functions*/
 int SSProcessYes(int clientId, int clientMB, int reqType)
 {
  PendingRequest* pr = FindPR(clientId, clientMB, reqType);
   //modify pointer? by incrementing it's no count, if nocount == numservers, send back error (depends on reqtype)
-  if(!pr)
+ if(!pr)
     {
+      printf("PR NOT FOUND IN YES\n");
       return -1;
     }
+ if(reqType == CRL)
+   {
+     printf("CRL YES\n");
+     //we need to add the client with the REAL lock to its CV's waitQ
+     Message* msg = new Message(clientId, clientMB, "Wake after wait");
+     //add it to the cv!
+     ServerCVTable[pr->id1]->waitQueue->Append(msg);
+   } 
+
   delete pr;
   return 1;
 }
@@ -1049,18 +1216,24 @@ int SSProcessNo(int clientId, int clientMB, int reqType)
   //modify pointer? by incrementing it's no count, if nocount == numservers, send back error (depends on reqtype)
   if(!pr)
     {
+      printf("CANNOT FIND PR, IS NULL\n");
       return -1;
     }
   pr->noCount++;
   if(pr->noCount == numServers)
     {
+      //IF we are creating something, all no's is good, we proceed with create
       printf("SSNO sending back error\n");
       stringstream ss;
       //send that error message! TODOQ. then test. then do same for yes. then expand
       ss<<reqType<<" ERROR ";
-      char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(clientId, clientMB, msgData);
+         char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+      Message msg = Message(clientId, clientMB, data);
       sendMessage(msg);
+      //and delete this pr now
+      delete pr;
     }  
 }
 	  
@@ -1124,7 +1297,7 @@ void ServerToServer()
 	  reqId = inPktHdr.from;
 	  reqMB = inMailHdr.from;
 
-	  SSReleaseLock(lockIndex, clientId, clientMB, reqId, reqMB);
+	  SSReleaseLock(lockIndex, clientId, clientMB, reqId, reqMB, true);
 	 
 	  break;
 	}
@@ -1206,6 +1379,58 @@ void ServerToServer()
 	  reqMB = inMailHdr.from;
 
 	  SSDestroyMV(mvIndex, clientId, clientMB, reqId, reqMB);
+
+	  break;
+	}
+      case WCV:
+	{
+	  printf("server-server WCV\n");
+	  string cvIndexStr, lockIndexStr, clientIdStr, clientMBStr;
+	  int cvIndex, lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>cvIndexStr;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to ints
+	  cvIndex = atoi(cvIndexStr.c_str());
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+	  printf("SSWAIT: %d %d %d %d %d %d", cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+	  SSWaitCV(cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+
+	  break;
+	}
+      case CRL:
+	{
+	  printf("server-server CRl\n");
+	  string lockIndexStr, clientIdStr, clientMBStr, reqIdStr, reqMBStr;
+	  int lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  ss>>reqIdStr;
+	  ss>>reqMBStr;
+	  //convert to int
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSReleaseLock(lockIndex, clientId, clientMB, reqId, reqMB, false);
+	 
+	  break;
+	}
+      case SCV:
+	{
+
+	  break;
+	}
+      case BCV:
+	{
 
 	  break;
 	}
@@ -1322,7 +1547,7 @@ void ServerToClient()
 	  string lockIndex;
 	  ss>>lockIndex;
 	  int lockInt = atoi(lockIndex.c_str());
-	  doReleaseLock(lockInt, inPktHdr.from, inMailHdr.from);
+	  doReleaseLock(lockInt, inPktHdr.from, inMailHdr.from, true);
 	  break;
 	}
       case DL:
@@ -1379,7 +1604,7 @@ void ServerToClient()
 	  ss>>cvIndex;
 	  int lockInt = atoi(lockIndex.c_str());
 	  int cvInt = atoi(cvIndex.c_str());
-	  doWaitCV(lockInt, cvInt, inPktHdr.from, inMailHdr.from);
+	  doWaitCV(cvInt, lockInt, inPktHdr.from, inMailHdr.from);
 
      	  break;
 	}

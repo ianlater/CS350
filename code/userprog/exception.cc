@@ -161,7 +161,7 @@ void sendMsgToServer(char* msg)
     // To: destination machine, mailbox 0
     // From: our machine, reply to: mailbox 1
     //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
-    if(msg[0] == 'D' && msg[1] == 'M')
+    if(msg[0] == 'C' && msg[1] == 'C')//ccv
       {
 	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
       }
@@ -637,6 +637,11 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
       return -1;
     }
+    if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+      {
+	printf("%s\n", "Wait::ERROR: CV Index out of bounds");
+	return -1;
+      }
 #ifdef NETWORK
 
     //printf("Network Wait in progress\n");
