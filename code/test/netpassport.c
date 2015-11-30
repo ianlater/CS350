@@ -48,11 +48,6 @@ int main()
  manager = CreateMonitor(1);	
  
  /* populate pp office */
- Exec("picappclerkgen.c");
- Exec("passcashclerkgen.c");
- Exec("gencustomers.c"
- Exec("monitor.c");
- Exec("gensenator.c");
  
  Exit(0);
 }
