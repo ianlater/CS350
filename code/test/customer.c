@@ -3,7 +3,7 @@
 */
 #include "syscall.h"
 #include "setup.h"
-int id, money, ssn, myLine;
+int i, id, money, ssn, myLine;
 bool credentials[4]; 
 bool rememberLine, isSenator;
 /*
