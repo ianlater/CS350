@@ -7,8 +7,8 @@ int a[3];
 int b, c, i;
 
 int main(){
-	for(i = 0;i<1, i++){
-		Exec("senator.c");
+	for(i = 0;i<1; i++){
+		Exec("senator.c", 9);
 	}
 	Exit(0);
 }

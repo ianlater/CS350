@@ -63,19 +63,19 @@ int clerksInBuilding;
 int managersInBuilding;
 int senatorsAlive;
 bool senatorInBuilding;
-int clerkCurrentCustomer[NUM_CLERKS];/*relate clerk id to customer id*/
-int clerkCurrentCustomerSSN[NUM_CLERKS];/*relate clerk id to customer ssn*/
+int clerkCurrentCustomer;/*relate clerk id to customer id*/
+int clerkCurrentCustomerSSN;/*relate clerk id to customer ssn*/
 int currentSenatorId ;
 bool simulationStarted;/*so simulation doesn't end before customers enter*/
 bool simulationEnded;
 int activeCustomers;
 
 /* clerk 'struct' mvs */
-clerkIds[NUM_CLERKS];
-clerkTypes[NUM_CLERKS];
+clerkIds;
+clerkTypes;
 
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
 int clerks[NUM_CLERKS];
-int customers[NUM_CUSTOMERS];
+int customers;
 int manager;

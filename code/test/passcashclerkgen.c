@@ -7,9 +7,9 @@ int a[3];
 int b, c, i;
 
 int main(){
-	for(i = 0;i<5, i++){
-		Exec("ppclerk.c");
-		Exec("cashclerk.c");
+	for(i = 0;i<5; i++){
+		Exec("ppclerk.c", 9);
+		Exec("cashclerk.c", 11);
 	}
 	Exit(0);
 }

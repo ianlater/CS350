@@ -1,4 +1,4 @@
-/* gencustomers.c
+/* genmanager.c
 	makes 5 application and 5 picture clerks for a total of 10 clerks
 */
 #include "syscall.h"
@@ -7,8 +7,8 @@ int a[3];
 int b, c, i;
 
 int main(){
-	for(i = 0;i<10; i++){
-		Exec("customer.c", 10);
+	for(i = 0;i<1; i++){
+		Exec("manager.c", 9);
 	}
 	Exit(0);
 }
