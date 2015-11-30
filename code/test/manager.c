@@ -4,7 +4,7 @@
 #include "syscall.h"
 #include "setup.h"
 int a[3];
-int b, c;
+int b, c, i;
 
 
 
@@ -14,7 +14,7 @@ void OutputEarnings()
 	/* should we wrap this in  a lock? */
 	total = 0;
 	for (i =0; i < NUM_CLERK_TYPES; i++) {
-		total += GetMonitor(totalEarnings, i])
+		total += GetMonitor(totalEarnings, i);
 	}
 	Print("\n----Earnings report:---- \n", 30, "","");
 	PrintInt("ApplicationClerks: %i \n", 30,GetMonitor(totalEarnings, APPLICATION_CLERK_TYPE),0);
@@ -23,7 +23,7 @@ void OutputEarnings()
 	PrintInt("Cashiers: %i \n",30,GetMonitor(totalEarnings, CASHIER_CLERK_TYPE),0);
 	PrintInt("TOTAL: %i \n------------------------\n\n",40,total,0);
 }
-void Manager_Run()
+int main()
 {
   Print("Manager in building\n",21, "","");
   while(true) {
@@ -38,7 +38,7 @@ void Manager_Run()
 			if(Acquire(clerkILock) < 0) {
 					Halt();
 			}	
-			PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(ClerkIds, i), 0);
+			PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(clerkIds, i), 0);
 				SetMonitor(clerkState, i, 0);/*set to available	*/
 			Signal(clerkILock, GetMonitor(clerkBreakCV, i));	
 			Release(clerkILock);	
@@ -52,7 +52,7 @@ void Manager_Run()
 				clerkILock = GetMonitor(clerkLock,i);
 				/*wake up clerk*/
 				Acquire(clerkILock);	
-				PrintInt("Manager waking up Clerk%i\n", 27, clerks[i].id, 0);
+				PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(clerkIds, i), 0);
 				SetMonitor(clerkState, i, 0);/*set to available	*/
 				Signal(clerkILock, GetMonitor(clerkBreakCV, i));	
 				Release(clerkILock);	

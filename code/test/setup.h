@@ -57,7 +57,7 @@ int senatorLineCV; /* how senators wait in line */
 int clerkLineCount;/*start big so we can compare later*/
 int clerkBribeLineCount;
 int clerkState;/*keep track of state of clerks with ints 0=free,1=busy,2-on breaK /*sidenote:does anyone know how to do enums? would be more expressive?*/
-int totalEarnings[NUM_CLERK_TYPES];/*keep track of money submitted by each type of clerk*/
+int totalEarnings;/*keep track of money submitted by each type of clerk*/
 int customersInBuilding;
 int clerksInBuilding;
 int managersInBuilding;
