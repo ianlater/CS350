@@ -9,18 +9,18 @@ int main()
 /*Lock and Condition Variables*/
 /* Values refer lock or condition index */
  clerkLock = CreateMonitor(NUM_CLERKS);/*individual locks created in clerk initiation*/
- clerkLineLock = CreateLock();
- outsideLock = CreateLock();
- senatorLock = CreateLock();
- createLock = CreateLock(); /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
+ clerkLineLock = CreateLock("clerkLineLock", 13);
+ outsideLock = CreateLock("outsideLock", 11);
+ senatorLock = CreateLock("senatorLock", 11);
+ createLock = CreateLock("createLock", 10); /*since fork takes no params, and agent creation based off global, need lock to avoid race conditions of creating same id*/
 
  clerkLineCV = CreateMonitor(NUM_CLERKS);/*individual cv's created in clerk initiation*/
  clerkBribeLineCV = CreateMonitor(NUM_CLERKS);
  clerkCV = CreateMonitor(NUM_CLERKS);
  clerkBreakCV  = CreateMonitor(NUM_CLERKS); /*CV for break, for use with manager*/
- senatorCV = CreateCondition();
- outsideCV = CreateCondition();
- senatorLineCV = CreateCondition();
+ senatorCV = CreateCondition("senatorCV", 9);
+ outsideCV = CreateCondition("outsideCV", 9);
+ senatorLineCV = CreateCondition("senatorLineCV", 13);
  
 /*Monitor Variables*/
  clerkLineCount = CreateMonitor(NUM_CLERKS);/*start big so we can compare later*/
