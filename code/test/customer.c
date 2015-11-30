@@ -286,80 +286,8 @@ void pickLine()
   }
 }
 
-
-struct Customer senators[NUM_SENATORS];
-
-int CreateSenator(char* name) 
-{	
-    senators[senatorsAlive].id = senatorsAlive;
-	senators[senatorsAlive].ssn = senatorsAlive + 1000;
-	/*strcpy(senators[senatorsAlive].name, name);
-	strcat(senators[senatorsAlive].name, senators[senatorsAlive].id);*/
-	senators[senatorsAlive].name = name;
-	senators[senatorsAlive].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	senators[senatorsAlive].myLine = -1;
-	senators[senatorsAlive].rememberLine = false;
-	senators[senatorsAlive].isSenator = true;
-	return senatorsAlive++;
-}
-
-void Senator_EnterOffice(struct Customer* senator)
+int main()
 {
-  /*walk in acquire all clerk locks to prevent next in line from getting to clerk*/
-  /*senatorSemaphore->P();*/ /*use to lock down entire run section*/
-  GetMonitor(senatorInBuilding, 0) = true;/*signals all people waiting to exit*/
-  
-  Acquire(clerkLineLock); /*acquire to broadcast current customers. released in Customer::run()*/
-  for (i=0; i<NUM_CLERKS;i++) {
-    if (clerkLineCV[i] >= 0) {
-		Broadcast(clerkLineLock, clerkLineCV[i]); /*clear out lines. they will stop because of semaphore after leaving line/before returning to it*/
-    }
-
-    if (clerkBribeLineCV[i] >= 0) {
-		Broadcast(clerkLineLock, clerkBribeLineCV[i]); /*clear out lines. they will stop because of semaphore after leaving line/before returning to it*/
-    }
-  }
- 
-  Release(clerkLineLock);
-  for (i=0; i<NUM_CLERKS;i++) {
-	/*wait for bribe line to empty*/
-	Acquire(clerkLineLock);
-	while(clerkBribeLineCount[i] > 0) {
-	  Signal(clerkLineLock, clerkBribeLineCV[i]);
-	  Wait(clerkLineLock, clerkBribeLineCV[i]);
-	}
-	/*wait for regular line to empty*/
-	while (clerkLineCount[i] > 0) {
-	  Signal(clerkLineLock, clerkLineCV[i]);
-	  Wait(clerkLineLock, clerkLineCV[i]);
-	}
-  }
-  /*everyone is out of lines now wait for clerks to finish*/
-  for (i=0; i<NUM_CLERKS;i++) {
-    if (clerkLock[i] >= 0) {
-		Acquire(clerkLock[i]);
-		while (clerkState[i] == 1) {
-			Signal(clerkLock[i], clerkCV[i]);
-			Wait(clerkLock[i], clerkCV[i]);
-		}
-    }
-  }
-}
-
-void Senator_ExitOffice(struct Customer* senator)
-{
-  currentSenatorId++;
-  GetMonitor(senatorInBuilding, 0) = false;
-  /*senatorSemaphore->V();*/
-}
-
-void Senator_Run(struct Customer* senator)
-{
-	Release(createLock);
-	/*enter facility*/
-	Senator_EnterOffice(senator);
-	/*proceed as a normal customer*/
-	Customer_Run(senator);
-	/*exit facility*/
-	Senator_ExitOffice(senator);
+	Customer_Run();
+	Exit(0);
 }
