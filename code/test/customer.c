@@ -5,7 +5,7 @@
 #include "setup.h"
 int i, id, money, ssn, myLine;
 bool credentials[4]; 
-bool rememberLine, isSenator;
+bool rememberLine, isSenator, isBribing;
 int myClerksLock = -1;
 int myClerksCV = -1;
 /*
@@ -249,7 +249,7 @@ void pickLine()
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
 		  /*check if the type of this line is something I need! TODO*/
-			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) {
+			if(/*clerks[i] != NULL &&*/ isNextClerkType(GetMonitor(clerkTypes, i))) {
 			  if(GetMonitor(clerkLineCount, i) < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
 				  myLine = i;
