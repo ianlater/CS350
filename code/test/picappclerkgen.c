@@ -8,8 +8,8 @@ int b, c, i;
 
 int main(){
 	for(i = 0;i<5; i++){
-		Exec("appclerk.c",10);
-		Exec("picclerk.c", 10);
+		Exec("appclerk",8);
+		Exec("picclerk", 8);
 	}
 	Exit(0);
 }

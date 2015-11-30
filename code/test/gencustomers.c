@@ -8,7 +8,7 @@ int b, c, i;
 
 int main(){
 	for(i = 0;i<10; i++){
-		Exec("customer.c", 10);
+		Exec("customer", 8);
 	}
 	Exit(0);
 }
