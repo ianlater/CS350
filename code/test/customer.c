@@ -18,7 +18,7 @@ int CreateCustomer()
 {	
 	
 	//need to acquire createLock before creating
-	createLock->Acquire();
+	Acquire(createLock);
 	id = GetMonitor(customersInBuilding,0);
 	this.id = id;
 	SetMonitor(c_id, id, id);
@@ -35,13 +35,13 @@ int CreateCustomer()
 	this.isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	createLock->Release();
+	Release(createLock);
 	return customersInBuilding++; 
 }
 
 int CreateCustomer_WithCredentials(int* credentials) 
 {
-	createLock->Acquire();
+	Acquire(createLock);
 	//TODO: how to deal with credential arrays.
 	//possibly change them to a single variable for each customer
 	
@@ -64,7 +64,7 @@ SetMonitor(c_id, id, id);
 	this.isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	createLock->Release();
+	Release(createLock);
 	return customersInBuilding++;
 }
 
@@ -127,7 +127,7 @@ void giveData()
 		  this.money-=500;
 		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+500);
 		}
-		customer->money-=100;
+		this.money-=100;
 		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+100);
 		break;
 	}
