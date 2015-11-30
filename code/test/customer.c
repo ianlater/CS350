@@ -18,18 +18,17 @@ int CreateCustomer()
 	
 	Acquire(createLock);
 	id = GetMonitor(customersInBuilding,0);
-	this.id = id;
 	SetMonitor(c_id, id, id);
 	SetMonitor(c_ssn, id, id + 1000);
-	this.ssn = id + 1000;
+	ssn = id + 1000;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	this.name = name;
-	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, this.money);
-	this.myLine = -1;
-	this.rememberLine = false;
-	this.isSenator = false;
+	
+	money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	SetMonitor(c_money, id, money);
+	myLine = -1;
+	rememberLine = false;
+	isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
@@ -40,20 +39,19 @@ int CreateCustomer_WithCredentials(int* credentials)
 {
 	Acquire(createLock);
 	for(i=0;i<NUM_CLERK_TYPES;i++) {
-	  this.credentials[i] = credentials[i];
+	 credentials[i] = credentials[i];
 	}
 	id = GetMonitor(customersInBuilding,0);
-	this.id = id;
 SetMonitor(c_id, id, id);
-	this.ssn = id + 1000;
-	SetMonitor(c_ssn, id, this.ssn);
+	ssn = id + 1000;
+	SetMonitor(c_ssn, id, ssn);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, this.money);
-	this.myLine = -1;
-	this.rememberLine = false;
-	this.isSenator = false;
+	money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	SetMonitor(c_money, id, money);
+	myLine = -1;
+	rememberLine = false;
+	isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
@@ -66,19 +64,19 @@ bool isNextClerkType(int clerk_type)
     /*for adding customers who go out of order, we can add in a Random number check that returns true Randomly*/
 
     /*check whether clerk is valid next type (check credentials or keep a status)*/
-    if (!this.credentials[clerk_type]) /*credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have*/
+    if (!credentials[clerk_type]) /*credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have*/
     {
         if (clerk_type == PICTURE_CLERK_TYPE || clerk_type == APPLICATION_CLERK_TYPE)/*application and picture need no prior credentials*/
             return true;
         
         if (clerk_type == PASSPORT_CLERK_TYPE) /*passport clerk requires both application and pictue*/
         {
-            if (this.credentials[APPLICATION_CLERK_TYPE] && this.credentials[PICTURE_CLERK_TYPE]) 
+            if (credentials[APPLICATION_CLERK_TYPE] && credentials[PICTURE_CLERK_TYPE]) 
                 return true;
             
             return false;
         }
-        if (clerk_type == CASHIER_CLERK_TYPE && this.credentials[PASSPORT_CLERK_TYPE]) /*cashier requires only passport (ASSUMPTION?)*/
+        if (clerk_type == CASHIER_CLERK_TYPE && credentials[PASSPORT_CLERK_TYPE]) /*cashier requires only passport (ASSUMPTION?)*/
         {
             return true;
 	}
@@ -88,39 +86,39 @@ bool isNextClerkType(int clerk_type)
 
 void giveData()
 {
-	switch (GetMonitor(clerkTypes, this.myLine)) {
+	switch (GetMonitor(clerkTypes, myLine)) {
 	  case APPLICATION_CLERK_TYPE:
-		PrintInt("Customer%i: may I have application please?\n", 44,  this.id, 0);
-		if(this.isBribing) {
-		  this.money-=500;
+		PrintInt("Customer%i: may I have application please?\n", 44,  id, 0);
+		if(isBribing) {
+		  money-=500;
 		  SetMonitor(totalEarnings, APPLICATION_CLERK_TYPE, GetMonitor(totalEarnings, APPLICATION_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		/*ask for a picture to be taken*/
-		PrintInt("Customer%i: I would like a picture\n", 36, this.id, 0);
-		if(this.isBribing){
-		  this.money-=500;
+		PrintInt("Customer%i: I would like a picture\n", 36, id, 0);
+		if(isBribing){
+		  money-=500;
 		  SetMonitor(totalEarnings, PICTURE_CLERK_TYPE, GetMonitor(totalEarnings, PICTURE_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
-		PrintInt("Customer%i: ready for my passport\n", 35, this.id, 0);
-		if(this.isBribing){
-		  this.money-=500;
+		PrintInt("Customer%i: ready for my passport\n", 35, id, 0);
+		if(isBribing){
+		  money-=500;
 		  SetMonitor(totalEarnings, PASSPORT_CLERK_TYPE, GetMonitor(totalEarnings, PASSPORT_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case CASHIER_CLERK_TYPE:
-		PrintInt("Customer%i has given Cashier %i $100\n", 38, this.id, GetMonitor(clerkIds, this.myLine));
-		if(this.isBribing){
-		  this.money-=500;
+		PrintInt("Customer%i has given Cashier %i $100\n", 38, id, GetMonitor(clerkIds, myLine));
+		if(isBribing){
+		  money-=500;
 		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+500);
 		}
-		this.money-=100;
+		money-=100;
 		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+100);
 		break;
 	}
@@ -244,9 +242,9 @@ int desireToBribe;
 void pickLine()
 {
   /* isBribing = false;*/
-  if (!this.rememberLine)/*if you don't have to remember a line, pick a new one*/
+  if (!rememberLine)/*if you don't have to remember a line, pick a new one*/
   {
-	  this.myLine = -1;
+	  myLine = -1;
 	  lineSize = 1001;
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
@@ -254,14 +252,14 @@ void pickLine()
 			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) {
 			  if(GetMonitor(clerkLineCount, i) < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
-				  this.myLine = i;
+				  myLine = i;
 				  lineSize = GetMonitor(clerkLineCount, i);
 				}
 			}
 	    }
 	  desireToBribe = Rand() % 10;
 	  /*if i want to bribe, let's lock at bribe lines*/
-	  if(this.money > 600 && desireToBribe > 8)
+	  if(money > 600 && desireToBribe > 8)
 	    {
 	      for(i = 0; i < NUM_CLERKS; i++)
 			{
@@ -271,9 +269,9 @@ void pickLine()
 				  	if(theBribeLineCount <=  lineSize)/*for TESTING. do less than only for real*/
 					{
 					  /*PrintInt("Clerk%i: I'm BRIBING\n", name);*/
-					  this.money -= 500;
-					  this.myLine = i;
-					  this.isBribing = true;
+					  money -= 500;
+					  myLine = i;
+					  isBribing = true;
 					  lineSize = theBribeLineCount;
 					}
 				}
