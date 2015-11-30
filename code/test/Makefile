@@ -32,7 +32,7 @@ INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
 
-all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing netmvtest netclient addtomv signal multilarge
+all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing netmvtest netclient addtomv signal multilarge netpassport picappclerkgen passcashclerkgen gencustomers gensenator genmanager 
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -133,7 +133,41 @@ multilarge: multilarge.o start.o
 	$(LD) $(LDFLAGS) start.o multilarge.o -o multilarge.coff
 	../bin/coff2noff multilarge.coff multilarge  
 
+netpassport.o: netpassport.c	
+	$(CC) $(CFLAGS) -c netpassport.c 
+netpassport: netpassport.o start.o 	
+	$(LD) $(LDFLAGS) start.o netpassport.o -o netpassport.coff
+	../bin/coff2noff netpassport.coff netpassport  
+	
+picappclerkgen.o: picappclerkgen.c	
+	$(CC) $(CFLAGS) -c picappclerkgen.c 
+picappclerkgen: picappclerkgen.o start.o 	
+	$(LD) $(LDFLAGS) start.o picappclerkgen.o -o picappclerkgen.coff
+	../bin/coff2noff picappclerkgen.coff picappclerkgen  
+	
+passcashclerkgen.o: passcashclerkgen.c	
+	$(CC) $(CFLAGS) -c passcashclerkgen.c 
+passcashclerkgen: passcashclerkgen.o start.o 	
+	$(LD) $(LDFLAGS) start.o passcashclerkgen.o -o passcashclerkgen.coff
+	../bin/coff2noff passcashclerkgen.coff passcashclerkgen  
 
+gencustomers.o: gencustomers.c	
+	$(CC) $(CFLAGS) -c gencustomers.c 
+gencustomers: gencustomers.o start.o 	
+	$(LD) $(LDFLAGS) start.o gencustomers.o -o gencustomers.coff
+	../bin/coff2noff gencustomers.coff gencustomers  
+	
+gensenator.o: gensenator.c	
+	$(CC) $(CFLAGS) -c gensenator.c 
+gensenator: gensenator.o start.o 	
+	$(LD) $(LDFLAGS) start.o gensenator.o -o gensenator.coff
+	../bin/coff2noff gensenator.coff gensenator  
+	
+genmanager.o: genmanager.c	
+	$(CC) $(CFLAGS) -c genmanager.c 
+genmanager: genmanager.o start.o 	
+	$(LD) $(LDFLAGS) start.o genmanager.o -o genmanager.coff
+	../bin/coff2noff genmanager.coff genmanager  
 
 clean:
 	rm -f *.o *.coff

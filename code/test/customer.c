@@ -38,7 +38,6 @@ int CreateCustomer()
 	Release(createLock);
 	return customersInBuilding++; 
 }
-
 int CreateCustomer_WithCredentials(int* credentials) 
 {
 	Acquire(createLock);
@@ -65,7 +64,7 @@ SetMonitor(c_id, id, id);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
-	return customersInBuilding++;
+	return id++;
 }
 
 bool isNextClerkType(int clerk_type)
@@ -137,8 +136,8 @@ void giveData()
 void checkSenator(/*struct Customer *customer*/)
 {
 	/*if there is a Senator in the building wait until he's gone*/
-	if (senatorInBuilding){
-		/*PrintInt("Clerk%i: waiting outside\n",  customer->name);*/
+	if (GetMonitor(senatorInBuilding, 0)){
+		/*PrintInt("Clerk%i: waiting outside\n",  name);*/
 		/* TODO:rework this to lock
 		senatorSemaphore->P();
 		senatorSemaphore->V();
@@ -159,9 +158,9 @@ void Customer_Run()
 		Acquire(senatorLock);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
 		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
-			Signal(SenatorLineCV, senatorLock);
+			Signal(senatorLock, SenatorLineCV);
 		}
-		Wait(OutsideCV, senatorLock);
+		Wait(senatorLock, OutsideCV);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
@@ -178,7 +177,7 @@ void Customer_Run()
 		    Wait(clerkLineLock, clerkBribeLineCV[myLine]);
 			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(ClerkIds, myLine));
 		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1)
-		    PrintInt("bribe line%i count: %i\n",23, myLine, clerkBribeLineCount[myLine]);
+		    PrintInt("bribe line%i count: %i\n",23, myLine, GetMonitor(clerkBribeLineCount, myLine));
 		  }
 		else
 		  {
@@ -188,7 +187,7 @@ void Customer_Run()
 			Wait(clerkLineLock, clerkLineCV[myLine]);
 			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(ClerkIds, myLine));
 			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1)
-			PrintInt("regular line%i count: %i\n", 26, myLine, clerkLineCount[myLine]);
+			PrintInt("regular line%i count: %i\n", 26, myLine, GetMonitor(clerkLineCount, myLine));
 		  }
 	}
 	if (GetMonitor(senatorInBuilding, 0)) {
@@ -310,7 +309,7 @@ void Senator_EnterOffice(struct Customer* senator)
 {
   /*walk in acquire all clerk locks to prevent next in line from getting to clerk*/
   /*senatorSemaphore->P();*/ /*use to lock down entire run section*/
-  senatorInBuilding = true;/*signals all people waiting to exit*/
+  GetMonitor(senatorInBuilding, 0) = true;/*signals all people waiting to exit*/
   
   Acquire(clerkLineLock); /*acquire to broadcast current customers. released in Customer::run()*/
   for (i=0; i<NUM_CLERKS;i++) {
@@ -349,4 +348,20 @@ void Senator_EnterOffice(struct Customer* senator)
   }
 }
 
+void Senator_ExitOffice(struct Customer* senator)
+{
+  currentSenatorId++;
+  GetMonitor(senatorInBuilding, 0) = false;
+  /*senatorSemaphore->V();*/
+}
+
+void Senator_Run(struct Customer* senator)
+{
+	Release(createLock);
+	/*enter facility*/
+	Senator_EnterOffice(senator);
+	/*proceed as a normal customer*/
+	Customer_Run(senator);
+	/*exit facility*/
+	Senator_ExitOffice(senator);
 }
