@@ -38,8 +38,8 @@ int main()
  simulationStarted = CreateMonitor(1);/*so simulation doesn't end before customers enter*/
  simulationEnded = CreateMonitor(1);
  activeCustomers = CreateMonitor(1);
- c_id = CreateMonitor(NUM_CUSTOMERS);
- c_ssn = CreateMonitor(NUM_CUSTOMERS);
+ c_id = CreateMonitor(NUM_CUSTOMERS + NUM_SENATORS);
+ c_ssn = CreateMonitor(NUM_CUSTOMERS + NUM_SENATORS);
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
  clerkIds = CreateMonitor(NUM_CLERKS);
