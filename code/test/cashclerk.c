@@ -4,13 +4,13 @@
 #include "syscall.h"
 #include "setup.h"
 int a[3];
-int b, c;
+int b, c, i;
 
 
 int id = -1;
 char* myName = "Clerk";
 int myType = CASHIER_CLERK_TYPE;
-int myClerkCV, myClerkLock, myClerkLineCV, myClerkBribeLineCV, myClearkBreakCV;
+int myClerkCV, myClerkLock, myClerkLineCV, myClerkBribeLineCV, myclerkBreakCV;
 
 int CreateClerk() 	
 {
@@ -27,9 +27,9 @@ int CreateClerk()
 		Halt();
 	}
 	/*CVs*/
-	myClearkBreakCV = CreateCondition("ClerkBreakCv", 12);
-	SetMonitor(ClearkBreakCV, id, myClearkBreakCV);
-	if(myClearkBreakCV<0) {
+	myclerkBreakCV = CreateCondition("clerkBreakCV", 12);
+	SetMonitor(clerkBreakCV, id, myclerkBreakCV);
+	if(myclerkBreakCV<0) {
 		Halt();
 	}
 	myClerkLineCV = CreateCondition("ClerkLineCv", 11);
@@ -60,7 +60,7 @@ void DestroyClerk()
   DestroyCondition(myClerkCV);
   DestroyCondition(myClerkLineCV);
   DestroyCondition(myClerkBribeLineCV);
-  DestroyCondition(myClearkBreakCV);
+  DestroyCondition(myclerkBreakCV);
 }
 
 /*@param id is id of clerk doing job*/
@@ -152,28 +152,21 @@ void Clerk_Run(int type)
 		Wait(myClerkLock, myClerkCV);/*wait for customer to leave*/
 		Release(myClerkLock); /*we're done here, back to top of while for next cust*/
       }
-    else if ((GetMonitor(clerkLineCount, id) == 0 && (GetMonitor(clerkBribeLineCount, id) == 0)  /*go on break*/
+    else if (GetMonitor(clerkLineCount, id) == 0 && (GetMonitor(clerkBribeLineCount, id) == 0))  /*go on break*/
       {
-		if(simulationEnded) {
+		if(GetMonitor(simulationEnded,0)) {
 			break;
 		}
 		/*acquire my lock*/
 		Acquire(myClerkLock);
 		/*set my status*/
 		SetMonitor(clerkState, id, 2); /*on break*/
-
-		/*release clerk line lock after signalling possible senator*/
-		if (GetMonitor(senatorInBuilding, 0)) {
-			Signal(clerkLineLock, myClerkBribeLineCV);
-			Signal(clerkLineLock, myClerkLineCV);
-		}
 		
 		PrintInt("Clerk%i is going on break\n", 27, id, 0);
 		
 		Release(clerkLineLock);
 		/*wait on clerkBreakCV from manager*/
-		Wait(myClerkLock, GetMonitor(ClearkBreakCV, id));
-		Release(myClerkLock);
+		Wait(myClerkLock, GetMonitor(clerkBreakCV, id));
 		
 		PrintInt("Clerk%i is coming off break\n",29, id, 0);
       }
