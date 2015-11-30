@@ -50,6 +50,8 @@ int clerkBribeLineCV;
 int clerkCV;
 int clerkBreakCV ; /*CV for break, for use with manager*/
 int senatorCV;
+int outsideCV; /* how customers wait outside */
+int senatorLineCV; /* how senators wait in line */
 
 /*Monitor Variables*/
 int clerkLineCount;/*start big so we can compare later*/
@@ -66,6 +68,7 @@ int clerkCurrentCustomerSSN[NUM_CLERKS];/*relate clerk id to customer ssn*/
 int currentSenatorId ;
 bool simulationStarted;/*so simulation doesn't end before customers enter*/
 bool simulationEnded;
+int activeCustomers;
 
 /* clerk 'struct' mvs */
 clerkIds[NUM_CLERKS];
