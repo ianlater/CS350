@@ -3,9 +3,8 @@
 */
 #include "syscall.h"
 #include "setup.h"
-int a[3];
-int b, c;
-int id;//index of customer arrays to use
+int id, money, ssn, myLine;
+bool rememberLine, isSenator;//index of customer arrays to use
 //instead of an array of customers struct, use one array for each customers field
 /*
 ARRAYS:
@@ -20,19 +19,19 @@ int CreateCustomer(char* name)
 	//need to acquire createLock before creating
 	createLock->Acquire();
 	id = customersInBuilding;
-	customers[id].id = id;
+	this.id = id;
 	SetMonitor(c_id, id, id);
-	customers[id].ssn = id + 1000;
-	SetMonitor(c_ssn, id, customers[id].ssn);
+	SetMonitor(c_ssn, id, id + 1000;);
+	this.ssn = id + 1000;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	customers[id].name = name;
-	SetMonitor(c_name, id, customers[id].name);
-	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, customers[id].money);
-	customers[id].myLine = -1;
-	customers[id].rememberLine = false;
-	customers[id].isSenator = false;
+	this.name = name;
+//	SetMonitor(c_name, id, customers[id].name);
+	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	SetMonitor(c_money, id, this.money);
+	this.myLine = -1;
+	this.rememberLine = false;
+	this.isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	createLock->Release();
@@ -49,19 +48,19 @@ int CreateCustomer_WithCredentials(char* name, int* credentials)
 	  customers[customersInBuilding].credentials[i] = credentials[i];
 	}
 	id = customersInBuilding;
-	customers[id].id = id;
+	this.id = id;
 SetMonitor(c_id, id, id);
-	customers[id].ssn = id + 1000;
-	SetMonitor(c_ssn, id, customers[id].ssn);
+	this.ssn = id + 1000;
+	SetMonitor(c_ssn, id, this.ssn);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	customers[id].name = name;
-	SetMonitor(c_name, id, customers[id].name);
-	customers[id].money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
-	SetMonitor(c_money, id, customers[id].money);
-	customers[id].myLine = -1;
-	customers[id].rememberLine = false;
-	customers[id].isSenator = false;
+	//customers[id].name = name;
+	//SetMonitor(c_name, id, customers[id].name);
+	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
+	SetMonitor(c_money, id, this.money);
+	this.myLine = -1;
+	this.rememberLine = false;
+	this.isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	createLock->Release();
