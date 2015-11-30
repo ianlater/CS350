@@ -4,6 +4,7 @@
 #include "syscall.h"
 #include "setup.h"
 int id, money, ssn, myLine;
+bool credentials[4]; 
 bool rememberLine, isSenator;//index of customer arrays to use
 //instead of an array of customers struct, use one array for each customers field
 /*
@@ -72,19 +73,19 @@ bool isNextClerkType(struct Customer* customer, int clerk_type)
     /*for adding customers who go out of order, we can add in a Random number check that returns true Randomly*/
 
     /*check whether clerk is valid next type (check credentials or keep a status)*/
-    if (!customer->credentials[clerk_type]) /*credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have*/
+    if (!this.credentials[clerk_type]) /*credentials is what you have i.e. picture etc. (int[NUM_CLERKS]) w/ index corrosponding to clerk type, 0=have 1=don't have*/
     {
         if (clerk_type == PICTURE_CLERK_TYPE || clerk_type == APPLICATION_CLERK_TYPE)/*application and picture need no prior credentials*/
             return true;
         
         if (clerk_type == PASSPORT_CLERK_TYPE) /*passport clerk requires both application and pictue*/
         {
-            if (customer->credentials[APPLICATION_CLERK_TYPE] && customer->credentials[PICTURE_CLERK_TYPE]) 
+            if (this.credentials[APPLICATION_CLERK_TYPE] && this.credentials[PICTURE_CLERK_TYPE]) 
                 return true;
             
             return false;
         }
-        if (clerk_type == CASHIER_CLERK_TYPE && customer->credentials[PASSPORT_CLERK_TYPE]) /*cashier requires only passport (ASSUMPTION?)*/
+        if (clerk_type == CASHIER_CLERK_TYPE && this.credentials[PASSPORT_CLERK_TYPE]) /*cashier requires only passport (ASSUMPTION?)*/
         {
             return true;
 	}
@@ -96,38 +97,38 @@ void giveData(struct Customer *customer)
 {
 	switch (GetMonitor(clerkTypes, customer->myLine)) {
 	  case APPLICATION_CLERK_TYPE:
-		PrintInt("Customer%i: may I have application please?\n", 44,  customer->id, 0);
-		if(customer->isBribing) {
-		  customer->money-=500;
-		  totalEarnings[APPLICATION_CLERK_TYPE] += 500;
+		PrintInt("Customer%i: may I have application please?\n", 44,  this.id, 0);
+		if(this.isBribing) {
+		  this.money-=500;
+		  SetMonitor(totalEarnings, APPLICATION_CLERK_TYPE, GetMonitor(totalEarnings, APPLICATION_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case PICTURE_CLERK_TYPE:
 		/*ask for a picture to be taken*/
-		PrintInt("Customer%i: I would like a picture\n", 36, customer->id, 0);
-		if(customer->isBribing){
-		  customer->money-=500;
-		  totalEarnings[PICTURE_CLERK_TYPE] += 500;
+		PrintInt("Customer%i: I would like a picture\n", 36, this.id, 0);
+		if(this.isBribing){
+		  this.money-=500;
+		  SetMonitor(totalEarnings, PICTURE_CLERK_TYPE, GetMonitor(totalEarnings, PICTURE_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case PASSPORT_CLERK_TYPE:
-		PrintInt("Customer%i: ready for my passport\n", 35, customer->id, 0);
-		if(customer->isBribing){
-		  customer->money-=500;
-		  totalEarnings[PASSPORT_CLERK_TYPE] += 500;
+		PrintInt("Customer%i: ready for my passport\n", 35, this.id, 0);
+		if(this.isBribing){
+		  this.money-=500;
+		  SetMonitor(totalEarnings, PASSPORT_CLERK_TYPE, GetMonitor(totalEarnings, PASSPORT_CLERK_TYPE)+500);
 		}
 		break;
 
 	  case CASHIER_CLERK_TYPE:
-		PrintInt("Customer%i has given Cashier %i $100\n", 38, customer->id, clerks[customer->myLine].id);
-		if(customer->isBribing){
-		  customer->money-=500;
-		  totalEarnings[PASSPORT_CLERK_TYPE] += 500;
+		PrintInt("Customer%i has given Cashier %i $100\n", 38, this.id, GetMonitor(clerkIds, this.myLine));
+		if(this.isBribing){
+		  this.money-=500;
+		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+500);
 		}
 		customer->money-=100;
-		totalEarnings[CASHIER_CLERK_TYPE] += 100;
+		  SetMonitor(totalEarnings, CASHIER_CLERK_TYPE, GetMonitor(totalEarnings, CASHIER_CLERK_TYPE)+100);
 		break;
 	}
 }
