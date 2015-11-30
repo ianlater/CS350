@@ -265,16 +265,16 @@ void pickLine()
 	    {
 		  /*check if the type of this line is something I need! TODO*/
 			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) {
-			  if(clerkLineCount[i] < lineSize )/*&& clerkState[i] != 2)*/
+			  if(GetMonitor(clerkLineCount, i) < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
 				  this.myLine = i;
-				  lineSize = clerkLineCount[i];
+				  lineSize = GetMonitor(clerkLineCount, i);
 				}
 			}
 	    }
 	  desireToBribe = Rand() % 10;
 	  /*if i want to bribe, let's lock at bribe lines*/
-	  if(customer->money > 600 && desireToBribe > 8)
+	  if(this.money > 600 && desireToBribe > 8)
 	    {
 	      for(i = 0; i < NUM_CLERKS; i++)
 			{
