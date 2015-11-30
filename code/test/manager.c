@@ -8,7 +8,7 @@ int b, c;
 
 
 
-int total, clerkLockI;
+int total, clerkILock;
 void OutputEarnings()
 {
 	/* should we wrap this in  a lock? */
@@ -31,17 +31,17 @@ void Manager_Run()
 		Yield();
 	for (i = 0; i < NUM_CLERKS; i++)
 	{
-		clerkLockI = GetMonitor(clerkLock,i);
-		if (GetMonitor(clerkState, i) == 2 && (GetMonitor(clerkLineCount, i) >= 1 || GetMonitor(clerkBribeLineCount, i) >= 1 || GetMonitor(senatorInBuilding,0)) )
+		clerkILock = GetMonitor(clerkLock,i);
+		if (GetMonitor(clerkState, i) == 2 && (GetMonitor(clerkLineCount, i) >= 1 || GetMonitor(clerkBribeLineCount, i) >= 1) )
 		{
 			/*wake up clerk*/
-			if(Acquire(clerkLockI) < 0) {
+			if(Acquire(clerkILock) < 0) {
 					Halt();
 			}	
-			PrintInt("Manager waking up Clerk%i\n", 27, clerks[i].id, 0);
+			PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(ClerkIds, i), 0);
 				SetMonitor(clerkState, i, 0);/*set to available	*/
-			Signal(clerkLockI, GetMonitor(clerkBreakCV, i));	
-			Release(clerkLockI);	
+			Signal(clerkILock, GetMonitor(clerkBreakCV, i));	
+			Release(clerkILock);	
 		}
 	}
 	OutputEarnings();
@@ -49,13 +49,13 @@ void Manager_Run()
 		SetMonitor(simulationEnded,0, true);
 		for (i = 0; i < NUM_CLERKS; i++)
 		{
-				clerkLockI = GetMonitor(clerkLock,i);
+				clerkILock = GetMonitor(clerkLock,i);
 				/*wake up clerk*/
-				Acquire(clerkLockI);	
+				Acquire(clerkILock);	
 				PrintInt("Manager waking up Clerk%i\n", 27, clerks[i].id, 0);
 				SetMonitor(clerkState, i, 0);/*set to available	*/
-				Signal(clerkLockI, GetMonitor(clerkBreakCV, i));	
-				Release(clerkLockI);	
+				Signal(clerkILock, GetMonitor(clerkBreakCV, i));	
+				Release(clerkILock);	
 		}
 		Print("Manager ending simulation\n", 27, "", "");
 		break;

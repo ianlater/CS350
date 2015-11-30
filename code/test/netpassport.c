@@ -50,7 +50,9 @@ int main()
  /* populate pp office */
  Exec("picappclerkgen.c");
  Exec("passcashclerkgen.c");
- 
+ Exec("gencustomers.c"
+ Exec("monitor.c");
+ Exec("gensenator.c");
  
  Exit(0);
 }
