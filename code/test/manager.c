@@ -25,6 +25,7 @@ void OutputEarnings()
 }
 int main()
 {
+  setup();
   Print("Manager in building\n",21, "","");
   while(true) {
 	for (i = 0; i < 1000; i++)

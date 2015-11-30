@@ -8,7 +8,7 @@ int b, c, i;
 
 int main(){
 	for(i = 0;i<1; i++){
-		Exec("senator", 7);
+		Exec("../test/senator", 15);
 	}
 	Exit(0);
 }

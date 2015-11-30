@@ -13,7 +13,7 @@ bool rememberLine = false;
 int credentials[NUM_CLERKS] = {0};
 
 /* creates new customer w/ given name. should declare new customer ahead of time and place where needed. this just fills in info*/
-int CreateSenator(char* name) 
+int CreateSenator() 
 {	
 	Acquire(createLock);
     id = GetMonitor(customersInBuilding, 0);
@@ -175,6 +175,8 @@ void Senator_ExitOffice()
 }
 
 int main(){
+	setup();
+	CreateSenator();
 	Senator_EnterOffice();
 	Senator_Run();
 	Senator_ExitOffice();
