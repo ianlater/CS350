@@ -14,15 +14,15 @@ ARRAYS:
 	c_name
 */
 /* creates new customer w/ given name. should declare new customer ahead of time and place where needed. this just fills in info*/
-int CreateCustomer(char* name) 
+int CreateCustomer() 
 {	
 	
 	//need to acquire createLock before creating
 	createLock->Acquire();
-	id = customersInBuilding;
+	id = GetMonitor(customersInBuilding,0);
 	this.id = id;
 	SetMonitor(c_id, id, id);
-	SetMonitor(c_ssn, id, id + 1000;);
+	SetMonitor(c_ssn, id, id + 1000);
 	this.ssn = id + 1000;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
@@ -39,16 +39,16 @@ int CreateCustomer(char* name)
 	return customersInBuilding++; 
 }
 
-int CreateCustomer_WithCredentials(char* name, int* credentials) 
+int CreateCustomer_WithCredentials(int* credentials) 
 {
 	createLock->Acquire();
 	//TODO: how to deal with credential arrays.
 	//possibly change them to a single variable for each customer
 	
 	for(i=0;i<NUM_CLERK_TYPES;i++) {
-	  customers[customersInBuilding].credentials[i] = credentials[i];
+	  this.credentials[i] = credentials[i];
 	}
-	id = customersInBuilding;
+	id = GetMonitor(customersInBuilding,0);
 	this.id = id;
 SetMonitor(c_id, id, id);
 	this.ssn = id + 1000;
@@ -68,7 +68,7 @@ SetMonitor(c_id, id, id);
 	return customersInBuilding++;
 }
 
-bool isNextClerkType(struct Customer* customer, int clerk_type)
+bool isNextClerkType(int clerk_type)
 {
     /*for adding customers who go out of order, we can add in a Random number check that returns true Randomly*/
 
@@ -93,9 +93,9 @@ bool isNextClerkType(struct Customer* customer, int clerk_type)
         return false;  
 }
 
-void giveData(struct Customer *customer)
+void giveData()
 {
-	switch (GetMonitor(clerkTypes, customer->myLine)) {
+	switch (GetMonitor(clerkTypes, this.myLine)) {
 	  case APPLICATION_CLERK_TYPE:
 		PrintInt("Customer%i: may I have application please?\n", 44,  this.id, 0);
 		if(this.isBribing) {
@@ -254,12 +254,12 @@ void Customer_Run(struct Customer* customer)
 int testLine = 69;
 int lineSize = 1001;
 int desireToBribe;
-void pickLine(struct Customer* customer)
+void pickLine()
 {
   /* isBribing = false;*/
-  if (!customer->rememberLine)/*if you don't have to remember a line, pick a new one*/
+  if (!this.rememberLine)/*if you don't have to remember a line, pick a new one*/
   {
-	  customer->myLine = -1;
+	  this.myLine = -1;
 	  lineSize = 1001;
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
@@ -267,7 +267,7 @@ void pickLine(struct Customer* customer)
 			if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) {
 			  if(clerkLineCount[i] < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
-				  customer->myLine = i;
+				  this.myLine = i;
 				  lineSize = clerkLineCount[i];
 				}
 			}
@@ -278,23 +278,16 @@ void pickLine(struct Customer* customer)
 	    {
 	      for(i = 0; i < NUM_CLERKS; i++)
 			{
-<<<<<<< HEAD
 				if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) 
 				{
 					int theBribeLineCount = GetMonitor(clerkBribeLineCount, i);
 				  	if(theBribeLineCount <=  lineSize)/*for TESTING. do less than only for real*/
-=======
-				if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, clerks[i].type)) 
-				{
-				  if(clerkBribeLineCount[i] <=  lineSize)/*for TESTING. do less than only for real*/
->>>>>>> 096ae4456136589e632b90c6dc287365b8ab5a36
 					{
 					  /*PrintInt("Clerk%i: I'm BRIBING\n", name);*/
-					  customer->money -= 500;
-					  customer->myLine = i;
-					  customer->isBribing = true;
+					  this.money -= 500;
+					  this.myLine = i;
+					  this.isBribing = true;
 					  lineSize = theBribeLineCount;
-					  lineSize = clerkBribeLineCount[i];
 					}
 				}
 			}
