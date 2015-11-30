@@ -166,19 +166,19 @@ void Customer_Run()
 			PrintInt("Customer%i has gotten in a bribe line for Clerk%i\n",51, id, GetMonitor(clerkIds, myLine));
 			SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)+1);
 			
-		    Wait(clerkLineLock, clerkBribeLineCV[myLine]);
+		    Wait(clerkLineLock, GetMonitor(clerkBribeLineCV, myLine));
 			PrintInt("Customer%i leaving bribe line for Clerk%i\n",43, id, GetMonitor(clerkIds, myLine));
-		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1)
+		    SetMonitor(clerkBribeLineCount, myLine, GetMonitor(clerkBribeLineCount, myLine)-1);
 		    PrintInt("bribe line%i count: %i\n",23, myLine, GetMonitor(clerkBribeLineCount, myLine));
 		  }
 		else
 		  {
 			PrintInt("Customer%i has gotten in a regular line for Clerk%i\n",53, id, GetMonitor(clerkIds, myLine));
-			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)+1)
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)+1);
 			
-			Wait(clerkLineLock, clerkLineCV[myLine]);
+			Wait(clerkLineLock, GetMonitor(clerkLineCV, myLine));
 			PrintInt("Customer%i leaving regular line for Clerk%i\n",45, id, GetMonitor(clerkIds, myLine));
-			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1)
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-1);
 			PrintInt("regular line%i count: %i\n", 26, myLine, GetMonitor(clerkLineCount, myLine));
 		  }
 	}
@@ -234,7 +234,7 @@ void Customer_Run()
   }
   SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
   PrintInt("Customer%i: IS LEAVING THE PASSPORT OFFICE\n", 44, id, 0);
-  SetMonitor(customersInBuilding, GetMonitor(customersInBuilding)-1);/*assumption: customers are all created at start before any can leave office*/
+  SetMonitor(customersInBuilding, 0, GetMonitor(customersInBuilding,0)-1);/*assumption: customers are all created at start before any can leave office*/
 }
 int testLine = 69;
 int lineSize = 1001;
@@ -263,7 +263,7 @@ void pickLine()
 	    {
 	      for(i = 0; i < NUM_CLERKS; i++)
 			{
-				if(/*clerks[i] != NULL &&*/ isNextClerkType(customer, GetMonitor(clerkTypes, i))) 
+				if(/*clerks[i] != NULL &&*/ isNextClerkType(GetMonitor(clerkTypes, i))) 
 				{
 					int theBribeLineCount = GetMonitor(clerkBribeLineCount, i);
 				  	if(theBribeLineCount <=  lineSize)/*for TESTING. do less than only for real*/
