@@ -5,8 +5,7 @@
 #include "setup.h"
 int id, money, ssn, myLine;
 bool credentials[4]; 
-bool rememberLine, isSenator;//index of customer arrays to use
-//instead of an array of customers struct, use one array for each customers field
+bool rememberLine, isSenator;
 /*
 ARRAYS:
 	c_id
@@ -17,7 +16,6 @@ ARRAYS:
 int CreateCustomer() 
 {	
 	
-	//need to acquire createLock before creating
 	Acquire(createLock);
 	id = GetMonitor(customersInBuilding,0);
 	this.id = id;
@@ -27,7 +25,6 @@ int CreateCustomer()
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	this.name = name;
-//	SetMonitor(c_name, id, customers[id].name);
 	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
 	SetMonitor(c_money, id, this.money);
 	this.myLine = -1;
@@ -42,9 +39,6 @@ int CreateCustomer()
 int CreateCustomer_WithCredentials(int* credentials) 
 {
 	Acquire(createLock);
-	//TODO: how to deal with credential arrays.
-	//possibly change them to a single variable for each customer
-	
 	for(i=0;i<NUM_CLERK_TYPES;i++) {
 	  this.credentials[i] = credentials[i];
 	}
@@ -55,8 +49,6 @@ SetMonitor(c_id, id, id);
 	SetMonitor(c_ssn, id, this.ssn);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	//customers[id].name = name;
-	//SetMonitor(c_name, id, customers[id].name);
 	this.money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
 	SetMonitor(c_money, id, this.money);
 	this.myLine = -1;
