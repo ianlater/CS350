@@ -850,13 +850,13 @@ if(!(kl->lock))
 
 #ifdef NETWORK
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
-int CreateMonitor_Syscall()
+int CreateMonitor_Syscall(int size)
 {
   //printf("Network CreateMV in progress\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
-    char buffer[MaxMailSize];
+    char buffer[size];
 
     stringstream ss;
     ss<<"CMV "<<" ";
@@ -1668,7 +1668,7 @@ void ExceptionHandler(ExceptionType which) {
 #ifdef NETWORK
 	case SC_CreateMonitor:
 	  DEBUG('a', "CreateMonitor syscall.\n");
-	  rv=CreateMonitor_Syscall();
+	  rv=CreateMonitor_Syscall(machine->ReadRegister(4));
 	  break;
 	case SC_DestroyMonitor:
 	  DEBUG('a', "DestroyMonitor syscall\n");
