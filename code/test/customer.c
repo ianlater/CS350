@@ -3,6 +3,7 @@
 */
 #include "syscall.h"
 #include "setup.h"
+int id, money, ssn, myLine;
 bool credentials[4]; 
 bool rememberLine, isSenator;//index of customer arrays to use
 //instead of an array of customers struct, use one array for each customers field
@@ -35,7 +36,8 @@ int CreateCustomer()
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
-	return customersInBuilding++; 
+	SetMonitor(customersInBuilding, 0, id + 1);
+	return id;
 }
 int CreateCustomer_WithCredentials(int* credentials) 
 {
@@ -63,8 +65,10 @@ SetMonitor(c_id, id, id);
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
 	Release(createLock);
-	return customersInBuilding++;
+	SetMonitor(customersInBuilding, 0, id + 1);
+	return id;
 }
+
 bool isNextClerkType(int clerk_type)
 {
     /*for adding customers who go out of order, we can add in a Random number check that returns true Randomly*/
@@ -145,7 +149,7 @@ void checkSenator(/*struct Customer *customer*/)
 }
 
 int picApproval;
-void Customer_Run(struct Customer* customer)
+void Customer_Run()
 {
   simulationStarted = true;
   SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1);/* regulate w/clerklinelock. senator should check this number and GetMonitor(senatorInBuilding, 0) before  operation and wait in senatorLineCV if both true */

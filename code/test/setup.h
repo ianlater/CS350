@@ -76,6 +76,10 @@ clerkTypes;
 
 /*definitions:TODO rework how these are used since they'll be separate exec instances */
 /* MV to keep track of entities. Values refer to mailbox# of entity. */
+int c_id;// = CreateMonitor(NUM_CUSTOMERS); //customer id
+int c_ssn;// = CreateMonitor(NUM_CUSTOMERS); //customer ssn
+int c_name;// = CreateMonitor(NUM_CUSTOMERS); //customer name
+int c_money;// = CreateMonitor(NUM_CUSTOMERS); //customer money
 int clerks[NUM_CLERKS];
 int customers;
 int manager;

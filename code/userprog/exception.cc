@@ -96,6 +96,7 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 Lock* VMLock = new Lock("VMLock");// lock for virtual memory tables
 int currentTLB = 0;
+
 std::queue<int> evictQueue; //FIFO queue for page eviction
 
 int swapOffset = 0; //counter for where in swap to write to 
@@ -1350,7 +1351,7 @@ int handleMemoryFull(int neededVPN)
 	{
 		DEBUG('p',"    Init swapfile\n");
 			//Open file (
-		OpenFile *executable;			// The new open file
+	//	OpenFile *executable;			// The new open file
 		int id;				// The openfile id
 		swapFileName = "../vm/SwapFile";
 		if (!swapFileName) {
