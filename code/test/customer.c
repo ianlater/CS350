@@ -107,7 +107,7 @@ void giveData(struct Customer *customer)
 void checkSenator(/*struct Customer *customer*/)
 {
 	/*if there is a Senator in the building wait until he's gone*/
-	if (GetMonitor(senatorInBuilding)){
+	if (GetMonitor(senatorInBuilding, 0)){
 		/*PrintInt("Clerk%i: waiting outside\n",  name);*/
 		/* TODO:rework this to lock
 		senatorSemaphore->P();
@@ -121,18 +121,18 @@ int picApproval;
 void Customer_Run(struct Customer* customer)
 {
   simulationStarted = true;
-  SetMonitor(activeCustomers, GetMonitor(activeCustomers)+1);/* regulate w/clerklinelock. senator should check this number and GetMonitor(senatorInBuilding) before  operation and wait in senatorLineCV if both true */
+  SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1);/* regulate w/clerklinelock. senator should check this number and GetMonitor(senatorInBuilding, 0) before  operation and wait in senatorLineCV if both true */
   Release(createLock);
   while(true)
   {
-	if(GetMonitor(senatorInBuilding)){
+	if(GetMonitor(senatorInBuilding, 0)){
 		Acquire(senatorLock);
-		SetMonitor(activeCustomers, GetMonitor(activeCustomers)-1);
-		if(GetMonitor(activeCustomers) == 0){ /* if you're last to go outside signal first senator to come in */
+		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
+		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
 			Signal(SenatorLineCV, senatorLock);
 		}
 		Wait(OutsideCV, senatorLock);
-		SetMonitor(activeCustomers, GetMonitor(activeCustomers)+1); /* come back inside */
+		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
 	Acquire(clerkLineLock);/*im going to consume linecount values, this is a CS*/
@@ -161,7 +161,7 @@ void Customer_Run(struct Customer* customer)
 			PrintInt("regular line%i count: %i\n", 26, myLine, clerkLineCount[myLine]);
 		  }
 	}
-	if (GetMonitor(senatorInBuilding)) {
+	if (GetMonitor(senatorInBuilding, 0)) {
 		rememberLine = true;/*you're in line being kicked out by senator. */
 		Release(clerkLineLock); /* free up your locks */
 		continue; /* go back up to beginning of while loop where you will leave building.pickLine should manage line remembering */
@@ -169,17 +169,19 @@ void Customer_Run(struct Customer* customer)
 	
 	SetMonitor(clerkState, myLine, 1);
 	Release(clerkLineLock);/*i no longer need to consume lineCount values, leave this CS*/
-
-	Acquire(clerkLock[myLine]);/*we are now in a new CS, need to share data with my clerk*/
+	
+	myClerksLock = GetMonitor(clerkLock, myLine);
+	myClerksCV = GetMonitor(clerkCV, myLine);
+	Acquire(myClerksLock);/*we are now in a new CS, need to share data with my clerk*/
 	SetMonitor(clerkCurrentCustomerSSN, myLine, ssn);
 	PrintInt("Customer%i has given SSN %i", 27, id, ssn);
 	PrintInt("to Clerk%i\n", 12, GetMonitor(ClerkIds, myLine), 0);
 	SetMonitor(clerkCurrentCustomer, myLine, id);
 	giveData();
 	isBribing = false;
-	Signal(clerkLock[myLine], clerkCV[myLine]);
+	Signal(myClerksLock, myClerksCV);
 	/*now we wait for clerk to do job*/
-	Wait(clerkLock[myLine], clerkCV[myLine]);
+	Wait(myClerksLock, myClerksCV);
 	
 	/*set credentials*/
 	credentials[GetMonitor(ClerkTypes, myLine)] = true;
@@ -199,8 +201,8 @@ void Customer_Run(struct Customer* customer)
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
-	Signal(clerkLock[myLine], clerkCV[myLine]);/*let clerk know you're leaving*/
-	Release(clerkLock[myLine]);/*give up lock*/
+	Signal(myClerksLock, myClerksCV);/*let clerk know you're leaving*/
+	Release(myClerksLock);/*give up lock*/
 	
 	myLine = -1;
 	rememberLine = false;
@@ -209,7 +211,7 @@ void Customer_Run(struct Customer* customer)
 	if(credentials[CASHIER_CLERK_TYPE])
 	  break;
   }
-  SetMonitor(activeCustomers, GetMonitor(activeCustomers)-1);
+  SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
   PrintInt("Customer%i: IS LEAVING THE PASSPORT OFFICE\n", 44, id, 0);
   SetMonitor(customersInBuilding, GetMonitor(customersInBuilding)-1);/*assumption: customers are all created at start before any can leave office*/
 }
@@ -277,7 +279,7 @@ void Senator_EnterOffice(struct Customer* senator)
 {
   /*walk in acquire all clerk locks to prevent next in line from getting to clerk*/
   /*senatorSemaphore->P();*/ /*use to lock down entire run section*/
-  GetMonitor(senatorInBuilding) = true;/*signals all people waiting to exit*/
+  GetMonitor(senatorInBuilding, 0) = true;/*signals all people waiting to exit*/
   
   Acquire(clerkLineLock); /*acquire to broadcast current customers. released in Customer::run()*/
   for (i=0; i<NUM_CLERKS;i++) {
@@ -319,7 +321,7 @@ void Senator_EnterOffice(struct Customer* senator)
 void Senator_ExitOffice(struct Customer* senator)
 {
   currentSenatorId++;
-  GetMonitor(senatorInBuilding) = false;
+  GetMonitor(senatorInBuilding, 0) = false;
   /*senatorSemaphore->V();*/
 }
 
