@@ -163,14 +163,16 @@ void sendMsgToServer(char* msg)
     //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
     /*  if(msg[0] == 'C' && msg[1] == 'C')//ccv
       {
-	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
+	outPktHdr.to = 1;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
       }
     else
-      outPktHdr.to = 1;
+      outPktHdr.to = 0;
     */
-    outPktHdr.to = 0;
+      outPktHdr.to = 0;
       outMailHdr.to = 0;
     outMailHdr.from = currentThread->getID();//TODO set this up to mailbox id
+    if(currentThread->getID() == -1)
+      outMailHdr.from = 0;
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
