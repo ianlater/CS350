@@ -14,7 +14,7 @@ int myClerkCV, myClerkLock, myClerkLineCV, myClerkBribeLineCV, myclerkBreakCV;
 
 int CreateClerk() 	
 {
-	Acquire(CreateLock);
+	Acquire(createLock);
 	id = GetMonitor(clerksInBuilding, 0);
 	SetMonitor(clerkIds, id, id);
 	SetMonitor(clerkTypes,id, myType);
