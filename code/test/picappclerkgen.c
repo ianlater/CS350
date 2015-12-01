@@ -7,9 +7,9 @@ int a[3];
 int b, c, i;
 
 int main(){
-	for(i = 0;i<5; i++){
+	for(i = 0;i<1; i++){
 		Exec("../test/appclerk",16);
 		Exec("../test/picclerk", 16);
 	}
-	Exit(0);
+	Exit(10);
 }
