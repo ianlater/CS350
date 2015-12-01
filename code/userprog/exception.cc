@@ -63,7 +63,7 @@ KernelLock* LockTable [TABLE_SIZE];
 int lockCounter = 0; // is this necessary to keep track of the lock?
 int conditionCounter = 0; //index of the lowest free index of ConditionTable
 
-int threadCounter = 1;//used to assign ID to threads
+int threadCounter = 0;//used to assign ID to threads
 
 //process table
 int processCounter = 1;//TODO fix this. it starts at zero in progtest, so it is 1 now
@@ -1124,8 +1124,8 @@ int Exec_Syscall(unsigned int vaddr, int len)
 	AddrSpace* space = new AddrSpace(executable);
 	Thread* thread = new Thread("exec thread");
 	ProcessLock->Acquire();
-	thread->setID(0);//first thread in this process
-	
+	thread->setID(threadCounter);//first thread in this process
+	threadCounter++;
 	
 	space->setID(processCounter);
 	thread->space = space;
