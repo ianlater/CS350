@@ -29,6 +29,8 @@
 #include <iostream>
 #include <sstream>
 #include <queue>
+#include <math.h>
+
 using namespace std;
 
 const int TABLE_SIZE = 200;//shoud there be a max size?
@@ -335,6 +337,59 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 	return thisLock;
 #endif /*NETWORK*/
 }
+int CreateLockWID_Syscall(unsigned int vaddr, int len, int id)
+{
+	char *buf = new char[len+10];	// Kernel buffer to put the name in
+    if (!buf) 
+      {
+	printf("%s", "CreateLock::Can't allocate kernel buffer in CreateLock\n");
+	return -1;
+      }
+
+    if( copyin(vaddr,len,buf) == -1 ) {
+		printf("%s","CreateLock::Bad pointer passed to CreateLock\n");
+		delete buf;
+		return -1;
+    }
+    buf[len]='\0';
+	sprintf(buf, "%s%i", buf, id);
+#ifdef NETWORK
+    //build message
+
+    printf("Network CL in progress\n");
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CL "<<buf<<" ";
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
+	int lockIndex = atoi(buffer);//convert char* to int
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    
+    printf("CreateLock:: Lock Index given %d\n", lockIndex);
+    return lockIndex;
+#else
+    ProcessLock->Acquire();    
+    printf("\nCreateLocK::NAME:%s \n", buf);
+
+	Lock* newLock = new Lock(buf);
+	KernelLock* kLock = new KernelLock(newLock, currentThread->space);
+	int thisLock = lockCounter;
+	LockTable[thisLock] = kLock;
+	lockCounter++;
+	ProcessLock->Release();
+	return thisLock;
+#endif /*NETWORK*/
+}
 
 // Takes an integer number as an argument, which is the table index of the lock to "acquire".
 int Acquire_Syscall(int lockIndex)
@@ -584,6 +639,77 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
   return thisCV;//mehh
 #endif/*NETWORK*/
 }
+
+int CreateConditionWID_Syscall(unsigned int vaddr, int len, int id)//TODO should pass in value
+{
+    char *	buf = new char[len+10];	// Kernel buffer to put the name in
+
+    if (!buf) 
+      {
+	printf("%s", "CreateCV::Can't allocate kernel buffer in CreateCondition\n");
+	return -1;
+      }
+
+    if( copyin(vaddr,len,buf) == -1 ) {
+	printf("%s","CreateCV::Bad pointer passed to CreateCondition\n");
+	delete buf;
+	return -1;
+    }
+
+    buf[len]='\0';
+	sprintf(buf, "%s%i", buf, id);
+    printf("\nCreateCV::NAME:%s\n", buf);
+#ifdef NETWORK
+
+    //printf("Network CCV in progress\n");
+
+    PacketHeader inPktHdr;
+    MailHeader inMailHdr;
+    char buffer[MaxMailSize];
+
+    stringstream ss;
+    ss<<"CCV "<<buf;
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
+    sendMsgToServer(msg);
+
+    postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    fflush(stdout);
+
+    int cvIndex = atoi(buffer);//convert char* to int
+    
+    printf("CreateCV:: CV Index given %d\n", cvIndex);
+    return cvIndex;
+#else
+ ProcessLock->Acquire();
+ Condition* cv = new Condition(buf);
+  //build KernelCondtion
+  KernelCondition* newKC = new KernelCondition(cv, currentThread->space);
+
+  int thisCV = conditionCounter;
+  conditionCounter++;
+
+  if(cv)
+    {
+      ConditionTable[thisCV] = newKC;
+    }
+  else
+    {
+      printf("%s\n", "CreatCondition::ERROR: ERROR, on creating cv?");
+	ProcessLock->Release();
+
+      return -1;
+    }
+  //printf("creating CV: %i\n", conditionCounter-1);
+	ProcessLock->Release();
+
+  return thisCV;//mehh
+#endif/*NETWORK*/
+}
+
 // 
 int DestroyCondition_Syscall(int conditionIndex)
 {
@@ -1741,7 +1867,19 @@ void ExceptionHandler(ExceptionType which) {
 	  rv=GetMonitor_Syscall(machine->ReadRegister(4),
 			     machine->ReadRegister(5));
 	  break;
-
+	
+	case SC_CreateLockWID:
+		DEBUG('a', "CreateLockWID syscall\n");
+		rv = CreateLockWID_Syscall(machine->ReadRegister(4),
+				machine->ReadRegister(5),
+				machine->ReadRegister(6));
+		break;
+	case SC_CreateConditionWID:
+		DEBUG('a', "CreateConditionWID syscall\n");
+		rv = CreateConditionWID_Syscall(machine->ReadRegister(4),
+				machine->ReadRegister(5),
+				machine->ReadRegister(6));
+		break;
 #endif/*NETWORK*/
 	}
 
