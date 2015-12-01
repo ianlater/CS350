@@ -181,6 +181,12 @@ picclerk: picclerk.o start.o
 	$(LD) $(LDFLAGS) start.o picclerk.o -o picclerk.coff
 	../bin/coff2noff picclerk.coff picclerk 
 
+ppclerk.o: ppclerk.c	
+	$(CC) $(CFLAGS) -c ppclerk.c 
+ppclerk: ppclerk.o start.o 	
+	$(LD) $(LDFLAGS) start.o ppclerk.o -o ppclerk.coff
+	../bin/coff2noff ppclerk.coff ppclerk 
+	
 cashclerk.o: cashclerk.c	
 	$(CC) $(CFLAGS) -c cashclerk.c 
 cashclerk: cashclerk.o start.o 	
