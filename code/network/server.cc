@@ -600,7 +600,7 @@ int doCreateCV(string name, int client, int threadID)
 int doDestroyCV(int cvIndex, int client, int threadID)
 {
   char* errorMsg;
-  if(cvIndex < 0 || cvIndex > serverLockCounter)
+  if(!CVIsValid(cvIndex, client))
     {
       //NEW. Send 1 message to each server
       stringstream ss;
