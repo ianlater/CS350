@@ -400,7 +400,10 @@ int doDestroyLock(int lock, int client, int owner)
       //NEW. Send 1 message to each server
       stringstream ss;
       ss<<"DL "<<lock;
-      char* msgData = (char*)ss.str().c_str();
+            
+      char* msgData = new char[MaxMailSize];
+      strcpy(msgData, ss.str().c_str());
+
       Message msg = Message(client, owner, msgData);
       SendMessageToServers(msg, DL);
      
@@ -599,10 +602,20 @@ int doDestroyCV(int cvIndex, int client, int threadID)
   char* errorMsg;
   if(cvIndex < 0 || cvIndex > serverLockCounter)
     {
-     errorMsg = "DestroyCV:: cv Index out of bounds";
-     printf("%s\n", errorMsg);
-     Message msg = Message(client, threadID, errorMsg);
-     sendMessage(msg); 
+      //NEW. Send 1 message to each server
+      stringstream ss;
+      ss<<"DCV "<<cvIndex;
+      
+      char* msgData = new char[MaxMailSize];
+      strcpy(msgData, ss.str().c_str());
+
+      Message msg = Message(client, threadID, msgData);
+      SendMessageToServers(msg, DCV);
+     
+      // errorMsg = "DestroyCV:: cv Index out of bounds";
+      //printf("%s\n", errorMsg);
+      //Message msg = Message(client, threadID, errorMsg);
+      //sendMessage(msg); 
      return -1;
     }
   ServerCondition* sc = ServerCVTable[cvIndex];
@@ -656,6 +669,8 @@ if(!CVIsValid(cvIndex, client))
       Message msg = Message(client, threadID, data);
       PendingRequest* pr = SendMessageToServers(msg, SCV);
       pr->id1 = cvIndex;
+      PRTable[prCounter] = pr;
+      prCounter++;
       
       return -1;
     }
@@ -876,7 +891,7 @@ int doDestroyMV(int mvIndex, int client, int threadID)
       stringstream ss;
       ss<<"DMV "<<mvIndex;
       //      char* msgData = (char*)ss.str().c_str();
-  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  char* data = new char[MaxMailSize];
   strcpy(data, ss.str().c_str());
 
       Message msg = Message(client, threadID, data);
@@ -1376,7 +1391,7 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
   else//else, send NO to requestor
   {
     printf("SSWCV Sending NO to %d\n", reqId);
-    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"WCV";
+    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"SCV";
        char* data = new char[MaxMailSize];
   strcpy(data, ss.str().c_str());
 
@@ -1384,6 +1399,42 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
     sendMessage(msg);
   }
   //at this 
+  return 1;
+}
+
+
+int SSDestroyCV(int cvIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+
+  Message msg = Message();
+  stringstream ss;
+ 
+ if(CVIsValid(cvIndex, clientId))
+  {
+    //wake up client first
+    doDestroyCV(cvIndex, clientId, clientMB);
+    ///msg = Message(clientId, clientMB, "Destroy Success");
+    ///sendMessage(msg);
+ 
+   //TODO send yes reply to requestor
+    printf("SSDCV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"DCV";
+    //char* msgData = (char*)ss.str().c_str();
+ char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  strcpy(data, ss.str().c_str());
+    
+msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    return 1;
+  }
+  //else, send NO to requestor
+  printf("SSDCV Sending NO to %d\n", reqId);
+   ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"DCV";
+   char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+  msg = Message(reqId, 1, data);
+  sendMessage(msg);
   return 1;
 }
 
@@ -1691,6 +1742,42 @@ void ServerToServer()
 	}
       case BCV:
 	{
+	  printf("server-server BCV\n");
+	  string cvIndexStr, lockIndexStr, clientIdStr, clientMBStr;
+	  int cvIndex, lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>cvIndexStr;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to ints
+	  cvIndex = atoi(cvIndexStr.c_str());
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+	  //printf("SSWAIT: %d %d %d %d %d %d", cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+	  //TODO//SSBroadcastCV(cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+
+
+	  break;
+	}
+      case DCV:
+	{
+	  printf("server-server DCV\n");
+	  string cvIndexStr, clientIdStr, clientMBStr;
+	  int cvIndex,  clientId, clientMB, reqId, reqMB;
+	  ss>>cvIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to ints
+	  cvIndex = atoi(cvIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+	  //printf("SSWAIT: %d %d %d %d %d %d", cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+	  SSDestroyCV(cvIndex, clientId, clientMB, reqId, reqMB);
 
 	  break;
 	}
