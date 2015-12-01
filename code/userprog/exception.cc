@@ -170,7 +170,7 @@ void sendMsgToServer(char* msg)
     */
     outPktHdr.to = 0;
       outMailHdr.to = 0;
-    outMailHdr.from = 0;//TODO set this up to mailbox id
+    outMailHdr.from = currentThread->getID();//TODO set this up to mailbox id
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
