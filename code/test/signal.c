@@ -17,7 +17,7 @@ int main()
   val--;
   PrintInt("Val Decremented to:%d\n", 70, val, 0);
   SetMonitor(0,0,val);
-  Broadcast(0,0);
+  Signal(0,0);
   Print("Yield to test lock release\n", 60, "", "");
   for(i = 0; i<20000;i++)
     {

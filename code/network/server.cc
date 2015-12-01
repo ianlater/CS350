@@ -269,6 +269,12 @@ void sendMessage(Message msg)
 PendingRequest* SendMessageToServers(Message msg, int reqType)
 {
   printf("MSG %s\n", msg.msg);
+  if(numServers == 1)
+    {
+      printf("only 1 server, sending error message back\n");
+      sendMessage(msg);
+      return NULL;
+    }
   stringstream str;
   str<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
   char* data = new char[MaxMailSize];
@@ -290,6 +296,7 @@ PendingRequest* SendMessageToServers(Message msg, int reqType)
 	  sendMessage(outMsg);
 	}
     }
+  printf("SMTS PR: %d %d %d", pr->reqMId, pr->reqMBId, pr->reqType);
   return pr;
 }
 
@@ -363,19 +370,26 @@ int doCreateLock(string name, int client, int threadID)
     return -1;
   }
   int fLock = FindLock(name);
-  if(fLock != -1)
+  if(fLock == -1)
     {
-      //we already have lock by this name, return its index
-      return fLock;
+      //we dont have lock created! create it
+      ServerLock* newLock = new ServerLock(name,client);
+      fLock = (netname * SERVER_SCALAR) + serverLockCounter;
+      ServerLockTable[fLock] = newLock;
+      serverLockCounter++;
+ 
     }
-  //we dont have lock created! create it
-  ServerLock* newLock = new ServerLock(name,client);
-  int thisLock = (netname * SERVER_SCALAR) + serverLockCounter;
-  ServerLockTable[thisLock] = newLock;
-  serverLockCounter++;
-  printf("Server::DoCreateLock: ID:%d\n", thisLock);
+  printf("Server::DoCreateLock: ID:%d\n", fLock);
+
+  stringstream strs;
+  strs<<fLock;
+  char* msgData = new char[MaxMailSize];
+  strcpy(msgData, strs.str().c_str());
+  Message msg = Message(client, threadID, msgData);
+  sendMessage(msg);
   
-  return thisLock;
+
+  return 0;
 }
 
 int doDestroyLock(int lock, int client, int owner)
@@ -420,6 +434,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
   char* errorMsg;
   if(!LockIsValid(lockIndex, clientID))
     {
+      printf("lock %d is not valid on this server\n", lockIndex);
       //Send 1 message to each server
       stringstream ss;
       ss<<"AL "<<lockIndex;
@@ -441,6 +456,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
       printf("Server::AcquireLock: thread that owns lock is trying to acquire again?\n");
       Message msg = Message(clientID, threadID, "AcquireLock");
       sendMessage(msg);
+      return -1;
     }
 
  //if the lock is not busy, acquire it and wake up client
@@ -643,7 +659,7 @@ if(!CVIsValid(cvIndex, client))
       
       return -1;
     }
-    
+/*    
 if(!LockIsValid(lockIndex, client))
     {
       printf("Signal::lock %d  not valid on this server\n", lockIndex);
@@ -657,32 +673,33 @@ if(!LockIsValid(lockIndex, client))
       Message msg = Message(client, threadID, data);
       PendingRequest* pr = SendMessageToServers(msg, CAL);
       pr->id1 = cvIndex;
-      return -1;
+      return -1;// we still respond to sender?
     }
-  
+*/
  //end of input parsing
-  ServerLock* sl = ServerLockTable[lockIndex];
+///ServerLock* sl = ServerLockTable[lockIndex];
   ServerCondition* sc = ServerCVTable[cvIndex];
   //done with input parsing//
   //reply to signaler, and do acquire for waiting thread if there is one
   ////send message to sender
   Message msg = Message(client, threadID, "Signal Return");
-  sendMessage(msg); 
+  //sendMessage(msg); 
     
   if(sc->waitQueue->IsEmpty())
     {
-      Message msg = Message(client, threadID, "Signal");
+      msg = Message(client, threadID, "Signal");
       sendMessage(msg); 
       return 0;
     }
   if(sc->waitingLock != lockIndex)
     {
       printf("Signal Error: waitLock!=lockIndex\n");
-       Message msg = Message(client, threadID, "Signal:waitlock != lockIndex");
+      msg = Message(client, threadID, "Signal:waitlock != lockIndex");
       sendMessage(msg); 
      
       return -1;
     }
+  sendMessage(msg);
   //now, we will wake up 1 waiting thread
   printf("Signal::Waking up waiting client\n");
   Message* msg2 = (Message*)sc->waitQueue->Remove();
@@ -790,6 +807,12 @@ int doBroadcastCV(int cvIndex, int lockIndex, int client, int threadID )
  //end of input parsing
   ServerLock* sl = ServerLockTable[lockIndex];
   ServerCondition* sc = ServerCVTable[cvIndex];
+
+  //reply to signaler, and do acquire for waiting thread if there is one
+  ////send message to sender
+  Message msg = Message(client, threadID, "Signal Return");
+  sendMessage(msg); 
+
 
   if(lockIndex != sc->waitingLock)
     {
@@ -971,7 +994,6 @@ PendingRequest* FindPR(int clientId, int clientMB, int reqType)
       PendingRequest* pr = PRTable[i];
       if(pr)
 	{
-	  printf("HELLO\n");
 	  if(pr->reqMId == clientId)
 	    {
 	      if(pr->reqMBId == clientMB)
@@ -1270,7 +1292,11 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
 	strcpy(data, ss.str().c_str());
 
 	Message msg = Message(clientId, clientMB, data);
-	SendMessageToServers(msg, RL);
+	PendingRequest* pr = SendMessageToServers(msg, CRL);
+	PRTable[prCounter] = pr;
+	pr->id1 = cvIndex;
+	pr->id2 = lockIndex;
+	prCounter++;//we do need a pr for this
 	//adding me to CV's waitQ will be handled in YES response
       }
   }
@@ -1308,7 +1334,9 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
     sendMessage(msg);
     //return 1;
     //instead of returning, check if the lock sent over is here, too
-   
+    //NO, JUST REUSE SIGNAL FUNCTION WE ALREADY WROTE
+    doSignalCV(lockIndex, cvIndex, clientId, clientMB);
+    /*   
     if(LockIsValid(lockIndex, clientId))
       {
 	///
@@ -1343,6 +1371,7 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
 	SendMessageToServers(msg, RL);
 	//adding me to CV's waitQ will be handled in YES response
       }
+    */
   }
   else//else, send NO to requestor
   {
@@ -1384,7 +1413,7 @@ int SSProcessYes(int clientId, int clientMB, int reqType)
        {
 	 printf("Wait::error, lock mismatch\n");
 	 Message msg = Message(clientId, clientMB, "wait::error");
-	 sendMessage(msg);
+	 //sendMessage(msg);
        }
      else
        {
@@ -1750,17 +1779,12 @@ void ServerToClient()
 	 
 	  int lock = doCreateLock(lockName, inPktHdr.from, inMailHdr.from);
 	  //now, build and send message back to client
-	  strs<<lock;
+	  //strs<<lock;
 	  //	  string temp = strs.str();
 
 	  //  char const* msgDataConst = temp.c_str();
 	  //char* msgData = new char[temp.length()];
 	  //strcpy(msgData, temp.c_str());
-
-	  char* msgData = new char[MaxMailSize];
-	  strcpy(msgData, strs.str().c_str());
-	  Message msg = Message(inPktHdr.from, inMailHdr.from, msgData);
-	  sendMessage(msg);
 
 	  //outMailHdr.to = inMailHdr.from;
 	  //printf("\nsend to %d box %d\n", outPktHdr.to, outMailHdr.to);
