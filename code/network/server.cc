@@ -485,7 +485,7 @@ int doReleaseLock(int lockIndex, int clientID, int threadID, bool doReleaseClien
   //if there is no owner, cant release
   if(sl->currentOwner == -1)
     {
-      char* errorString = "Release:Lock does not belong to any thread";
+      char* errorString = "RL:doesnt belong to anyone";
       printf("%s\n", errorString);
       Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
@@ -495,7 +495,7 @@ int doReleaseLock(int lockIndex, int clientID, int threadID, bool doReleaseClien
   //if i am not the owner, can't release 
   if(sl->currentOwner != threadID)
     {
-      char* errorString = "Release:Lock does not belong to thread";
+      char* errorString = "RL:doesnt belong to thread";
       printf("%s\n", errorString);
       Message msg = Message(clientID, threadID, errorString);
       sendMessage(msg);
@@ -820,7 +820,7 @@ int doCreateMV(string name, int size, int client, int threadID)
  if(thisMVID == -1)//make a new one
     {
 
-      thisMVID = (netname * SERVER_SCALAR) + serverMVCounter;
+      thisMVID = (netnameOA * SERVER_SCALAR) + serverMVCounter;
       ServerMV* smv = new ServerMV(name, client);
       //smv->data = {};
       ServerMVTable[thisMVID] = smv;
