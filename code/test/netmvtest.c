@@ -10,7 +10,7 @@ int lock;
 int cv;
 int main()
 {
-  int mv = CreateMonitor(0);
+  int mv = CreateMonitor(0, "test", 4);
   Print("Monitor created: %s\n", mv, "", "");
   SetMonitor(mv,0, 32);
   mVar = GetMonitor(mv, 0);

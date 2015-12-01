@@ -94,7 +94,7 @@ void setup(){
  clerkLineCV = CreateMonitor(NUM_CLERKS, "clerkLineCVs", 12);/*individual cv's created in clerk initiation*/
  clerkBribeLineCV = CreateMonitor(NUM_CLERKS, "clerkBribeLineCVs", 17);
  clerkCV = CreateMonitor(NUM_CLERKS, "clerkCVs", 8);
- clerkBreakCV  = CreateMonitor(NUM_CLERKS); /*CV for break, for use with manager*/
+ clerkBreakCV  = CreateMonitor(NUM_CLERKS, "clerkBreakCVs", 13); /*CV for break, for use with manager*/
  senatorCV = CreateCondition("senatorCV", 9);
  outsideCV = CreateCondition("outsideCV", 9);
  senatorLineCV = CreateCondition("senatorLineCV", 13);
