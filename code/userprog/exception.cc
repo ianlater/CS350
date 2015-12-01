@@ -174,7 +174,7 @@ void sendMsgToServer(char* msg)
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
-    printf("send to ID %d\n", outPktHdr.to);
+    printf("MB:%i:send to ID %d\n",currentThread->getID(), outPktHdr.to);
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
 
 }
@@ -319,7 +319,7 @@ ProcessLock->Release();
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int lockIndex = atoi(buffer);//convert char* to int
@@ -559,7 +559,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int cvIndex = atoi(buffer);//convert char* to int
@@ -677,7 +677,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -751,7 +751,7 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -836,7 +836,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -918,7 +918,7 @@ int CreateMonitor_Syscall(int size, int vaddr, int len)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -948,7 +948,7 @@ int DestroyMonitor_Syscall(int mvIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     return 0;
@@ -972,7 +972,7 @@ int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -997,7 +997,7 @@ int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
     sendMsgToServer(msg);
 
     postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-    printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     return 0;
