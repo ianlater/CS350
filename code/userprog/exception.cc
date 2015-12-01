@@ -160,12 +160,21 @@ void sendMsgToServer(char* msg)
     // construct packet, mail header for original message
     // To: destination machine, mailbox 0
     // From: our machine, reply to: mailbox 1
-    outPktHdr.to = 0;//TODO hard testing		
-    outMailHdr.to = 0;
+    //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
+    /*  if(msg[0] == 'C' && msg[1] == 'C')//ccv
+      {
+	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
+      }
+    else
+      outPktHdr.to = 1;
+    */
+    outPktHdr.to = 0;
+      outMailHdr.to = 0;
     outMailHdr.from = 0;//TODO set this up to mailbox id
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
+    printf("send to ID %d\n", outPktHdr.to);
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
 
 }
@@ -630,6 +639,11 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
       printf("%s\n", "Wait::ERROR: Lock Index out of bounds");
       return -1;
     }
+    if(conditionIndex < 0 || conditionIndex >= TABLE_SIZE)
+      {
+	printf("%s\n", "Wait::ERROR: CV Index out of bounds");
+	return -1;
+      }
 #ifdef NETWORK
 
     //printf("Network Wait in progress\n");
@@ -851,18 +865,18 @@ if(!(kl->lock))
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
 int CreateMonitor_Syscall(int size, int vaddr, int len)
 {
-  //printf("Network CreateMV in progress\n");
+  printf("Network CreateMV\n");
 
 	char *buf;		// Kernel buffer for output
     
     if ( !(buf = new char[len]) ) {
 		printf("%s","Error allocating kernel buffer for write!\n");
-		return;
+		return -1;
     } else {
         if ( copyin(vaddr,len,buf) == -1 ) {
 			printf("%s","Bad pointer passed to to write: data not written\n");
 			delete[] buf;
-			return;
+			return -1;
 		}
     } 
 	
