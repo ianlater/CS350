@@ -113,6 +113,8 @@ ServerMV::ServerMV(string nom, int client)
   isToBeDeleted = false;
   waitQueue = new List;
   usedLength = 0;
+  memset(data, 0, MV_ARRAY_SIZE);//memset(array, value, size)
+  
 }
 
 struct Message
