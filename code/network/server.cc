@@ -474,6 +474,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
    }
  else//lock is busy, wait
    {
+     printf("Acquire:lock is busy, wait for it to be released\n");
      Message* msg = new Message(clientID, threadID, "AcquireLock");
      sl->waitQueue->Append(msg);
    }
