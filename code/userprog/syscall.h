@@ -178,7 +178,7 @@ void PrintInt(char* buffer, int size, int arg1, int arg2);
 int Rand();
 
 /*for proj3 part 3 Monitor syscalls*/
-int CreateMonitor(int size);
+int CreateMonitor(int size, char* name, int len);
 int DestroyMonitor(int mvid);
 int SetMonitor(int mvid, int arrindex, int val);
 int GetMonitor(int mvId, int arrIndex);

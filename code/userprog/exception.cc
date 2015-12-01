@@ -871,12 +871,12 @@ int CreateMonitor_Syscall(int size, int vaddr, int len)
     
     if ( !(buf = new char[len]) ) {
 		printf("%s","Error allocating kernel buffer for write!\n");
-		return;
+		return -1;
     } else {
         if ( copyin(vaddr,len,buf) == -1 ) {
 			printf("%s","Bad pointer passed to to write: data not written\n");
 			delete[] buf;
-			return;
+			return -1;
 		}
     } 
 	

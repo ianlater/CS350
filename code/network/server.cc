@@ -94,6 +94,7 @@ ServerCondition::ServerCondition(string n, int client)
 
 struct ServerMV
 {
+  string name;
   int  data[MV_ARRAY_SIZE];
   bool isAvailable;
   bool isToBeDeleted;
@@ -101,11 +102,12 @@ struct ServerMV
   int usedLength;//how much of array is used
   List* waitQueue;
 
-  ServerMV(int client);
+  ServerMV(string nom, int client);
 };
 
-ServerMV::ServerMV(int client)
+ServerMV::ServerMV(string nom, int client)
 {
+  name = nom;
   clientID = client;
   isAvailable = true;
   isToBeDeleted = false;
@@ -216,6 +218,25 @@ int FindCV(string name)
 	  if(sc->name == name)
 	    {
 	      //printf("CV already made\n");
+	      return i;
+	    }
+	}
+    }
+  return -1;//we didnt find it!
+}
+
+int FindMV(string name)
+{
+  int tableStart = netname * SERVER_SCALAR;
+  int tableEnd = tableStart + SERVER_SCALAR;
+  for(int i = tableStart; i < tableEnd; i++)
+    {
+      ServerMV* sm = ServerMVTable[i];
+      if(sm)
+	{
+	  if(sm->name == name)
+	    {
+	      printf("CMV already made\n");
 	      return i;
 	    }
 	}
@@ -784,7 +805,7 @@ while(!sc->waitQueue->IsEmpty())
 }
 
 /*MONITOR VARIABLE PROCEDURES*/
-int doCreateMV(int client, int threadID)
+int doCreateMV(string name, int size, int client, int threadID)
 {
   char* errorMsg;
   if(serverMVCounter >= TABLE_SIZE)
@@ -795,12 +816,18 @@ int doCreateMV(int client, int threadID)
       sendMessage(msg);//TODO copy this chunk to creatCV/createLock
       return -1;
     }
-  int thisMVID = serverMVCounter;
-  ServerMV* smv = new ServerMV(client);
-  //smv->data = {};
-  ServerMVTable[thisMVID] = smv;
-  serverMVCounter++;
+ int thisMVID = FindMV(name);
+ if(thisMVID == -1)//make a new one
+    {
 
+      thisMVID = (netname * SERVER_SCALAR) + serverMVCounter;
+      ServerMV* smv = new ServerMV(name, client);
+      //smv->data = {};
+      ServerMVTable[thisMVID] = smv;
+      serverMVCounter++;
+
+    }
+ 
   stringstream strs;
   strs<<thisMVID;
   string temp = strs.str();
@@ -1822,8 +1849,13 @@ void ServerToClient()
 	}
       case CMV:
 	{
+	  string mvName, sizeStr;
+	  int size;
+	  ss>>sizeStr;
+	  ss>>mvName;
+	  size = atoi(sizeStr.c_str());
 	  //create MV (array of ints) of size (MV_ARRAY_SIZE)
-	  doCreateMV(inPktHdr.from, inMailHdr.from);
+	  doCreateMV(mvName, size, inPktHdr.from, inMailHdr.from);
 	  break;
 	}
       case DMV:
