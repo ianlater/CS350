@@ -13,6 +13,7 @@ I. Requirements
   	Implement a server that hold all locks, conditions, and monitors. 
   	Modify syscalls so that all syscall requests are sent to server rather than being handled by the client.
 II. Assumptions
+	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id 0.
 III. Design
 	+Virtual Memory
 	Keeping consistent with direction from the project guidelines and student documentation, we no longer preload into 
@@ -58,6 +59,8 @@ IV. Implementation
 		userprog/syscall.h
 	+Data structures added, and which file to
 		server.cc: ServerLock, ServerMonitor, ServerCondition
+		system.h/cc: swapBitMap
+		system.h/cc: IPTEntry class and declaration of IPT
 	+Functions added and in which file
 		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
 			   Server(), the main server function that just runs forever in while loop
@@ -75,19 +78,46 @@ V. Testing
 		malmult: Exit prints out value of 7220 and requires handling of memoryfull
 		sort: Exit prints out value of 1034 and requires handling of memoryfull
 		multilarge:  Runs two matmults. Exit prints out value of 7220 two times and requires handling of memoryfull
+		netclient: initializes locks, conditions and mv for the network testing
+		addtomv: called after netclient, increments shared mv and waits to be signalled. also acquires and releases lock
+		signal: signal on lock that addtomv waits on. alse, decrements shared mv to show it is safe
+		netmvtest: tests networked syscalls with inputs lightly
 	+Experiment Result
 		all: pagefaults and initial IPT misses that are handled and result in expected behaviors
 		lockcondition, fork, exec, locksharing: all behave as in previous projects
 		malmult: Exit prints out value of 7220 and requires handling of memoryfull
 		sort: Exit prints out value of 1034 and requires handling of memoryfull
-		multilarge:  Runs two matmults. Exit prints out value of 7220 two times and requires handling of memoryfull
+		multilarge:  Runs two matmults. Exit prints out value of 7220 two times and requires handling of memoryfull. With random seeds, sometimes produces incorrect exit args
+		netclient: will successfully create 1 lock, 1 condition, and 1 mv (value set to 1). then exits
+		addtomv:will first acquire the lock (that was created in netclient), then it will get the mv(made in netclient), increment its value by 1, and set it(value is 2)
+			After releasing the lock, it will enter a while(true) loop that simply waits for a signal, then acquires the same lock, and gets, increments, and sets the mv again. Print
+			statements will outline each step of this process.
+		signal: call after netclient is done and while addtomv is running. it will Acquire that same lock as above, get the mv, decrement it by 1, and set it again. (this means the mv will be value = 1).
+			After this, it will broadcast (which tests signal, as well) which will wake up addtomv. however, since this test is still holding onto the lock (and will for a few thousand Yields), addtomv will wait. After the yields are done,
+			signal will release the lock, allowing addtomv to do its loop again. signal will then exit. This can be called over and over while both server and addtomv are running.
 	+Explanation
 		handling of page faults, ipt misses, and memory full works properly. to see statements of this, run w/ args:
 		'-d p'. PageFaultException, IPTMiss, and MemoryFull head the appropriate function calls followed be 
 		relevant info. If something has already been loaded to IPT, it should say Found in IPT and then give the entry
 		and this should not immediately preceed an IPTMiss before the TLB's been written.
+		multilarge: the bad exit args with certain random seeds is a race condition within exec or fork we were unable
+		to find/fix
 	
 VI. Discussion
-
+	+HOW TO TEST NETWORKING
+	A number of tests have been written to show part 3's completion, but their order is important when running them.
+	0. always start by running nachos -server -m 0 from network dir.
+	1a. once server is running, older tests like nachos -x ../test/lockcondition -m 1 can be run to show that the network does not allow bad input
+	1b. If you want to test the server working with multiple clients, run server as stated, and skip 1a
+	2. run nachos -x ../netclient -m 1. this will set up a lock, cv, and mv to use during the test. this test illustrates constructing those resources
+	3. run nachos -x ../addtomv -m 2. this test will run continuously thanks to a while(true) loop. Within this loop, it will increment the shared mv, acquire and release a lock, and wait. 
+	4. run nachos -x ../signal -m 3. this test will fire the signal that wakes up addtomv (so addtomv can do another iteration of its while loop). Furthermore, this test will decrement the sharred variable that was just incremented to 2,
+		and then it will delay releasing the lock that addtomv is waiting on to illustrate mutual exclusion. 
+	5. Once signal releases its lock, it will end, and addtomv will increment the shared mv by 1 once again. a print statement will illustrate that the mv is decremented from 2 to 1 in 
+		signal, and then incremented back to 2 in addtomv, never going higher.
+	6. run nachos -x ../signal -m 3 as many times as you want. It will continue to work, and show that mutual exclusion and mv sharing works as designed.
+	
+	to test the destroy networked syscalls (which are the only ones left out of the above test), run netmvtest. Or, run lockcondition to test creating many variables.
+	as long as the server is running, these tests can be run over and over, and the id's of the new locks will increase, showing that the server remembers and keeps track of them.
 VIII. Miscellaneous
 	Not sure if matmult should fit within numPhysPages of 32, but it required handling of full memory for us.

@@ -32,7 +32,7 @@ INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
 
-all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing netmvtest netclient addtomv signal multilarge
+all: halt matmult sort testfiles lockcondition fork exec passport multipassport locksharing netmvtest netclient addtomv signal multilarge netpassport picappclerkgen passcashclerkgen gencustomers gensenator genmanager appclerk picclerk ppclerk cashclerk customer senator manager
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -133,7 +133,77 @@ multilarge: multilarge.o start.o
 	$(LD) $(LDFLAGS) start.o multilarge.o -o multilarge.coff
 	../bin/coff2noff multilarge.coff multilarge  
 
+netpassport.o: netpassport.c	
+	$(CC) $(CFLAGS) -c netpassport.c 
+netpassport: netpassport.o start.o 	
+	$(LD) $(LDFLAGS) start.o netpassport.o -o netpassport.coff
+	../bin/coff2noff netpassport.coff netpassport  
+	
+picappclerkgen.o: picappclerkgen.c	
+	$(CC) $(CFLAGS) -c picappclerkgen.c 
+picappclerkgen: picappclerkgen.o start.o 	
+	$(LD) $(LDFLAGS) start.o picappclerkgen.o -o picappclerkgen.coff
+	../bin/coff2noff picappclerkgen.coff picappclerkgen  
+	
+passcashclerkgen.o: passcashclerkgen.c	
+	$(CC) $(CFLAGS) -c passcashclerkgen.c 
+passcashclerkgen: passcashclerkgen.o start.o 	
+	$(LD) $(LDFLAGS) start.o passcashclerkgen.o -o passcashclerkgen.coff
+	../bin/coff2noff passcashclerkgen.coff passcashclerkgen  
 
+gencustomers.o: gencustomers.c	
+	$(CC) $(CFLAGS) -c gencustomers.c 
+gencustomers: gencustomers.o start.o 	
+	$(LD) $(LDFLAGS) start.o gencustomers.o -o gencustomers.coff
+	../bin/coff2noff gencustomers.coff gencustomers  
+	
+gensenator.o: gensenator.c	
+	$(CC) $(CFLAGS) -c gensenator.c 
+gensenator: gensenator.o start.o 	
+	$(LD) $(LDFLAGS) start.o gensenator.o -o gensenator.coff
+	../bin/coff2noff gensenator.coff gensenator  
+	
+genmanager.o: genmanager.c	
+	$(CC) $(CFLAGS) -c genmanager.c 
+genmanager: genmanager.o start.o 	
+	$(LD) $(LDFLAGS) start.o genmanager.o -o genmanager.coff
+	../bin/coff2noff genmanager.coff genmanager  
+	
+appclerk.o: appclerk.c	
+	$(CC) $(CFLAGS) -c appclerk.c 
+appclerk: appclerk.o start.o 	
+	$(LD) $(LDFLAGS) start.o appclerk.o -o appclerk.coff
+	../bin/coff2noff appclerk.coff appclerk 
+	
+picclerk.o: picclerk.c	
+	$(CC) $(CFLAGS) -c picclerk.c 
+picclerk: picclerk.o start.o 	
+	$(LD) $(LDFLAGS) start.o picclerk.o -o picclerk.coff
+	../bin/coff2noff picclerk.coff picclerk 
+
+cashclerk.o: cashclerk.c	
+	$(CC) $(CFLAGS) -c cashclerk.c 
+cashclerk: cashclerk.o start.o 	
+	$(LD) $(LDFLAGS) start.o cashclerk.o -o cashclerk.coff
+	../bin/coff2noff cashclerk.coff cashclerk 
+
+customer.o: customer.c	
+	$(CC) $(CFLAGS) -c customer.c 
+customer: customer.o start.o 	
+	$(LD) $(LDFLAGS) start.o customer.o -o customer.coff
+	../bin/coff2noff customer.coff customer 
+
+senator.o: senator.c	
+	$(CC) $(CFLAGS) -c senator.c 
+senator: senator.o start.o 	
+	$(LD) $(LDFLAGS) start.o senator.o -o senator.coff
+	../bin/coff2noff senator.coff senator 
+
+manager.o: manager.c	
+	$(CC) $(CFLAGS) -c manager.c 
+manager: manager.o start.o 	
+	$(LD) $(LDFLAGS) start.o manager.o -o manager.coff
+	../bin/coff2noff manager.coff manager 
 
 clean:
 	rm -f *.o *.coff

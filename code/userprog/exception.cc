@@ -96,6 +96,7 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 Lock* VMLock = new Lock("VMLock");// lock for virtual memory tables
 int currentTLB = 0;
+
 std::queue<int> evictQueue; //FIFO queue for page eviction
 
 int swapOffset = 0; //counter for where in swap to write to 
@@ -863,13 +864,13 @@ if(!(kl->lock))
 
 #ifdef NETWORK
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
-int CreateMonitor_Syscall()
+int CreateMonitor_Syscall(int size)
 {
   printf("Network CreateMV\n");
 
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
-    char buffer[MaxMailSize];
+    char buffer[size];
 
     stringstream ss;
     ss<<"CMV "<<" ";
@@ -1364,7 +1365,7 @@ int handleMemoryFull(int neededVPN)
 	{
 		DEBUG('p',"    Init swapfile\n");
 			//Open file (
-		OpenFile *executable;			// The new open file
+	//	OpenFile *executable;			// The new open file
 		int id;				// The openfile id
 		swapFileName = "../vm/SwapFile";
 		if (!swapFileName) {
@@ -1472,6 +1473,10 @@ int handleIPTMiss(int neededVPN)
 int HandlePageFault(int requestedVA)
 {
 	int neededVPN =  requestedVA/PageSize;
+	if (neededVPN <0 || neededVPN >= currentThread->space->getNumPages() + 50*8) {
+		printf("PageFaultException:: Invalid vpn:%i\n", neededVPN);
+		return -1;
+	}
 	
 	if(machine->tlb == NULL) {
 		machine->tlb = new TranslationEntry[TLBSize];
@@ -1677,7 +1682,7 @@ void ExceptionHandler(ExceptionType which) {
 #ifdef NETWORK
 	case SC_CreateMonitor:
 	  DEBUG('a', "CreateMonitor syscall.\n");
-	  rv=CreateMonitor_Syscall();
+	  rv=CreateMonitor_Syscall(machine->ReadRegister(4));
 	  break;
 	case SC_DestroyMonitor:
 	  DEBUG('a', "DestroyMonitor syscall\n");

@@ -19,6 +19,7 @@ int main()
   cv2 = CreateCondition("test", 4);
   cv3 = CreateCondition("testes", 6);
   mv = CreateMonitor();
+  mv = CreateMonitor(0, "test", 4);
   Print("Monitor created: %s\n", mv, "", "");
   SetMonitor(mv,0, 3);/*not 32? space ascii?*/
   mVar = GetMonitor(mv, 0);
