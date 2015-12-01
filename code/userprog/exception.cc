@@ -312,7 +312,9 @@ ProcessLock->Release();
 
     stringstream ss;
     ss<<"CL "<<buf<< " ";
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
 
     sendMsgToServer(msg);
 
@@ -356,7 +358,10 @@ int Acquire_Syscall(int lockIndex)
 
     stringstream ss;
     ss<<"AL "<<lockIndex;//TODO HERE JACK
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -402,7 +407,10 @@ int Release_Syscall(int lockIndex)
 
     stringstream ss;
     ss<<"RL "<<lockIndex;
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -461,7 +469,10 @@ int DestroyLock_Syscall(int lockIndex)
 
     stringstream ss;
     ss<<"DL "<<lockIndex;//TODO HERE JACK
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -541,7 +552,9 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
 
     stringstream ss;
     ss<<"CCV "<<buf;
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
 
     sendMsgToServer(msg);
 
@@ -591,7 +604,10 @@ int DestroyCondition_Syscall(int conditionIndex)
 
     stringstream ss;
     ss<<"DCV "<<conditionIndex;
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -654,7 +670,9 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
 
     stringstream ss;
     ss<<"WCV "<<lockIndex<< " "<<conditionIndex<<" ";
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
 
     sendMsgToServer(msg);
 
@@ -725,7 +743,10 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
 
     stringstream ss;
     ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -806,8 +827,11 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
     char buffer[MaxMailSize];
 
     stringstream ss;
-    ss<<"SCV "<<lockIndex<< " "<<conditionIndex<<" ";
-    char* msg = (char*)ss.str().c_str();
+    ss<<"BCV "<<lockIndex<< " "<<conditionIndex<<" ";
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -886,7 +910,10 @@ int CreateMonitor_Syscall(int size, int vaddr, int len)
 
     stringstream ss;
     ss<<"CMV "<<size<<" "<<buf;
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -913,7 +940,10 @@ int DestroyMonitor_Syscall(int mvIndex)
 
     stringstream ss;
     ss<<"DMV "<<" "<<mvIndex;
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -934,7 +964,10 @@ int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
 
     stringstream ss;
     ss<<"GMV "<<" "<<mvIndex<<" "<<mvArrayLoc<<" ";
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
+
 
     sendMsgToServer(msg);
 
@@ -957,7 +990,9 @@ int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
 
     stringstream ss;
     ss<<"SMV "<<" "<<mvIndex<<" "<<arrIndex<<" "<<value<<" ";
-    char* msg = (char*)ss.str().c_str();
+    //    char* msg = (char*)ss.str().c_str();
+    char* msg = new char[MaxMailSize];
+    strcpy(msg, ss.str().c_str());
 
     sendMsgToServer(msg);
 
