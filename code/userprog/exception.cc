@@ -96,7 +96,6 @@ bool mainThreadFinished = FALSE;
 Lock* ProcessLock = new Lock("ProcessLock");//the lock for ProcessTable
 Lock* VMLock = new Lock("VMLock");// lock for virtual memory tables
 int currentTLB = 0;
-
 std::queue<int> evictQueue; //FIFO queue for page eviction
 
 int swapOffset = 0; //counter for where in swap to write to 
@@ -864,16 +863,29 @@ if(!(kl->lock))
 
 #ifdef NETWORK
 /*Monitor Variable syscalls. For NETWORK USE ONLY*/
-int CreateMonitor_Syscall(int size)
+int CreateMonitor_Syscall(int size, int vaddr, int len)
 {
   printf("Network CreateMV\n");
 
+	char *buf;		// Kernel buffer for output
+    
+    if ( !(buf = new char[len]) ) {
+		printf("%s","Error allocating kernel buffer for write!\n");
+		return;
+    } else {
+        if ( copyin(vaddr,len,buf) == -1 ) {
+			printf("%s","Bad pointer passed to to write: data not written\n");
+			delete[] buf;
+			return;
+		}
+    } 
+	
     PacketHeader inPktHdr;
     MailHeader inMailHdr;
-    char buffer[size];
+    char buffer[MaxMailSize];
 
     stringstream ss;
-    ss<<"CMV "<<" ";
+    ss<<"CMV "<<size<<" "<<buf;
     char* msg = (char*)ss.str().c_str();
 
     sendMsgToServer(msg);
@@ -1365,7 +1377,7 @@ int handleMemoryFull(int neededVPN)
 	{
 		DEBUG('p',"    Init swapfile\n");
 			//Open file (
-	//	OpenFile *executable;			// The new open file
+		OpenFile *executable;			// The new open file
 		int id;				// The openfile id
 		swapFileName = "../vm/SwapFile";
 		if (!swapFileName) {
@@ -1682,7 +1694,9 @@ void ExceptionHandler(ExceptionType which) {
 #ifdef NETWORK
 	case SC_CreateMonitor:
 	  DEBUG('a', "CreateMonitor syscall.\n");
-	  rv=CreateMonitor_Syscall(machine->ReadRegister(4));
+	  rv=CreateMonitor_Syscall(machine->ReadRegister(4), 
+					machine->ReadRegister(5), 
+					machine->ReadRegister(6));
 	  break;
 	case SC_DestroyMonitor:
 	  DEBUG('a', "DestroyMonitor syscall\n");
