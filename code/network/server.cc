@@ -1751,17 +1751,23 @@ void ServerToClient()
 	  int lock = doCreateLock(lockName, inPktHdr.from, inMailHdr.from);
 	  //now, build and send message back to client
 	  strs<<lock;
-	  string temp = strs.str();
-	  char const* msgDataConst = temp.c_str();
-	  char* msgData = new char[temp.length()];
-	  strcpy(msgData, temp.c_str());
+	  //	  string temp = strs.str();
 
-	  outMailHdr.to = inMailHdr.from;
-	  printf("\nsend to %d box %d\n", outPktHdr.to, outMailHdr.to);
+	  //  char const* msgDataConst = temp.c_str();
+	  //char* msgData = new char[temp.length()];
+	  //strcpy(msgData, temp.c_str());
 
-	  outMailHdr.length = strlen(msgData) + 1;
+	  char* msgData = new char[MaxMailSize];
+	  strcpy(msgData, strs.str().c_str());
+	  Message msg = Message(inPktHdr.from, inMailHdr.from, msgData);
+	  sendMessage(msg);
 
-          bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
+	  //outMailHdr.to = inMailHdr.from;
+	  //printf("\nsend to %d box %d\n", outPktHdr.to, outMailHdr.to);
+
+	  //	  outMailHdr.length = strlen(msgData) + 1;
+
+          //bool success = postOffice->Send(outPktHdr, outMailHdr, msgData); 
 
 	  break;
 	}
