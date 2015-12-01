@@ -686,12 +686,14 @@ if(!LockIsValid(lockIndex, client))
   //now, we will wake up 1 waiting thread
   printf("Signal::Waking up waiting client\n");
   Message* msg2 = (Message*)sc->waitQueue->Remove();
-  sl->currentOwner = msg2->toMailbox;
-  sendMessage(*msg2); 
   if(sc->waitQueue->IsEmpty())
     {
       sc->waitingLock = -1;//no more waitinglock
     }
+  //sl->currentOwner = msg2->toMailbox;
+  //sendMessage(*msg2); 
+  doAcquireLock(lockIndex, msg2->to, msg2->toMailbox);
+
   return 0;
 
 }
