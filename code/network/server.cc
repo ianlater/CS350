@@ -820,7 +820,7 @@ int doCreateMV(string name, int size, int client, int threadID)
  if(thisMVID == -1)//make a new one
     {
 
-      thisMVID = (netnameOA * SERVER_SCALAR) + serverMVCounter;
+      thisMVID = (netname * SERVER_SCALAR) + serverMVCounter;
       ServerMV* smv = new ServerMV(name, client);
       //smv->data = {};
       ServerMVTable[thisMVID] = smv;
