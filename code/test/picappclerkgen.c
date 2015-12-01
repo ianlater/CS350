@@ -8,8 +8,8 @@ int b, c, i;
 
 int main(){
 	for(i = 0;i<5; i++){
-		Exec("appclerk",8);
-		Exec("picclerk", 8);
+		Exec("../test/appclerk",16);
+		Exec("../test/picclerk", 16);
 	}
 	Exit(0);
 }

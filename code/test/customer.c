@@ -282,6 +282,8 @@ void pickLine()
 
 int main()
 {
+	setup();
+	CreateCustomer();
 	Customer_Run();
 	Exit(0);
 }

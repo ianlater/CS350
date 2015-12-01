@@ -16,7 +16,7 @@ int main()
   
   CreateLock("Al",2);
   CreateCondition("Acv", 3);
-  monitor = CreateMonitor(0);
+  monitor = CreateMonitor(0, "test", 4);
   SetMonitor(monitor,0, 1);
 
 }

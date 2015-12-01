@@ -8,8 +8,8 @@ int b, c, i;
 
 int main(){
 	for(i = 0;i<5; i++){
-		Exec("ppclerk", 7);
-		Exec("cashclerk", 9);
+		Exec("../test/ppclerk", 15);
+		Exec("../test/cashclerk", 17);
 	}
 	Exit(0);
 }

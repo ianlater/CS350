@@ -180,10 +180,10 @@ char* clerkName="Clerk";
 char* senatorName="Senator";
 
 int main(){
-
+	setup();
 	CreateClerk();
 	/*Run clerk*/
-	Clerk_Run(APPLICATION_CLERK_TYPE);
+	Clerk_Run(myType);
 	
 	Exit(0);
 }
