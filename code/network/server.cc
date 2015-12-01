@@ -269,7 +269,7 @@ PendingRequest* SendMessageToServers(Message msg, int reqType)
   printf("MSG %s\n", msg.msg);
   stringstream str;
   str<<msg.msg<<" "<<msg.to<<" "<<msg.toMailbox;
-  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+  char* data = new char[MaxMailSize];
   strcpy(data, str.str().c_str());
   PendingRequest* pr = new PendingRequest(msg.to, msg.toMailbox, reqType);
   PRTable[prCounter] = pr;
