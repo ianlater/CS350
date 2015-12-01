@@ -39,6 +39,7 @@ enum requestType {
   SMV,//Set Monitor Var
   GMV,//Get Monitor Var
   CRL,//semi-magical Release Lock, only called by inter-server Signal Wait. has bool false
+  CAL,//semi-magical Acquire Lock, same deal
   YES,//servertoserver confirmation of resoutce
   NO,//servertoserver i dont have that resource
   UNKNOWN,
@@ -178,11 +179,49 @@ requestType getType(string req)
   if(req == "GMV") return GMV;
   if(req == "SMV") return SMV;
   if(req == "CRL") return CRL;
+  if(req == "CAL") return CAL;
   if(req == "YES") return YES;
   if(req == "NO") return NO;
 return UNKNOWN;
 }
 
+int FindLock(string name)
+{
+  int tableStart = netname * SERVER_SCALAR;
+  int tableEnd = tableStart + SERVER_SCALAR;
+  for(int i = tableStart; i < tableEnd; i++)
+    {
+      ServerLock* sl = ServerLockTable[i];
+      if(sl)
+	{
+	  if(sl->name == name)
+	    {
+	      //printf("Lock already made\n");
+	      return i;
+	    }
+	}
+    }
+  return -1;//we didnt find it!
+}
+
+int FindCV(string name)
+{
+  int tableStart = netname * SERVER_SCALAR;
+  int tableEnd = tableStart + SERVER_SCALAR;
+  for(int i = tableStart; i < tableEnd; i++)
+    {
+      ServerCondition* sc = ServerCVTable[i];
+      if(sc)
+	{
+	  if(sc->name == name)
+	    {
+	      //printf("CV already made\n");
+	      return i;
+	    }
+	}
+    }
+  return -1;//we didnt find it!
+}
 
 void sendMessage(Message msg)
 {
@@ -300,6 +339,13 @@ int doCreateLock(string name, int client, int threadID)
     */  
     return -1;
   }
+  int fLock = FindLock(name);
+  if(fLock != -1)
+    {
+      //we already have lock by this name, return its index
+      return fLock;
+    }
+  //we dont have lock created! create it
   ServerLock* newLock = new ServerLock(name,client);
   int thisLock = (netname * SERVER_SCALAR) + serverLockCounter;
   ServerLockTable[thisLock] = newLock;
@@ -493,6 +539,13 @@ int doCreateCV(string name, int client, int threadID)
 	     sendMessage(msg);*/
     return -1;
   }
+  int fCV = FindCV(name);
+  if(fCV != -1)
+    {
+      //we already have cv by this name, return its index
+      return fCV;
+    }
+ 
   ServerCondition* newCV = new ServerCondition(name, client);
   int thisCV = serverCVCounter;
   ServerCVTable[thisCV] = newCV;
@@ -552,20 +605,35 @@ int doDestroyCV(int cvIndex, int client, int threadID)
 int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 {
   char* errorMsg;
-  if(!LockIsValid(lockIndex, client))
+if(!CVIsValid(cvIndex, client))
     {
-      errorMsg = "Signal::Error. invalid Lock";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg); 
+      printf("Signal::cv %d not valid on this server\n", cvIndex);
+      //Send 1 message to each server to check for cv
+      stringstream ss;
+      ss<<"SCV "<<cvIndex<<" "<<lockIndex;
+      char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+      strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
+      PendingRequest* pr = SendMessageToServers(msg, SCV);
+      pr->id1 = cvIndex;
+      
       return -1;
     }
-  if(!CVIsValid(cvIndex, client))
+    
+if(!LockIsValid(lockIndex, client))
     {
-      errorMsg = "Signal::Error. invalid cv";
-      printf("%s\n", errorMsg);
-      Message msg = Message(client, threadID, errorMsg);
-      sendMessage(msg); 
+      printf("Signal::lock %d  not valid on this server\n", lockIndex);
+      //send CAL message?
+      stringstream ss;
+      ss<<"CAL "<<lockIndex;
+      //    char* msgData = (char*)ss.str().c_str();
+      char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+      strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
+      PendingRequest* pr = SendMessageToServers(msg, CAL);
+      pr->id1 = cvIndex;
       return -1;
     }
   
@@ -580,9 +648,9 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
     
   if(sc->waitQueue->IsEmpty())
     {
- Message msg = Message(client, threadID, "Signal");
+      Message msg = Message(client, threadID, "Signal");
       sendMessage(msg); 
- return 0;
+      return 0;
     }
   if(sc->waitingLock != lockIndex)
     {
@@ -616,12 +684,13 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
       stringstream ss;
       ss<<"WCV "<<cvIndex<<" "<<lockIndex;
       //      char* msgData = (char*)ss.str().c_str();
-  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
-  strcpy(data, ss.str().c_str());
+      char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+      strcpy(data, ss.str().c_str());
 
       Message msg = Message(client, threadID, data);
       PendingRequest* pr = SendMessageToServers(msg, WCV);
       pr->id1 = cvIndex;
+      pr->id2 = lockIndex;
       //errorMsg = "Wait::Error. invalid cv";
       //printf("%s\n", errorMsg);
       //Message msg = Message(client, threadID, errorMsg);
@@ -643,6 +712,7 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
       Message msg = Message(client, threadID, data);
       PendingRequest* pr = SendMessageToServers(msg, CRL);
       pr->id1 = cvIndex;
+      pr->id2 = lockIndex;
       return -1;
     }
  
@@ -651,9 +721,9 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
   ServerCondition* sc = ServerCVTable[cvIndex];
 
   if(sc->waitingLock == -1)
-    {
+    { 
       sc->waitingLock = lockIndex;
-    }
+    } 
   if(sc->waitingLock != lockIndex)
     {
       char* error = "Wait:error: lock mismatch";
@@ -888,7 +958,7 @@ PendingRequest* FindPR(int clientId, int clientMB, int reqType)
   return NULL;
 }
 
-int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+int SSAcquireLock(int lockIndex, int clientId, int clientMB, int reqId, int reqMB, bool doClient)
 {
   printf("SSACQUIRE\n");
   Message msg = Message();
@@ -958,14 +1028,14 @@ int SSReleaseLock(int lockIndex, int clientId, int clientMB, int reqId, int reqM
   printf("SSRL Sending NO to %d\n", reqId);
    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"RL";
    //char* msgData = (char*)ss.str().c_str();
- char* data = new char[MaxMailSize];// (char*)str.str().c_str();
-  strcpy(data, ss.str().c_str());
-  if(doClient)
-    {
-      msg = Message(reqId, 1, data);
-      sendMessage(msg);
-    }  
-return 1;
+   char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+   strcpy(data, ss.str().c_str());
+   if(doClient)
+     {
+       msg = Message(reqId, 1, data);
+       sendMessage(msg);
+     }  
+   return 1;
 
 }
 
@@ -1165,6 +1235,76 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
 	//if lock does not exist, send error back to client. use PR
 	stringstream ss;
 	ss<<"CRL "<<lockIndex;//do same thing as RL, but CRL has false in dorelease?
+	char* data = new char[MaxMailSize];
+	strcpy(data, ss.str().c_str());
+
+	Message msg = Message(clientId, clientMB, data);
+	SendMessageToServers(msg, RL);
+	//adding me to CV's waitQ will be handled in YES response
+      }
+  }
+  else//else, send NO to requestor
+  {
+    printf("SSWCV Sending NO to %d\n", reqId);
+    ss<<"NO "<<clientId<<" "<<clientMB<<" "<<"WCV";
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);
+    sendMessage(msg);
+  }
+  //at this 
+  return 1;
+}
+
+
+int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, int reqMB)
+{
+  Message msg = Message();
+  stringstream ss;
+  //if i have lock iin my local table, wake up client and send YES to requestor
+  if(CVIsValid(cvIndex, clientId))
+  {
+    //now, we have cv. check lock first in my lock table, then everywhere else
+   
+    //send yes reply to requestor
+    printf("SSSCV Sending YES to %d\n", reqId);
+    ss<<"YES "<<clientId<<" "<<clientMB<<" "<<"SCV";
+       char* data = new char[MaxMailSize];
+  strcpy(data, ss.str().c_str());
+
+    msg = Message(reqId, 1, data);//hard code 1 for serverserver TODO this needs unique id info (client stuff)
+    sendMessage(msg);
+    //return 1;
+    //instead of returning, check if the lock sent over is here, too
+   
+    if(LockIsValid(lockIndex, clientId))
+      {
+	///
+	ServerCondition* sc = ServerCVTable[cvIndex];
+	if(sc->waitingLock == -1)
+	  {
+	    sc->waitingLock = lockIndex;
+	  }
+	if(sc->waitingLock != lockIndex)
+	  {
+	    char* error = "Wait:error: lock mismatch";
+	    printf("%s\n", error);
+	    Message msg = Message(clientId, clientMB, error);
+	    sendMessage(msg);
+	    //send back message
+	    return -1;
+	  }
+	//we have the lock! do release, but do NOT reply to client
+	doReleaseLock(lockIndex, clientId, clientMB, false);
+      }
+    else//I don't have lock!
+      {
+	//the lock needs to be acquired by me 
+	//and i still need to add me to cv's waitQ
+	//if lock does not exist, send error back to client. use PR
+	stringstream ss;
+	ss<<"CRL "<<lockIndex;//do same thing as RL, but CRL has false in dorelease?
 	   char* data = new char[MaxMailSize];
   strcpy(data, ss.str().c_str());
 
@@ -1187,9 +1327,11 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
   return 1;
 }
 
+
 /*SS Bookkeeping Functions*/
 int SSProcessYes(int clientId, int clientMB, int reqType)
 {
+  //id1 is the cv id2 is the lock
  PendingRequest* pr = FindPR(clientId, clientMB, reqType);
   //modify pointer? by incrementing it's no count, if nocount == numservers, send back error (depends on reqtype)
  if(!pr)
@@ -1200,11 +1342,32 @@ int SSProcessYes(int clientId, int clientMB, int reqType)
  if(reqType == CRL)
    {
      printf("CRL YES\n");
-     //we need to add the client with the REAL lock to its CV's waitQ
-     Message* msg = new Message(clientId, clientMB, "Wake after wait");
-     //add it to the cv!
-     ServerCVTable[pr->id1]->waitQueue->Append(msg);
+   
+     //also, make sure cv is updated with waiting lock?
+     ServerCondition* sc = ServerCVTable[pr->id1];
+     if(sc->waitingLock == -1)
+       {
+	 sc->waitingLock = pr->id2;
+       }
+     if(sc->waitingLock != pr->id2)
+       {
+	 printf("Wait::error, lock mismatch\n");
+	 Message msg = Message(clientId, clientMB, "wait::error");
+	 sendMessage(msg);
+       }
+     else
+       {
+	 //we need to add the client with the REAL lock to its CV's waitQ
+	 Message* msg = new Message(clientId, clientMB, "Wake after wait");
+	 //add it to the cv!
+	 ServerCVTable[pr->id1]->waitQueue->Append(msg);
+       }
    } 
+ if(reqType == CAL)
+   {
+     //do bookkeeping for updating cv on signal, since we did NOT have lock here
+
+   }
 
   delete pr;
   return 1;
@@ -1277,7 +1440,7 @@ void ServerToServer()
 	  reqId = inPktHdr.from;
 	  reqMB = inMailHdr.from;
 
-	  SSAcquireLock(lockIndex, clientId, clientMB, reqId, reqMB);
+	  SSAcquireLock(lockIndex, clientId, clientMB, reqId, reqMB, true);
 	  break;
 	}
       case RL:
@@ -1424,8 +1587,45 @@ void ServerToServer()
 	 
 	  break;
 	}
+      case CAL:
+	{
+	  printf("server-server CAL\n");
+	  string lockIndexStr, clientIdStr, clientMBStr;
+	  int lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+      
+	  //convert to int
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+
+	  SSAcquireLock(lockIndex, clientId, clientMB, reqId, reqMB, false);
+
+	  break;
+	}
       case SCV:
 	{
+	  printf("server-server SCV\n");
+	  string cvIndexStr, lockIndexStr, clientIdStr, clientMBStr;
+	  int cvIndex, lockIndex, clientId, clientMB, reqId, reqMB;
+	  ss>>cvIndexStr;
+	  ss>>lockIndexStr;
+	  ss>>clientIdStr;
+	  ss>>clientMBStr;
+	  //convert to ints
+	  cvIndex = atoi(cvIndexStr.c_str());
+	  lockIndex = atoi(lockIndexStr.c_str());
+	  clientId = atoi(clientIdStr.c_str());
+	  clientMB = atoi(clientMBStr.c_str());
+	  reqId = inPktHdr.from;
+	  reqMB = inMailHdr.from;
+	  //printf("SSWAIT: %d %d %d %d %d %d", cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+	  SSSignalCV(cvIndex, lockIndex, clientId, clientMB, reqId, reqMB);
+
 
 	  break;
 	}

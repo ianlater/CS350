@@ -160,7 +160,7 @@ void Lock::Release() {
 	//if current thread is not thread owner
 	if (currentThread != _myThread)
 	{
-		printf("Trying to release a lock that does not belong to me..\n");
+		printf("Trying to release a lock that does not belong to me: %s\n", name);
 		(void) interrupt->SetLevel(oldLevel);
 		return;	
 	}

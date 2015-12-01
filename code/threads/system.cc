@@ -42,6 +42,8 @@ Machine *machine;	// user program memory and registers
 
 #ifdef NETWORK
 PostOffice *postOffice;
+int netname;
+int numServers;
 #endif
 
 
@@ -98,7 +100,8 @@ Initialize(int argc, char **argv)
 #endif
 #ifdef NETWORK
     double rely = 1;		// network reliability
-    int netname = 0;		// UNIX socket name
+    netname = 0;		// UNIX socket name
+    numServers = 1;             // Default to 1 server if no arg
 #endif
     
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
@@ -135,7 +138,10 @@ Initialize(int argc, char **argv)
 	    netname = atoi(*(argv + 1));
 	    argCount = 2;
 	} else if(!strcmp(*argv, "-server")){
-	  netname = 0;
+	  //netname = 0;
+	} else if(!strcmp(*argv, "-ns")){
+	  ASSERT(argc > 1);
+	  numServers = atoi(*(argv + 1));
 	}
 	
 #endif
