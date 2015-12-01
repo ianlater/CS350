@@ -45,6 +45,8 @@
 #define SC_DestroyMonitor       24
 #define SC_SetMonitor           25
 #define SC_GetMonitor           26
+#define SC_CreateLockWID		27
+#define SC_CreateConditionWID	28
 
 #define MAXFILENAME 256
 
@@ -178,10 +180,13 @@ void PrintInt(char* buffer, int size, int arg1, int arg2);
 int Rand();
 
 /*for proj3 part 3 Monitor syscalls*/
-int CreateMonitor(int size, char* name, int len);
+int CreateMonitor(int size, char* name, int namelen);
 int DestroyMonitor(int mvid);
 int SetMonitor(int mvid, int arrindex, int val);
 int GetMonitor(int mvId, int arrIndex);
+
+int CreateLockWID(char* name, int len, int id);
+int CreateConditionWID(char* name, int len, int id);
 
 #endif /* IN_ASM */
 

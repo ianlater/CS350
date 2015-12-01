@@ -10,7 +10,7 @@ int b, c, i;
 int id = -1;
 int myClerkCV, myClerkLock, myClerkLineCV, myClerkBribeLineCV, myclerkBreakCV;
 char buf[20];
-int myType = 0;
+int myType = 1;
 int CreateClerk() 	
 {
 	Acquire(createLock);
@@ -19,29 +19,29 @@ int CreateClerk()
 	SetMonitor(clerkTypes,id, myType);
 	
 	/*clerk lock*/
-	myClerkLock = CreateLock("ClerkLock", 9);
+	myClerkLock = CreateLockWID("ClerkLock", 9, id);
 	SetMonitor(clerkLock,id, myClerkLock);
 	/*PrintInt("ClerkLock: %i, clerksInBuilding: %i\n", 37, myClerkLock, clerksInBuilding);*/
 	if(myClerkLock<0) {
 		Halt();
 	}
 	/*CVs*/
-	myclerkBreakCV = CreateCondition("clerkBreakCV", 12);
+	myclerkBreakCV = CreateConditionWID("clerkBreakCV", 12, id);
 	SetMonitor(clerkBreakCV, id, myclerkBreakCV);
 	if(myclerkBreakCV<0) {
 		Halt();
 	}
-	myClerkLineCV = CreateCondition("ClerkLineCv", 11);
+	myClerkLineCV = CreateConditionWID("ClerkLineCv", 11, id);
 	SetMonitor(clerkLineCV, id, myClerkLineCV);
 	if(myClerkLineCV<0) {
 		Halt();
 	}
-	myClerkBribeLineCV = CreateCondition("ClerkBribeLineCv",16);
+	myClerkBribeLineCV = CreateConditionWID("ClerkBribeLineCv",16, id);
 	SetMonitor(clerkBribeLineCV, id, myClerkBribeLineCV);
 	if(myClerkBribeLineCV<0) {
 		Halt();
 	}
-	myClerkCV = CreateCondition("ClerkCV", 7);
+	myClerkCV = CreateConditionWID("ClerkCV", 7, id);
 	SetMonitor(clerkCV, i, myClerkCV);
 	if(myClerkCV<0) {
 		Halt();
