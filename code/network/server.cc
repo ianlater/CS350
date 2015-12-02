@@ -459,7 +459,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
       printf("Server::AcquireLock: thread that owns lock is trying to acquire again?\n");
       Message msg = Message(clientID, threadID, "AcquireLock");
       sendMessage(msg);
-      return -1;
+      return 0;
     }
 
  //if the lock is not busy, acquire it and wake up client
@@ -1358,7 +1358,7 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
     //return 1;
     //instead of returning, check if the lock sent over is here, too
     //NO, JUST REUSE SIGNAL FUNCTION WE ALREADY WROTE
-    doSignalCV(lockIndex, cvIndex, clientId, clientMB);
+    doSignalCV(cvIndex, lockIndex, clientId, clientMB);
     /*   
     if(LockIsValid(lockIndex, clientId))
       {
@@ -1948,7 +1948,7 @@ void ServerToClient()
 	  ss>>cvIndex;
 	  int lockInt = atoi(lockIndex.c_str());
 	  int cvInt = atoi(cvIndex.c_str());
-	  doSignalCV(lockInt, cvInt, inPktHdr.from, inMailHdr.from);
+	  doSignalCV(cvInt, lockInt, inPktHdr.from, inMailHdr.from);
 	  
 	  break;
 	}
