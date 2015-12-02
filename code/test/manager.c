@@ -8,7 +8,7 @@ int b, c, i;
 
 
 
-int total, clerkILock;
+int total, clerkILock, clerkIState;
 void OutputEarnings()
 {
 	/* should we wrap this in  a lock? */
@@ -33,7 +33,9 @@ int main()
 	for (i = 0; i < NUM_CLERKS; i++)
 	{
 		clerkILock = GetMonitor(clerkLock,i);
-		if (GetMonitor(clerkState, i) == 2 && (GetMonitor(clerkLineCount, i) >= 1 || GetMonitor(clerkBribeLineCount, i) >= 1) )
+		clerkIState = GetMonitor(clerkState, i);
+		PrintInt("Manager: clerk%i state: %i\n", 28, i, clerkIState);
+		if (clerkIState == 2 && (GetMonitor(clerkLineCount, i) >= 1 || GetMonitor(clerkBribeLineCount, i) >= 1) )
 		{
 			/*wake up clerk*/
 			if(Acquire(clerkILock) < 0) {

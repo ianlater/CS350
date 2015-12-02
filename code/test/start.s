@@ -259,6 +259,26 @@ GetMonitor:
 	j	$31
 	.end GetMonitor
 
+        .globl  GetMonitor
+        .ent    GetMonitor
+
+CreateLockWID:
+	addiu $2, $0, SC_CreateLockWID
+	syscall
+	j	$31
+	.end CreateLockWID 
+
+        .globl  CreateLockWID
+        .ent    CreateLockWID
+
+CreateConditionWID:
+	addiu $2, $0, SC_CreateConditionWID
+	syscall
+	j	$31
+	.end CreateConditionWID
+
+	.globl CreateConditionWID
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main
