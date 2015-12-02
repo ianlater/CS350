@@ -1,0 +1,40 @@
+Title: Writeup for Project 4, Fall 2015
+Date: 12/3/2015
+Group: Name-----------Email
+	   John Lucas	  johnluca@usc.edu
+	   Ian Later	  later@usc.edu
+	   Carrie Sun	  carriesu@usc.edu
+	  
+I. Requirements
+ 
+II. Assumptions
+	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id's 0-4.
+III. Design
+
+IV. Implementation
+	+Files Added
+
+	+Files Modified
+	  network/server.cc
+		threads/main.cc
+		userprog/exception.cc
+		userprog/syscall.h
+	+Data structures added, and which file to
+
+	+Functions added and in which file
+		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
+			   Server(), the main server function that just runs forever in while loop
+			   helper functions in server for testing input, sending messages
+	+Functions modified and in which file
+		
+V. Testing
+	+Experiment expectation
+	
+	+Experiment Result
+	
+	+Explanation
+
+	
+VI. Discussion
+	+HOW TO TEST NETWORKING
+VIII. Miscellaneous
