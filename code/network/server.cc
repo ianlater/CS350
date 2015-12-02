@@ -538,14 +538,15 @@ int doReleaseLock(int lockIndex, int clientID, int threadID, bool doReleaseClien
 	}
       else
 	{
-	  if(doReleaseClient)
-	    {
 	      sl->isAvailable = true;
-	      infoMessage = "Release::lock released and available";
-	      printf("%s\n", infoMessage);
-	      Message msg = Message(clientID, threadID, infoMessage);
-	      sendMessage(msg);	 
-	    }
+	      if(doReleaseClient)
+		{
+	 	 
+		  infoMessage = "Release::lock released and available";
+		  printf("%s\n", infoMessage);
+		  Message msg = Message(clientID, threadID, infoMessage);
+		  sendMessage(msg);	 
+		}
 	}
     }
   else//someone is waiting. send 2 reply messages
