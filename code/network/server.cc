@@ -658,7 +658,7 @@ int doDestroyCV(int cvIndex, int client, int threadID)
 
 int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 {
-  char* errorMsg;
+  Char* errorMsg;
 if(!CVIsValid(cvIndex, client))
     {
       printf("Signal::cv %d not valid on this server\n", cvIndex);
@@ -711,7 +711,7 @@ if(!LockIsValid(lockIndex, client))
   if(sc->waitingLock != lockIndex)
     {
       printf("Signal Error: waitLock!=lockIndex\n");
-      msg = Message(client, threadID, "Signal:waitlock != lockIndex");
+      msg = Message(client, threadID, "-1");
       sendMessage(msg); 
      
       return -1;
