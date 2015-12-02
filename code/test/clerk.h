@@ -42,7 +42,7 @@ int CreateClerk()
 		Halt();
 	}
 	myClerkCV = CreateConditionWID("ClerkCV", 7, id);
-	SetMonitor(clerkCV, i, myClerkCV);
+	SetMonitor(clerkCV, id, myClerkCV);
 	if(myClerkCV<0) {
 		Halt();
 	}
