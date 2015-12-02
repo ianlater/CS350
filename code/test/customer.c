@@ -200,7 +200,9 @@ void Customer_Run()
 	SetMonitor(clerkCurrentCustomer, myLine, id);
 	giveData();
 	isBribing = false;
-	Signal(myClerksLock, myClerksCV);
+	if(Signal(myClerksLock, myClerksCV) == -1){
+		Halt();
+	}
 	/*now we wait for clerk to do job*/
 	Wait(myClerksLock, myClerksCV);
 	
@@ -222,7 +224,9 @@ void Customer_Run()
 	      /*_credentials[type] = false;/*lets seeye*/
 	    }
 	}
-	Signal(myClerksLock, myClerksCV);/*let clerk know you're leaving*/
+	if(Signal(myClerksLock, myClerksCV) == -1){
+		Halt();
+	}/*let clerk know you're leaving*/
 	Release(myClerksLock);/*give up lock*/
 	
 	myLine = -1;
