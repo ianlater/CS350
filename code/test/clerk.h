@@ -154,6 +154,7 @@ void Clerk_Run(int type)
     else if (GetMonitor(clerkLineCount, id) == 0 && (GetMonitor(clerkBribeLineCount, id) == 0))  /*go on break*/
       {
 		if(GetMonitor(simulationEnded,0)) {
+			Release(clerkLineLock);
 			break;
 		}
 		/*acquire my lock*/

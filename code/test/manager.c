@@ -51,7 +51,7 @@ int main()
 		}
 	}
 	OutputEarnings();
-	if (GetMonitor(simulationStarted,0) && GetMonitor(customersInBuilding,0) == 0 && GetMonitor(senatorsAlive,0) == 0) {
+	if (GetMonitor(customersInBuilding,0) == 0) {
 		SetMonitor(simulationEnded,0, true);
 		for (i = 0; i < NUM_CLERKS; i++)
 		{
