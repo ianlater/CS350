@@ -165,20 +165,18 @@ void sendMsgToServer(char* msg)
     //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
     /*  if(msg[0] == 'C' && msg[1] == 'C')//ccv
       {
-	outPktHdr.to = 1;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
+	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
       }
     else
-      outPktHdr.to = 0;
+      outPktHdr.to = 1;
     */
-      outPktHdr.to = 0;
+    outPktHdr.to = 0;
       outMailHdr.to = 0;
     outMailHdr.from = currentThread->getID();//TODO set this up to mailbox id
-    if(currentThread->getID() == -1)
-      outMailHdr.from = 0;
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
-    printf("MB:%i:send %s to ID %d\n",currentThread->getID(), msg, outPktHdr.to);
+    DEBUG('n', "MB:%i:send %s to ID %d\n",currentThread->getID(), msg, outPktHdr.to);
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
 
 }
@@ -320,7 +318,7 @@ int CreateLock_Syscall(unsigned int vaddr, int len)
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
 	int lockIndex = atoi(buffer);//convert char* to int
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     
@@ -373,7 +371,7 @@ int CreateLockWID_Syscall(unsigned int vaddr, int len, int id)
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
 	int lockIndex = atoi(buffer);//convert char* to int
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     
@@ -608,7 +606,7 @@ int CreateCondition_Syscall(unsigned int vaddr, int len)//TODO should pass in va
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int cvIndex = atoi(buffer);//convert char* to int
@@ -678,7 +676,7 @@ int CreateConditionWID_Syscall(unsigned int vaddr, int len, int id)//TODO should
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int cvIndex = atoi(buffer);//convert char* to int
@@ -798,7 +796,7 @@ int Wait_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -872,7 +870,7 @@ int Signal_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -957,7 +955,7 @@ int Broadcast_Syscall(int lockIndex, int conditionIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -1040,7 +1038,7 @@ int CreateMonitor_Syscall(int size, int vaddr, int len)
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
 	int result = atoi(buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     return result;//return index of MV
@@ -1069,7 +1067,7 @@ int DestroyMonitor_Syscall(int mvIndex)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     return 0;
@@ -1093,7 +1091,7 @@ int GetMonitor_Syscall(int mvIndex, int mvArrayLoc)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     int result = atoi(buffer);
@@ -1118,7 +1116,7 @@ int SetMonitor_Syscall(int mvIndex,int arrIndex, int value)
     sendMsgToServer(msg);
 
     postOffice->Receive(currentThread->getID(), &inPktHdr, &inMailHdr, buffer);
-    printf("MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
+    DEBUG('n', "MB:%i: Got \"%s\" from %d, box %d\n", currentThread->getID(), buffer,inPktHdr.from,inMailHdr.from);
     fflush(stdout);
 
     return 0;
