@@ -10,31 +10,76 @@ I. Requirements
 II. Assumptions
 	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id's 0-4.
 III. Design
-
+	PPOffice:
+		+ Clerks all inherit from clerk.h which is just the clerk functions from project 3. They are differentiated by setting myType.
+		+ Senator has been changed to check active customers and wait for customers to leave in a new senatorLine. The customers now 
+			check if there's a senator in building at the beginning and wait in an outside cv, decrementing active customers and signalling 
+			the senator if they are the last to leave. THere is a check for senator before customers interact with clerks but after clerks 
+			signal them out of line that sends them back to the first check that takes them outside.
+		+ Customers and senators are otherwise just their code from p3 in their own files
+		+ All entities inherit from setup.h and call setup which initializes the mv and should recieve the same values across all entities from server.
+		+ Entities creation is encapsulated in gen tests that are called in command line
+	Multi-Server:
 IV. Implementation
 	+Files Added
-
+		tests/:
+			ppoffice related: setup.h, senator.c, customer.c, clerk.h, picclerk.c, appclerk.c, ppclerk.c, caschclerk.c, picappclerkgen.c, passcachclerkgen.c, gencustomers.c, gensenator.c, genmanager.c
+			multiserver specific:
 	+Files Modified
-	  network/server.cc
+	  	network/server.cc
 		threads/main.cc
 		userprog/exception.cc
 		userprog/syscall.h
+		machine/machine.h - large numPhysPages
 	+Data structures added, and which file to
-
+		sl, sc, mv tables?
 	+Functions added and in which file
 		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
 			   Server(), the main server function that just runs forever in while loop
 			   helper functions in server for testing input, sending messages
-	+Functions modified and in which file
+		exception.cc: createConditionWID & createLockWID for creating unique locks, cvs dynamically based on ids i.e. in clerks since concatenating 
 		
+	+Functions modified and in which file
+		All of the mutual exclusion functions in exception.cc
 V. Testing
 	+Experiment expectation
-	
+		ppoffice tests: messages similar to before. customers should pay and leave office, manager should wake up clerks and quit once all customers have left.
+			(senator): Waits for all customers to leave after signalling them and behaves as normal customer otherwise.
+		
+		multiserver tests:
+			
 	+Experiment Result
-	
+		ppoffice tests: Occasionally will work 100% all the way through as expected but often not all customers leave and the managercontinues to loop while everyone waits. 
+				Sometimes all customers leave but not all pay. Sometimes manager will end simulation and not all clerks will exit. 
+			(senator): Works most rarely. Often runs into an error and aborts before going through the ppoffice.
+		
+		multiserver tests:
+			
 	+Explanation
-
+		ppoffice tests: For the most part operations run as expected for the ppoffice sans senators: all or close to all customers go through. 
+				The main cause of entities in suspension who are holding up the program appears to be that signal failed to wake them up.
+				When senator comes into play, some of his createCV calls (called by the setup function shared by all entities) are not
+				recognized as existing by the server and so he recieves incorrect values that have unpredictable, but usually critical results.
+				We don't think the signal bug and the MV bug are directly tied, but probably correlated with some issue in message handling.
+		
+		multiserver tests:
+			
 	
 VI. Discussion
-	+HOW TO TEST NETWORKING
+	+HOW TO TEST PPOFFICE
+		In different windows/sessions:
+		1. Start server: nachos -server -m 0
+		2. Setup picture and appplication clerks: nachos -x ../test/picappclerkgen -m 1 
+		3. Setup passport and cashier clerks: nachos -x ../test/passcaschclerkgen -m 2
+		4. Setup customers: nachos -x ../test/gencustomers -m 3
+		5. Setup manager: nachos -x ../test/genmanager -m 4
+		Notes:  Clerks can be created in either order, but should be made before customers.
+			For trying senators: nachos -x ../test/gensenator -m (# left over).
+			Theoretically could change order of manager and customers/senator.
+			In cases where one or more of the tests seems to be frozen or (in the case of manager) continuously looping for more than a second or two it is safe to abort.
+			
+		Remarks: As noted in explanation in testing section, there is clearly a race condition happening, but we suspect it to
+			be server side since the ppoffice logic is tighter than previous in projects. Also as noted, there seems to be some corruption 
+			of our server tables-- whether directly or indirectly caused by our code we have been unable to determine. 
+	+HOW TO TEST MULTI SEVER
 VIII. Miscellaneous
