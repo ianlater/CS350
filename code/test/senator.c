@@ -117,11 +117,11 @@ void Senator_Run()
 	/*the clerk shouldn't be busy*/
 	if (GetMonitor(clerkState, myLine) != 0) { /* clerk should be on break if not free at this point */
 		PrintInt("Senator%i has gotten in a regular line for Clerk%i\n",53, id, GetMonitor(clerkIds, myLine));
-			SetMonitor(clerkLineCount, myLine, 3); /* fake the linecount so clerk wakes up */
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)+3); /* fake the linecount so clerk wakes up */
 			
 			Wait(clerkLineLock, GetMonitor(clerkLineCV,myLine));
 			PrintInt("Senator%i leaving regular line for Clerk%i\n",45, id, GetMonitor(clerkIds, myLine));
-			SetMonitor(clerkLineCount, myLine, 0);
+			SetMonitor(clerkLineCount, myLine, GetMonitor(clerkLineCount, myLine)-3);;
 	}
 
 	SetMonitor(clerkState, myLine, 1);

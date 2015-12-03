@@ -149,7 +149,7 @@ void Customer_Run()
 	if(GetMonitor(senatorInBuilding, 0)){
 		Acquire(senatorLock);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)-1);
-		if(GetMonitor(activeCustomers, 0) == 0){ /* if you're last to go outside signal first senator to come in */
+		if(GetMonitor(activeCustomers, 0) <= 0){ /* if you're last to go outside signal first senator to come in */
 			Signal(senatorLock, senatorLineCV);
 		}
 		Wait(senatorLock, outsideCV);
