@@ -1639,7 +1639,7 @@ int handleIPTMiss(int neededVPN)
 int HandlePageFault(int requestedVA)
 {
 	int neededVPN =  requestedVA/PageSize;
-	if (neededVPN <0 || neededVPN >= currentThread->space->getNumPages() + 50*8) {
+	if (neededVPN <0 /* || neededVPN >= currentThread->space->getNumPages() + 50*8*/ ) {
 		printf("PageFaultException:: Invalid vpn:%i\n", neededVPN);
 		return -1;
 	}
