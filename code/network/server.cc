@@ -9,7 +9,7 @@
 #include "post.h"
 #include "interrupt.h"
 #include <sstream>
-
+#include <vector>
 
 
 /*Const declarations*/
@@ -164,7 +164,8 @@ PendingRequest::PendingRequest(int reqId, int mbId, int type)
 ServerLock* ServerLockTable[TABLE_SIZE];
 ServerCondition* ServerCVTable[TABLE_SIZE];
 ServerMV* ServerMVTable[TABLE_SIZE];
-PendingRequest* PRTable[TABLE_SIZE];
+//PendingRequest* PRTable[TABLE_SIZE];
+std::vector<PendingRequest*>PRTable;
 
 //helper functions
 requestType getType(string req)
@@ -280,8 +281,13 @@ PendingRequest* SendMessageToServers(Message msg, int reqType)
   char* data = new char[MaxMailSize];
   strcpy(data, str.str().c_str());
   PendingRequest* pr = new PendingRequest(msg.to, msg.toMailbox, reqType);
-  PRTable[prCounter] = pr;
-  prCounter++;
+  PRTable.push_back(pr);
+  //if(prCounter > TABLE_SIZE)
+    //{
+      //printf("TOO MANY PR's. BEYOND TABLE_SIZE\n");
+      // interrupt->Halt();
+      // }
+  // prCounter++;
   //msg has. WHO is asking (client machId and mailbox), TYPE of request, and request PARAMS
   //is sent to all other server machineID's that aren't mine
   for(int i = 0; i < numServers; i++)
@@ -441,8 +447,11 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
       //Send 1 message to each server
       stringstream ss;
       ss<<"AL "<<lockIndex;
-      char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(clientID, threadID, msgData);
+      
+      char* data = new char[MaxMailSize];
+      strcpy(data, ss.str().c_str());
+      Message msg = Message(clientID, threadID, data);
+
       SendMessageToServers(msg, AL);
       // errorMsg = "AcquireLock::Error. invalid Lock";
       //printf("%s\n", errorMsg);
@@ -477,7 +486,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
    {
      printf("Acquire:lock is busy, wait for it to be released\n");
      Message* msg = new Message(clientID, threadID, "AcquireLock");
-     sl->waitQueue->Append(msg);
+     sl->waitQueue->Append((void*)msg);
    }
 
  return 0;
@@ -492,7 +501,9 @@ int doReleaseLock(int lockIndex, int clientID, int threadID, bool doReleaseClien
       stringstream ss;
       ss<<"RL "<<lockIndex;
       char* msgData = (char*)ss.str().c_str();
-      Message msg = Message(clientID, threadID, msgData);
+      char data[MaxMailSize];
+      strcpy(data, ss.str().c_str());
+      Message msg = Message(clientID, threadID, data);
       SendMessageToServers(msg, RL);
      
 
@@ -672,8 +683,8 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
       Message msg = Message(client, threadID, data);
       PendingRequest* pr = SendMessageToServers(msg, SCV);
       pr->id1 = cvIndex;
-      PRTable[prCounter] = pr;
-      prCounter++;
+      PRTable.push_back(pr);
+      //prCounter++;
       
       return -1;
     }
@@ -730,6 +741,12 @@ if(!LockIsValid(lockIndex, client))
 
   //now, we will wake up 1 waiting thread
   printf("Signal::Waking up waiting client\n");
+  if(sc->waitQueue->IsEmpty())
+    {
+      DEBUG('r', "CV: No one on WaitQ. Continue\n");
+      sc->waitingLock = -1;
+      return 0;
+    }
   Message* msg2 = (Message*)sc->waitQueue->Remove();
   if(sc->waitQueue->IsEmpty())
     {
@@ -806,7 +823,7 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
 
 //now, put wait message in waitQ but do not send
 Message* msg = new Message(client, threadID, "Wake after Wait");
-sc->waitQueue->Append(msg);
+sc->waitQueue->Append((void*)msg);
 //SHOULD RELEASE ON LOCK HERE JACK
  doReleaseLock(lockIndex, client, threadID, false);//maybe? 
  return 0;
@@ -925,6 +942,14 @@ int doDestroyMV(int mvIndex, int client, int threadID)
 int doGetMV(int mvID, int arrayIndex, int client, int threadID)
 {
  char* errorMsg;
+ if(arrayIndex > MV_ARRAY_SIZE)
+{
+   errorMsg = "GetMV::invalid location";
+      printf("%s: %d\n", errorMsg, arrayIndex);
+     Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;
+}
   if(!MVIsValid(mvID, client))
     {
       printf("MV not on this server, asking others\n");
@@ -957,12 +982,11 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
   //printf("getMV val: %d", mVar);
   stringstream strs;
   strs<<mVar;
-  string temp = strs.str();
-  char const* msgDataConst = temp.c_str();
-  char* msgData = new char[temp.length()];
-  strcpy(msgData, temp.c_str());
 
-  Message msg = Message(client, threadID, msgData);
+  char* data = new char[MaxMailSize];
+  strcpy(data, strs.str().c_str());
+
+  Message msg = Message(client, threadID, data);
   sendMessage(msg);
   return 0;
 }
@@ -972,6 +996,14 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
 {
   //printf("setting mv %d index %d value %d\n", mvID,index,  value);
  char* errorMsg;
+ if(index  > MV_ARRAY_SIZE)
+{
+   errorMsg = "SetMV::invalid location";
+      printf("%s: %d\n", errorMsg, index);
+     Message msg = Message(client, threadID, errorMsg);
+      sendMessage(msg);
+      return -1;
+}
  if(index<0 || mvID < 0)
     {
       errorMsg = "SetMV::invalid index";
@@ -1016,7 +1048,7 @@ int doSetMV(int mvID, int index, int value, int client, int threadID)
 PendingRequest* FindPR(int clientId, int clientMB, int reqType)
 {
   printf("FindPR: id: %d mb: %d type: %d\n", clientId, clientMB, reqType);
-  for(int i = 0; i < prCounter; i++)
+  for(int i = 0; i < PRTable.size(); i++)
     {
       PendingRequest* pr = PRTable[i];
       if(pr)
@@ -1320,10 +1352,10 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
 
 	Message msg = Message(clientId, clientMB, data);
 	PendingRequest* pr = SendMessageToServers(msg, CRL);
-	PRTable[prCounter] = pr;
+	PRTable.push_back(pr);
 	pr->id1 = cvIndex;
 	pr->id2 = lockIndex;
-	prCounter++;//we do need a pr for this
+	//prCounter++;//we do need a pr for this
 	//adding me to CV's waitQ will be handled in YES response
       }
   }
@@ -1490,7 +1522,7 @@ int SSProcessYes(int clientId, int clientMB, int reqType)
 	 //we need to add the client with the REAL lock to its CV's waitQ
 	 Message* msg = new Message(clientId, clientMB, "Wake after wait");
 	 //add it to the cv!
-	 ServerCVTable[pr->id1]->waitQueue->Append(msg);
+	 ServerCVTable[pr->id1]->waitQueue->Append((void*)msg);
        }
    } 
  if(reqType == CAL)
@@ -1549,6 +1581,8 @@ void ServerToServer()
     ss<<buffer;
     string request;
     ss>>request;
+
+    RPCLock->Acquire();
 
     //which type of request is this
     switch(getType(request))
@@ -1838,7 +1872,10 @@ void ServerToServer()
 	printf("unrecognized server-server message\n");
 	break;
       }
-    }
+
+    RPCLock->Release();
+
+    }//end while
 }
 /*COMMUNICATES WITH CLIENTS ONLY*/
 void ServerToClient()
