@@ -8,7 +8,7 @@ Group: Name-----------Email
 I. Requirements
  
 II. Assumptions
-	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id's 0-4.
+	user will provide each client with a unique machineID using -m upon creation. server will always be assigned id's 0-4. Clients can be anything from 5-9
 III. Design
 	PPOffice:
 		+ Clerks all inherit from clerk.h which is just the clerk functions from project 3. They are differentiated by setting myType.
@@ -20,11 +20,24 @@ III. Design
 		+ All entities inherit from setup.h and call setup which initializes the mv and should recieve the same values across all entities from server.
 		+ Entities creation is encapsulated in gen tests that are called in command line
 	Multi-Server:
+		+The previous, multi-client single-server implementation was left untouched for ease of updating. Instead of adding code there, we made the server use
+			two threads, one for client-server messages and one for server-server messages. This kept the code clean, and easy to test and expand upon. 
+		+With the dual-threaded server, mailbox 0 belonged to the client-server thread while mailbox 1 belonged to the server-server thread.
+		+For each client-server syscall handler, there is a similar server-server handler that is called on every server when a resource is not locally found.
+		+The number of servers is passed in as a command line arg, so that each client and server knows who to send to, even randomly.
+		+When a client wants to read, write, create or destroy a shared resource, It will randomly choose a server to request that resource from. The server, upon receiving it in the client-server thread,
+			will first check if it has the resource. If it does, it returns it with a message, if it does not, it asks all other servers if they have the resource. To do this, it sends a message to the server-server thread
+			of all the other servers, and builds a PendingRequest. If it receives all "No"'s, the original server responds with an error message. If it receives a "YES", it updates its PendingRequest, and allows the
+			server with the resource to do the work of messaging the requestor back. In designing this, I tried to reused the client-server functions as much as possible (like using doAcquireLock in SSAcquireLock). 
+		+When building this, each new server-server syscall was tested by creating a situation where there were 2 servers, and the client always chose the wrong one to request a resource. This simple test made implementing the complex 
+			passport office less tricky.
+		+Now that the server is multi-threaded, some work went into using an RPCLock to make sure the shared resources, like the PendingRequest Vector or the Lock, CV, and MV Tables, were secured. 
+		+Before sending a message, clients choose a server at randome with a simple rand() function.
 IV. Implementation
 	+Files Added
 		tests/:
 			ppoffice related: setup.h, senator.c, customer.c, clerk.h, picclerk.c, appclerk.c, ppclerk.c, caschclerk.c, picappclerkgen.c, passcachclerkgen.c, gencustomers.c, gensenator.c, genmanager.c
-			multiserver specific:
+			multiserver specific: 
 	+Files Modified
 	  	network/server.cc
 		threads/main.cc
@@ -33,21 +46,28 @@ IV. Implementation
 		machine/machine.h - large numPhysPages
 	+Data structures added, and which file to
 		sl, sc, mv tables?
+		PendingRequest added to server.cc
 	+Functions added and in which file
-		server.cc: functions for handling each syscall (each Lock, Condition, and Monitor Var function)
-			   Server(), the main server function that just runs forever in while loop
-			   helper functions in server for testing input, sending messages
+		server.cc: 
+			SendMessageToServers() sends a given message to all servers but me
+			Find() - there is now a FindPR, FindLock, FindMV, and FindCV in use so that resources can be located in server-server	
+			ServerToServer and ClientToServer - functions added to split server.cc into two threads (using nachos fork into these functions)
+			ProcessNo and ProcessYes - These take responses from other servers about whether or not they have a resource, and updated the associated pending request, and take the action if necessary
+			Additionally, there are Server-server implementations of every pre-existing syscall (named as SS<Syscall>())
 		exception.cc: createConditionWID & createLockWID for creating unique locks, cvs dynamically based on ids i.e. in clerks since concatenating 
 		
 	+Functions modified and in which file
 		All of the mutual exclusion functions in exception.cc
-V. Testing
+		Server() - modified so that it simply forked two threads into ClientToServer and ServerToServer
+V. Testing	All client-server syscalls were updated so that, instead of sending back error message if resource not found, a message is sent to all servers asking for resource
 	+Experiment expectation
 		ppoffice tests: messages similar to before. customers should pay and leave office, manager should wake up clerks and quit once all customers have left.
 			(senator): Waits for all customers to leave after signalling them and behaves as normal customer otherwise.
 		
 		multiserver tests:
-			
+			Running anywhere from 2-5 servers with the passport simulation, each client will randomly message servers on each message send.
+			Regardless of whether a server does or does not have a resource, the passport simulation will complete, aleit at a slower pace as there are many more
+			messages that get sent between servers and take time.
 	+Experiment Result
 		ppoffice tests: Occasionally will work 100% all the way through as expected but often not all customers leave and the managercontinues to loop while everyone waits. 
 				Sometimes all customers leave but not all pay. Sometimes manager will end simulation and not all clerks will exit. 
@@ -68,11 +88,11 @@ V. Testing
 VI. Discussion
 	+HOW TO TEST PPOFFICE
 		In different windows/sessions:
-		1. Start server: nachos -server -m 0
-		2. Setup picture and appplication clerks: nachos -x ../test/picappclerkgen -m 1 
-		3. Setup passport and cashier clerks: nachos -x ../test/passcaschclerkgen -m 2
-		4. Setup customers: nachos -x ../test/gencustomers -m 3
-		5. Setup manager: nachos -x ../test/genmanager -m 4
+		1. Start server: nachos -server -ns 1 -m 0
+		2. Setup picture and appplication clerks: nachos -x ../test/picappclerkgen -ns 1-m 1 
+		3. Setup passport and cashier clerks: nachos -x ../test/passcaschclerkgen -ns 1 -m 2
+		4. Setup customers: nachos -x ../test/gencustomers -ns 1 -m 3
+		5. Setup manager: nachos -x ../test/genmanager -ns 1 -m 4
 		Notes:  Clerks can be created in either order, but should be made before customers.
 			For trying senators: nachos -x ../test/gensenator -m (# left over).
 			Theoretically could change order of manager and customers/senator.
@@ -82,4 +102,14 @@ VI. Discussion
 			be server side since the ppoffice logic is tighter than previous in projects. Also as noted, there seems to be some corruption 
 			of our server tables-- whether directly or indirectly caused by our code we have been unable to determine. 
 	+HOW TO TEST MULTI SEVER
+		In different windows/sessions
+		1. Start up to 5 servers using: nachos -server -ns <NUMBER OF SERVERS> -m <MACHINE ID> (replace variables, and machine IDs should be unique from 0-4, in order)
+		2. Setup picture and appplication clerks: nachos -x ../test/picappclerkgen -ns <NUMBER OF SERVERS> -m 6 
+		3. Setup passport and cashier clerks: nachos -x ../test/passcaschclerkgen -ns <NUMBER OF SERVERS> -m 7
+		4. Setup customers: nachos -x ../test/gencustomers -ns <NUMBER OF SERVERS> -m 8
+		5. Setup manager: nachos -x ../test/genmanager -ns <NUMBER OF SERVERS> -m 9
+		Notes:
+			a small usleep delay of 45 microseconds is used in postoffice send.
+		Remarks:
+		
 VIII. Miscellaneous
