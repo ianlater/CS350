@@ -43,7 +43,7 @@ int main()
 			}	
 			Acquire(clerkLineLock);
 			PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(clerkIds, i), 0);
-			SetMonitor(clerkState, i, 0);/*set to available	*/
+			SetMonitor(clerkState, i, 1);/*set to available	*/
 			if(Signal(clerkILock, GetMonitor(clerkBreakCV, i)) == -1) {
 					Print("Manager::Signal error\n", 23, "", "");
 					Halt();

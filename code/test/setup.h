@@ -4,7 +4,7 @@
 #define PASSPORT_CLERK_TYPE 2
 #define CASHIER_CLERK_TYPE 3
 #define NUM_CLERK_TYPES 4
-#define NUM_CLERKS 16
+#define NUM_CLERKS 20
 #define NUM_CUSTOMERS 20
 #define NUM_SENATORS 0
 
