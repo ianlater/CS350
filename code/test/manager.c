@@ -41,17 +41,19 @@ int main()
 			if(Acquire(clerkILock) < 0) {
 					Halt();
 			}	
+			Acquire(clerkLineLock);
 			PrintInt("Manager waking up Clerk%i\n", 27, GetMonitor(clerkIds, i), 0);
-				SetMonitor(clerkState, i, 0);/*set to available	*/
+			SetMonitor(clerkState, i, 0);/*set to available	*/
 			if(Signal(clerkILock, GetMonitor(clerkBreakCV, i)) == -1) {
 					Print("Manager::Signal error\n", 23, "", "");
 					Halt();
-			}	
+			}
+			Release(clerkLineLock);			
 			Release(clerkILock);	
 		}
 	}
 	OutputEarnings();
-	if (GetMonitor(customersInBuilding,0) == 0) {
+	if (GetMonitor(customersInBuilding,0) <= 0) {
 		SetMonitor(simulationEnded,0, true);
 		for (i = 0; i < NUM_CLERKS; i++)
 		{
