@@ -17,6 +17,7 @@ int CreateSenator()
 {	
 	Acquire(createLock);
     id = GetMonitor(customersInBuilding, 0);
+	SetMonitor(c_id, id, id);
 	ssn = id + 2000;
 	SetMonitor(c_ssn, id,ssn);
 	money =  100 + 500*(Rand() % 4);/*init money increments of 100,600,1100,1600*/
@@ -50,11 +51,12 @@ bool isNextClerkType(int clerk_type)
         return false;  
 }
 
-int testLine = 69;
+
 int lineSize = 1001;
 int desireToBribe;
 void pickLine()
 {
+  /* isBribing = false;*/
   if (!rememberLine)/*if you don't have to remember a line, pick a new one*/
   {
 	  myLine = -1;
@@ -62,6 +64,7 @@ void pickLine()
 	  for(i = 0; i < NUM_CLERKS; i++)
 	    {
 		  /*check if the type of this line is something I need! TODO*/
+		  PrintInt("Senator::PickLine: clerk%i type %i\n", 36, i, GetMonitor(clerkTypes, i));
 			if(/*clerks[i] != NULL &&*/ isNextClerkType(GetMonitor(clerkTypes, i))) {
 			  if(GetMonitor(clerkLineCount, i) < lineSize )/*&& clerkState[i] != 2)*/
 				{		      
@@ -70,6 +73,10 @@ void pickLine()
 				}
 			}
 	    }
+  }
+  if (myLine < 0 || myLine > NUM_CLERKS){
+	  PrintInt("Customer%i: invalid line: %i\n", 30, id, myLine);
+	  Halt();
   }
 }
 void giveData()

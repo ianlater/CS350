@@ -32,8 +32,8 @@ int CreateCustomer()
 	isSenator = false;
 	/*strcpy(customers[customersInBuilding].name, name);
 	strcat(customers[customersInBuilding].name, customers[customersInBuilding].id);*/
-	Release(createLock);
 	SetMonitor(customersInBuilding, 0, id + 1);
+	Release(createLock);
 	return id;
 }
 int CreateCustomer_WithCredentials(int* credentials) 
@@ -124,20 +124,6 @@ void giveData()
 	}
 }
 
-
-void checkSenator(/*struct Customer *customer*/)
-{
-	/*if there is a Senator in the building wait until he's gone*/
-	if (GetMonitor(senatorInBuilding, 0)){
-		/*PrintInt("Clerk%i: waiting outside\n",  name);*/
-		/* TODO:rework this to lock
-		senatorSemaphore->P();
-		senatorSemaphore->V();
-		*/
-		/*go back inside*/
-	}
-}
-
 int picApproval;
 void Customer_Run()
 {
@@ -152,7 +138,9 @@ void Customer_Run()
 		if(GetMonitor(activeCustomers, 0) <= 0){ /* if you're last to go outside signal first senator to come in */
 			Signal(senatorLock, senatorLineCV);
 		}
+		PrintInt("Customer%i: going outside\n", 27, id, 0);
 		Wait(senatorLock, outsideCV);
+		PrintInt("Customer%i: coming inside\n", 27, id, 0);
 		SetMonitor(activeCustomers,  0, GetMonitor(activeCustomers, 0)+1); /* come back inside */
 		Release(senatorLock);
 	}
@@ -281,6 +269,10 @@ void pickLine()
 				}
 			}
 	    }
+  }
+  if (myLine < 0 || myLine > NUM_CLERKS){
+	  PrintInt("Customer%i: invalid line: %i\n", 30, id, myLine);
+	  Halt();
   }
 }
 
