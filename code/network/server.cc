@@ -659,7 +659,7 @@ int doDestroyCV(int cvIndex, int client, int threadID)
 int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
 {
   char* errorMsg;
-if(!CVIsValid(cvIndex, client))
+  if(!CVIsValid(cvIndex, client))
     {
       printf("Signal::cv %d not valid on this server\n", cvIndex);
       //Send 1 message to each server to check for cv
@@ -702,8 +702,9 @@ if(!LockIsValid(lockIndex, client))
   Message msg = Message(client, threadID, "Signal Return");
   //sendMessage(msg); 
     
-  if(sc->waitQueue->IsEmpty())
+  if(sc->waitingLock == -1)
     {
+      DEBUG('r', "SIGNAL:CV has no waiting lock to signal\n");
       msg = Message(client, threadID, "Signal");
       sendMessage(msg); 
       return 0;
@@ -722,7 +723,10 @@ if(!LockIsValid(lockIndex, client))
      
       return -1;
     }
+
+  //Wake up sender
   sendMessage(msg);
+
   //now, we will wake up 1 waiting thread
   printf("Signal::Waking up waiting client\n");
   Message* msg2 = (Message*)sc->waitQueue->Remove();
@@ -950,7 +954,7 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
       }*/
   //now we're good, return this int
   int mVar = thisMV->data[arrayIndex];
-  printf("getMV val: %d", mVar);
+  //printf("getMV val: %d", mVar);
   stringstream strs;
   strs<<mVar;
   string temp = strs.str();
@@ -966,7 +970,7 @@ int doGetMV(int mvID, int arrayIndex, int client, int threadID)
 
 int doSetMV(int mvID, int index, int value, int client, int threadID)
 {
-  printf("setting mv %d index %d value %d\n", mvID,index,  value);
+  //printf("setting mv %d index %d value %d\n", mvID,index,  value);
  char* errorMsg;
  if(index<0 || mvID < 0)
     {
@@ -1862,6 +1866,8 @@ void ServerToClient()
     string request;
     ss>>request;
 
+    RPCLock->Acquire();
+
     //which type of request is this
     switch(getType(request))
       {
@@ -2029,6 +2035,8 @@ void ServerToClient()
 	  break;
 	}
       }
+
+    RPCLock->Release();
  
     }//end WHILE true
     //while(true)
