@@ -201,7 +201,7 @@ void Customer_Run()
 	if (GetMonitor(clerkTypes, myLine) == PICTURE_CLERK_TYPE) {
 	  /*check if I like my photo RandOM VAL*/
 	  picApproval = Rand() % 10;/*generate Random num between 0 and 10*/
-	  if(picApproval >8)
+	  if(picApproval >2)
 	    {
 	      PrintInt("Customer%i: does like their picture from Clerk%i", 48, id, GetMonitor(clerkIds, myLine));
 	      /*store that i have pic*/

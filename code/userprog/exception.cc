@@ -156,29 +156,35 @@ int copyout(unsigned int vaddr, int len, char *buf) {
 #ifdef NETWORK
 void sendMsgToServer(char* msg)
 {
+  
   PacketHeader outPktHdr;
     MailHeader outMailHdr;
 
     // construct packet, mail header for original message
     // To: destination machine, mailbox 0
     // From: our machine, reply to: mailbox 1
-    //outPktHdr.to = rand() % numServers;//randomly select server to send message to		
-    /*  if(msg[0] == 'C' && msg[1] == 'C')//ccv
+     if(msg[0] == 'C')//ccv
       {
 	outPktHdr.to = 0;//FOR JACK TESTING, if this is a create message, go to 0, else, got to 1
       }
     else
-      outPktHdr.to = 1;
-    */
-    outPktHdr.to = 0;
-      outMailHdr.to = 0;
+       outPktHdr.to = rand() % numServers;//randomly select server to send message to		
+   
+    //outPktHdr.to = 0;
+     // outPktHdr.to = rand() % numServers;//randomly select server to send message to		
+      
+   outMailHdr.to = 0;
     outMailHdr.from = currentThread->getID();//TODO set this up to mailbox id
     outMailHdr.length = strlen(msg) + 1;
 
     // Send the first message
     DEBUG('r', "MB:%i:send %s to ID %d\n",currentThread->getID(), msg, outPktHdr.to);
     bool success = postOffice->Send(outPktHdr, outMailHdr, msg); 
-
+    if(!success)
+      {
+	printf("MESSAGE FAILED TO SEND, HALT\n");
+	interrupt->Halt();
+      }
 }
 #endif/*NETWORK*/
 
