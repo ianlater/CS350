@@ -468,6 +468,7 @@ int doAcquireLock(int lockIndex, int clientID, int threadID)
    {
      printf("ACQUIRE:: lock is available, take it and make it BUSY\n");
      sl->currentOwner = threadID;
+     sl->clientID == clientID;
      sl->isAvailable = false;
      Message msg = Message(clientID, threadID, "AcquireLock");
      sendMessage(msg);
@@ -884,10 +885,10 @@ int doCreateMV(string name, int size, int client, int threadID)
  
   stringstream strs;
   strs<<thisMVID;
-  string temp = strs.str();
-  char const* msgDataConst = temp.c_str();
-  char* msgData = new char[temp.length()];
-  strcpy(msgData, temp.c_str());
+
+  char* msgData = new char[MaxMailSize];
+  strcpy(msgData, strss.str().c_str());
+
 
   Message msg = Message(client, threadID, msgData);
   sendMessage(msg);
@@ -902,7 +903,6 @@ int doDestroyMV(int mvIndex, int client, int threadID)
       printf("MV not on this server, asking others\n");
       stringstream ss;
       ss<<"DMV "<<mvIndex;
-      //      char* msgData = (char*)ss.str().c_str();
   char* data = new char[MaxMailSize];
   strcpy(data, ss.str().c_str());
 
@@ -1362,7 +1362,14 @@ int SSSignalCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId
     //return 1;
     //instead of returning, check if the lock sent over is here, too
     //NO, JUST REUSE SIGNAL FUNCTION WE ALREADY WROTE
-    doSignalCV(cvIndex, lockIndex, clientId, clientMB);
+    //if the lock is valid, do normal signal with acquire. else, need to do acquire on server that has lock...
+    //    if(LockIsValid(lockIndex, clientId)
+    //{
+      doSignalCV(cvIndex, lockIndex, clientId, clientMB);
+      //}
+      //else
+      //{
+      //}
     /*   
     if(LockIsValid(lockIndex, clientId))
       {
