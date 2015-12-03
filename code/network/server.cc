@@ -887,7 +887,7 @@ int doCreateMV(string name, int size, int client, int threadID)
   strs<<thisMVID;
 
   char* msgData = new char[MaxMailSize];
-  strcpy(msgData, strss.str().c_str());
+  strcpy(msgData, strs.str().c_str());
 
 
   Message msg = Message(client, threadID, msgData);
