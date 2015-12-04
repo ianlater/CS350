@@ -73,7 +73,7 @@ V. Testing	All client-server syscalls were updated so that, instead of sending b
 				Sometimes all customers leave but not all pay. Sometimes manager will end simulation and not all clerks will exit. 
 			(senator): Works most rarely. Often runs into an error and aborts before going through the ppoffice.
 		
-		multiserver tests:
+		multiserver tests: Same result as single server. Occasionally will get all customers out and will run well, more often will end with a few customers still stuck waiting at a counter. this is likely a signal or mv error, but it can still be seen (when the test is run) that resources can be accessed and used by a client successfully even if the randomly chosen server they requested the resource from does not have the resource. This proves that our server-server messaging works, as well as our PendingRequest system to keep track of it.
 			
 	+Explanation
 		ppoffice tests: For the most part operations run as expected for the ppoffice sans senators: all or close to all customers go through. 
@@ -82,7 +82,7 @@ V. Testing	All client-server syscalls were updated so that, instead of sending b
 				recognized as existing by the server and so he recieves incorrect values that have unpredictable, but usually critical results.
 				We don't think the signal bug and the MV bug are directly tied, but probably correlated with some issue in message handling.
 		
-		multiserver tests:
+		multiserver tests: Except senators, operations can be seen to operate as usual. Customers get in line to start, and go to clerks to accomplish tasks in order, without clobbering data. There are no wacky numbers, customers sometimes bribe, and generally outcomes are expected, asides from some customers randomly getting caught forever at a counter because the clerk does not signal them. Either way, the passport office run in multiserver has the same faults as when running with a single server, which shows that it runs for a significant amount of time, including a large number of customer-clerk interactions, as well as client-server interactions, and server-server interactions. This shows that our server-server system does work, and that resources can be managed across multiple servers even if the first one asked does not have it, thanks to a robust PendingRequest system that checks for YES and NO responses after asking other servers for the resource. Also, these resources are updated with the correct information if and when they are found. 
 			
 	
 VI. Discussion
@@ -107,9 +107,11 @@ VI. Discussion
 		2. Setup picture and appplication clerks: nachos -x ../test/picappclerkgen -ns <NUMBER OF SERVERS> -m 6 
 		3. Setup passport and cashier clerks: nachos -x ../test/passcaschclerkgen -ns <NUMBER OF SERVERS> -m 7
 		4. Setup customers: nachos -x ../test/gencustomers -ns <NUMBER OF SERVERS> -m 8
-		5. Setup manager: nachos -x ../test/genmanager -ns <NUMBER OF SERVERS> -m 9
+		5. Setup manager: nachos -x ../test/genmanager -ns <NUMBER OF SERVERS> -m 9 (WAIT FOR ALL OTHERS TO BE SET UP FIRST)
 		Notes:
 			a small usleep delay of 45 microseconds is used in postoffice send.
 		Remarks:
+			As referenced in the previous remarks, multi server tests run as described, with some customers leaving the office and some not. We believe this is most likely due to MV's getting corrupted somehow, but our logic seems sound and we are unable to find where and why, occasionally, servers do not recognize that MV's have already been created, and create new ones with the same name. Overall, the server-server resource management does work, however.
 		
 VIII. Miscellaneous
+:D
