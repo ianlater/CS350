@@ -693,6 +693,32 @@ int doSignalCV(int cvIndex, int lockIndex, int client, int threadID )
       
       return -1;
     }
+
+  ServerCondition* sc = ServerCVTable[cvIndex];
+    
+  if(sc->waitingLock == -1)
+    {
+      DEBUG('r', "SIGNAL:CV has no waiting lock to signal\n");
+      Message msg = Message(client, threadID, "Signal");
+      sendMessage(msg); 
+      return 0;
+    }
+
+  if(sc->waitingLock != lockIndex)
+    {
+      stringstream ss;
+      ss<<-1;
+
+      char* data = new char[MaxMailSize];
+      strcpy(data, ss.str().c_str());
+
+      printf("Signal Error: waitLock!=lockIndex\n");
+      Message msg = Message(client, threadID, data);
+      sendMessage(msg); 
+     
+      return -1;
+    }
+
 /*    
 if(!LockIsValid(lockIndex, client))
     {
@@ -712,34 +738,11 @@ if(!LockIsValid(lockIndex, client))
 */
  //end of input parsing
 ///ServerLock* sl = ServerLockTable[lockIndex];
-  ServerCondition* sc = ServerCVTable[cvIndex];
   //done with input parsing//
   //reply to signaler, and do acquire for waiting thread if there is one
   ////send message to sender
   Message msg = Message(client, threadID, "Signal Return");
   //sendMessage(msg); 
-    
-  if(sc->waitingLock == -1)
-    {
-      DEBUG('r', "SIGNAL:CV has no waiting lock to signal\n");
-      msg = Message(client, threadID, "Signal");
-      sendMessage(msg); 
-      return 0;
-    }
-  if(sc->waitingLock != lockIndex)
-    {
-      stringstream ss;
-      ss<<-1;
-
-      char* data = new char[MaxMailSize];
-      strcpy(data, ss.str().c_str());
-
-      printf("Signal Error: waitLock!=lockIndex\n");
-      msg = Message(client, threadID, data);
-      sendMessage(msg); 
-     
-      return -1;
-    }
 
   //Wake up sender
   sendMessage(msg);
@@ -789,33 +792,13 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
       //sendMessage(msg); 
       return -1;
     }
- 
-//if i have the cv, but not the lock, i need someone else to release the lock
- if(!LockIsValid(lockIndex, client))
-    {
-      printf("WAIT::lock %d  not valid on this server\n", lockIndex);
-      //send CRL message?
-      stringstream ss;
-      ss<<"CRL "<<lockIndex;
-      //    char* msgData = (char*)ss.str().c_str();
-  char* data = new char[MaxMailSize];// (char*)str.str().c_str();
-  strcpy(data, ss.str().c_str());
-
-      Message msg = Message(client, threadID, data);
-      PendingRequest* pr = SendMessageToServers(msg, CRL);
-      pr->id1 = cvIndex;
-      pr->id2 = lockIndex;
-      return -1;
-    }
- 
- //end of input parsing
-  ServerLock* sl = ServerLockTable[lockIndex];
   ServerCondition* sc = ServerCVTable[cvIndex];
 
   if(sc->waitingLock == -1)
     { 
       sc->waitingLock = lockIndex;
     } 
+
   if(sc->waitingLock != lockIndex)
     {
       char* error = "Wait:error: lock mismatch";
@@ -826,6 +809,27 @@ int doWaitCV(int cvIndex, int lockIndex, int client, int threadID )
       return -1;
     }
 
+ 
+//if i have the cv, but not the lock, i need someone else to release the lock
+ if(!LockIsValid(lockIndex, client))
+    {
+      printf("WAIT::lock %d  not valid on this server\n", lockIndex);
+      //send CRL message?
+      stringstream ss;
+      ss<<"CRL "<<lockIndex;
+      //    char* msgData = (char*)ss.str().c_str();
+      char* data = new char[MaxMailSize];// (char*)str.str().c_str();
+      strcpy(data, ss.str().c_str());
+
+      Message msg = Message(client, threadID, data);
+      PendingRequest* pr = SendMessageToServers(msg, CRL);
+      pr->id1 = cvIndex;
+      pr->id2 = lockIndex;
+      return -1;
+    }
+ 
+ //end of input parsing
+  ServerLock* sl = ServerLockTable[lockIndex];
 //now, put wait message in waitQ but do not send
 Message* msg = new Message(client, threadID, "Wake after Wait");
 sc->waitQueue->Append((void*)msg);
@@ -1326,7 +1330,9 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
     sendMessage(msg);
     //return 1;
     //instead of returning, check if the lock sent over is here, too
-    if(LockIsValid(lockIndex, clientId))
+    doWaitCV(cvIndex, lockIndex, clientId, clientMB);
+    /*
+      if(LockIsValid(lockIndex, clientId))
       {
 	ServerCondition* sc = ServerCVTable[cvIndex];
 	if(sc->waitingLock == -1)
@@ -1363,6 +1369,7 @@ int SSWaitCV(int cvIndex, int lockIndex, int clientId, int clientMB, int reqId, 
 	//prCounter++;//we do need a pr for this
 	//adding me to CV's waitQ will be handled in YES response
       }
+    */
   }
   else//else, send NO to requestor
   {
