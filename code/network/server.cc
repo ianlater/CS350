@@ -113,7 +113,12 @@ ServerMV::ServerMV(string nom, int client)
   isToBeDeleted = false;
   waitQueue = new List;
   usedLength = 0;
-  memset(data, 0, MV_ARRAY_SIZE);//memset(array, value, size)
+  //start at zero
+  for(int i = 0; i < MV_ARRAY_SIZE; i++)
+    {
+      data[i] = 0;
+    }
+  // memset(data, 0, MV_ARRAY_SIZE);//memset(array, value, size)
   
 }
 
